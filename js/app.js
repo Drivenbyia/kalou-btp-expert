@@ -4,7 +4,7 @@ import { calculateSols }                 from './calculators/sols.js';
 import { switchTab, setSecondType, setGrosType, renderGrosSubNav } from './ui/navigation.js';
 import { shareResults }                  from './ui/render.js';
 import { showToast }                     from './ui/toast.js';
-import { saveHistory, deleteHistory, clearHistory, renderHistory } from './storage.js';
+import { saveHistory, deleteHistory, clearHistory, renderHistory, shareConsolidated } from './storage.js';
 import { initPWA }                       from './pwa.js';
 
 // Exposition globale (nécessaire pour les onclick dans le HTML)
@@ -20,6 +20,7 @@ window.saveHistory         = saveHistory;
 window.deleteHistory       = deleteHistory;
 window.clearHistory        = clearHistory;
 window.renderHistory       = renderHistory;
+window.shareConsolidated   = shareConsolidated;
 
 window.addEventListener('load', () => {
     initPWA();
