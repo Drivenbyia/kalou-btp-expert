@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Kalou BTP - Expert Chantier</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        kalou: {
+                            orange: '#FF7A00',
+                            dark:   '#1A1A1A',
+                            gray:   '#F4F5F7',
+                            light:  '#FFFFFF'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* ── Base mobile ── */
+        * { -webkit-tap-highlight-color: transparent; outline: none; }
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+
+        body {
+            background-color: #F4F5F7;
+            font-family: -apple-system, system-ui, sans-serif;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        /* ── Onglets ── */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease-out; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── Navigation ── */
+        .nav-item.active { color: #FF7A00; }
+        .nav-item.active svg { transform: scale(1.1); color: #FF7A00; }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Indicateur de scroll sur la sous-nav */
+        #gros-sub-nav {
+            -webkit-mask-image: linear-gradient(to right, black 80%, transparent 100%);
+                    mask-image: linear-gradient(to right, black 80%, transparent 100%);
+        }
+
+        .sub-nav-active {
+            background-color: #1A1A1A;
+            color: white;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+
+        /* ── Résultats ── */
+        .result-card { animation: slideUp 0.3s ease-out forwards; }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── Validation champ par champ ── */
+        .field-wrapper { position: relative; }
+
+        .field-wrapper.field-error input,
+        .field-wrapper.field-error select {
+            border-color: #EF4444 !important;
+            background-color: #FEF2F2 !important;
+        }
+
+        .field-error-msg {
+            display: none;
+            color: #EF4444;
+            font-size: 0.68rem;
+            font-weight: 700;
+            margin-top: 0.2rem;
+        }
+
+        .field-wrapper.field-error .field-error-msg {
+            display: block;
+        }
+    </style>
+</head>
+<body class="text-kalou-dark">
+
+    <!-- Header -->
+    <header class="bg-kalou-dark text-white p-4 pt-6 shadow-md sticky top-0 z-50 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-kalou-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+            <h1 class="text-xl font-black uppercase tracking-tighter">Kalou <span class="text-kalou-orange">BTP</span></h1>
+        </div>
+        <div id="status-dot" class="h-2.5 w-2.5 rounded-full bg-green-500"></div>
+    </header>
+
+    <main class="max-w-2xl mx-auto p-4 pb-32">
+
+        <!-- ══════════════ ONGLET GROS OEUVRE ══════════════ -->
+        <section id="tab-gros-oeuvre" class="tab-content active">
+            <h2 class="text-2xl font-black mb-4">Gros Œuvre</h2>
+
+            <nav id="gros-sub-nav" class="flex overflow-x-auto no-scrollbar gap-2 mb-6 pb-2" role="tablist" aria-label="Types de calcul Gros Œuvre">
+                <!-- Rempli par JS -->
+            </nav>
+
+            <div class="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+                <div class="mb-6">
+                    <label class="block text-sm font-bold text-gray-400 uppercase mb-2" for="g-chantier-nom">
+                        Nom du chantier
+                    </label>
+                    <input type="text" id="g-chantier-nom"
+                           placeholder="ex: Extension Maison"
+                           class="w-full h-14 px-4 text-lg border-2 border-gray-50 rounded-2xl focus:border-kalou-orange bg-gray-50 font-bold transition-all">
+                </div>
+
+                <div id="gros-fields" class="space-y-4">
+                    <!-- Champs dynamiques injectés par setGrosType() -->
+                </div>
+
+                <button onclick="window.handleGrosCalculate()"
+                        class="mt-8 w-full bg-kalou-orange text-white font-black text-lg h-16 rounded-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 uppercase"
+                        aria-label="Lancer le calcul des matériaux">
+                    Calculer Matériaux
+                </button>
+            </div>
+
+            <div id="gros-results" class="mt-6 hidden space-y-4"></div>
+        </section>
+
+        <!-- ══════════════ ONGLET SECOND OEUVRE ══════════════ -->
+        <section id="tab-second-oeuvre" class="tab-content">
+            <h2 class="text-2xl font-black mb-4">Second Œuvre</h2>
+
+            <div class="flex bg-white p-1.5 rounded-2xl mb-6 shadow-sm border border-gray-100" role="tablist">
+                <button onclick="window.setSecondType('placo')" id="btn-sec-placo"
+                        class="flex-1 py-3 rounded-xl font-bold transition-all sub-nav-active"
+                        role="tab" aria-selected="true">Placo</button>
+                <button onclick="window.setSecondType('sols')" id="btn-sec-sols"
+                        class="flex-1 py-3 rounded-xl font-bold transition-all text-gray-500"
+                        role="tab" aria-selected="false">Sols</button>
+            </div>
+
+            <!-- Formulaire Placo -->
+            <div id="form-placo" class="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="field-wrapper">
+                        <label class="block text-sm font-bold text-gray-500 uppercase mb-2" for="p-long">
+                            Longueur <span class="text-red-400">*</span>
+                        </label>
+                        <div class="relative">
+                            <input type="number" id="p-long" inputmode="decimal" min="0.01" step="any"
+                                   placeholder="0"
+                                   class="w-full h-14 px-4 pr-12 text-xl border-2 border-gray-50 rounded-2xl focus:border-kalou-orange bg-gray-50 font-bold">
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400 pointer-events-none">m</span>
+                        </div>
+                        <p class="field-error-msg">Valeur requise</p>
+                    </div>
+                    <div class="field-wrapper">
+                        <label class="block text-sm font-bold text-gray-500 uppercase mb-2" for="p-haut">
+                            Hauteur <span class="text-red-400">*</span>
+                        </label>
+                        <div class="relative">
+                            <input type="number" id="p-haut" inputmode="decimal" min="0.01" step="any"
+                                   placeholder="0"
+                                   class="w-full h-14 px-4 pr-12 text-xl border-2 border-gray-50 rounded-2xl focus:border-kalou-orange bg-gray-50 font-bold">
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400 pointer-events-none">m</span>
+                        </div>
+                        <p class="field-error-msg">Valeur requise</p>
+                    </div>
+                </div>
+
+                <div class="field-wrapper">
+                    <label class="block text-sm font-bold text-gray-500 uppercase mb-2" for="p-type">
+                        Type d'ouvrage
+                    </label>
+                    <select id="p-type" class="w-full h-14 px-4 border-2 border-gray-50 rounded-2xl bg-gray-50 font-bold focus:border-kalou-orange">
+                        <option value="doublage">Doublage Mur (1 face)</option>
+                        <option value="cloison">Cloison (2 faces)</option>
+                        <option value="plafond">Plafond</option>
+                    </select>
+                    <p class="field-error-msg">Valeur requise</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="field-wrapper">
+                        <label class="block text-sm font-bold text-gray-500 uppercase mb-2" for="p-taille">
+                            Haut. Montant
+                        </label>
+                        <select id="p-taille" class="w-full h-14 px-4 border-2 border-gray-50 rounded-2xl bg-gray-50 font-bold focus:border-kalou-orange">
+                            <option value="2.5">2,50 m</option>
+                            <option value="2.6">2,60 m</option>
+                            <option value="2.8">2,80 m</option>
+                            <option value="3.0">3,00 m</option>
+                        </select>
+                        <p class="field-error-msg">Valeur requise</p>
+                    </div>
+                    <div class="field-wrapper">
+                        <label class="block text-sm font-bold text-gray-500 uppercase mb-2" for="p-montage">
+                            Ossature
+                        </label>
+                        <select id="p-montage" class="w-full h-14 px-4 border-2 border-gray-50 rounded-2xl bg-gray-50 font-bold focus:border-kalou-orange">
+                            <option value="simple">Simple</option>
+                            <option value="double">Double (Dos/Dos)</option>
+                        </select>
+                        <p class="field-error-msg">Valeur requise</p>
+                    </div>
+                </div>
+
+                <button onclick="window.calculatePlaco()"
+                        class="w-full bg-kalou-dark text-white font-black text-lg h-16 rounded-2xl shadow-lg active:scale-95 transition-transform uppercase">
+                    Calculer Placo
+                </button>
+            </div>
+
+            <!-- Formulaire Sols -->
+            <div id="form-sols" class="hidden bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
+                <div class="field-wrapper">
+                    <label class="block text-sm font-bold text-gray-500 uppercase mb-2" for="s-surf">
+                        Surface <span class="text-red-400">*</span>
+                    </label>
+                    <div class="relative">
+                        <input type="number" id="s-surf" inputmode="decimal" min="0.01" step="any"
+                               placeholder="0"
+                               class="w-full h-14 px-4 pr-14 text-xl border-2 border-gray-50 rounded-2xl focus:border-kalou-orange bg-gray-50 font-bold">
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400 pointer-events-none">m²</span>
+                    </div>
+                    <p class="field-error-msg">Valeur requise</p>
+                </div>
+
+                <div class="field-wrapper">
+                    <label class="block text-sm font-bold text-gray-500 uppercase mb-2" for="s-type">
+                        Revêtement
+                    </label>
+                    <select id="s-type" class="w-full h-14 px-4 border-2 border-gray-50 rounded-2xl bg-gray-50 font-bold focus:border-kalou-orange">
+                        <option value="carrelage">Carrelage</option>
+                        <option value="parquet">Parquet</option>
+                    </select>
+                    <p class="field-error-msg">Valeur requise</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="field-wrapper">
+                        <label class="block text-sm font-bold text-gray-500 uppercase mb-2" for="s-l">
+                            Long. Unité <span class="text-red-400">*</span>
+                        </label>
+                        <div class="relative">
+                            <input type="number" id="s-l" min="1" step="any" value="60"
+                                   class="w-full h-14 px-4 pr-14 text-xl border-2 border-gray-50 rounded-2xl bg-gray-50 font-bold focus:border-kalou-orange">
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400 pointer-events-none">cm</span>
+                        </div>
+                        <p class="field-error-msg">Valeur requise</p>
+                    </div>
+                    <div class="field-wrapper">
+                        <label class="block text-sm font-bold text-gray-500 uppercase mb-2" for="s-w">
+                            Larg. Unité <span class="text-red-400">*</span>
+                        </label>
+                        <div class="relative">
+                            <input type="number" id="s-w" min="1" step="any" value="60"
+                                   class="w-full h-14 px-4 pr-14 text-xl border-2 border-gray-50 rounded-2xl bg-gray-50 font-bold focus:border-kalou-orange">
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400 pointer-events-none">cm</span>
+                        </div>
+                        <p class="field-error-msg">Valeur requise</p>
+                    </div>
+                </div>
+
+                <div class="field-wrapper">
+                    <label class="block text-sm font-bold text-gray-500 uppercase mb-2" for="s-pose">
+                        Type de pose
+                    </label>
+                    <select id="s-pose" class="w-full h-14 px-4 border-2 border-gray-50 rounded-2xl bg-gray-50 font-bold focus:border-kalou-orange">
+                        <option value="droite">Pose Droite (+10% chutes)</option>
+                        <option value="diagonale">Pose Diagonale (+15% chutes)</option>
+                    </select>
+                    <p class="field-error-msg">Valeur requise</p>
+                </div>
+
+                <button onclick="window.calculateSols()"
+                        class="w-full bg-kalou-dark text-white font-black text-lg h-16 rounded-2xl shadow-lg active:scale-95 transition-transform uppercase">
+                    Calculer Sols
+                </button>
+            </div>
+
+            <div id="second-results" class="mt-6 hidden space-y-4"></div>
+        </section>
+
+        <!-- ══════════════ ONGLET HISTORIQUE ══════════════ -->
+        <section id="tab-historique" class="tab-content">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-black">Mes Chantiers</h2>
+                <button onclick="window.clearHistory()"
+                        class="text-xs font-bold text-red-500 uppercase tracking-widest bg-red-50 px-3 py-1 rounded-full">
+                    Tout effacer
+                </button>
+            </div>
+            <div id="history-container" class="space-y-4">
+                <!-- Rempli par renderHistory() -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Navigation Bar -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 pb-8 pt-3 flex justify-between items-center z-50"
+         role="navigation" aria-label="Navigation principale">
+        <button onclick="window.switchTab('gros-oeuvre')"
+                class="nav-item flex flex-col items-center gap-1 text-gray-400 active"
+                id="nav-gros" aria-label="Calculateurs Gros Œuvre">
+            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                      d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+            </svg>
+            <span class="text-[10px] font-black uppercase">Gros Œuvre</span>
+        </button>
+        <button onclick="window.switchTab('second-oeuvre')"
+                class="nav-item flex flex-col items-center gap-1 text-gray-400"
+                id="nav-second" aria-label="Calculateurs Second Œuvre">
+            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                      d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
+            </svg>
+            <span class="text-[10px] font-black uppercase">Second Œuvre</span>
+        </button>
+        <button onclick="window.switchTab('historique')"
+                class="nav-item flex flex-col items-center gap-1 text-gray-400"
+                id="nav-history" aria-label="Historique des chantiers">
+            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span class="text-[10px] font-black uppercase">Historique</span>
+        </button>
+    </nav>
+
+    <!-- Toast (repositionné au-dessus de la nav, plus bas que le header) -->
+    <div id="toast"
+         class="fixed bottom-28 left-1/2 -translate-x-1/2 z-[60] opacity-0 pointer-events-none transition-all duration-300 bg-kalou-dark text-white px-6 py-3 rounded-2xl shadow-2xl font-bold text-sm border-b-2 border-kalou-orange">
+        Message
+    </div>
+
+    <!-- Point d'entrée unique, type="module" -->
+    <script type="module" src="js/app.js"></script>
+
+</body>
+</html>
