@@ -1,5 +1,11 @@
 import { showToast } from './toast.js';
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 // ─── Copier / Partager ────────────────────────────────────────────────────────
 
 function copyResults(name, data) {
@@ -8,16 +14,21 @@ function copyResults(name, data) {
 
     if (navigator.clipboard) {
         navigator.clipboard.writeText(text)
-            .then(() => showToast('Copié dans le presse-papier !'));
+            .then(() => showToast('Copié dans le presse-papier !'))
+            .catch(() => fallbackCopy(text));
     } else {
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-        showToast('Copié !');
+        fallbackCopy(text);
     }
+}
+
+function fallbackCopy(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('Copié !');
 }
 
 export function shareResults(name, data) {
@@ -40,8 +51,8 @@ export function renderResults(containerId, data, name, category) {
 
             <div class="flex justify-between items-start relative z-10 mb-6">
                 <div>
-                    <span class="text-[10px] font-black uppercase text-kalou-orange tracking-widest">${category}</span>
-                    <h3 class="text-2xl font-black leading-tight">${name}</h3>
+                    <span class="text-[10px] font-black uppercase text-kalou-orange tracking-widest">${esc(category)}</span>
+                    <h3 class="text-2xl font-black leading-tight">${esc(name)}</h3>
                 </div>
                 <div class="flex gap-2">
                     <button class="btn-share bg-white/10 p-3 rounded-2xl active:bg-white/20 transition-all" title="Partager / Copier">
@@ -60,9 +71,9 @@ export function renderResults(containerId, data, name, category) {
             <div class="space-y-3 relative z-10">
                 ${data.map(r => `
                     <div class="flex justify-between items-center ${r.h ? 'bg-white/10 p-4 rounded-2xl border border-white/10' : 'px-1'}">
-                        <span class="${r.h ? 'font-bold' : 'text-gray-400 text-sm'}">${r.l}</span>
+                        <span class="${r.h ? 'font-bold' : 'text-gray-400 text-sm'}">${esc(r.l)}</span>
                         <span class="${r.h ? 'text-2xl font-black text-kalou-orange' : 'font-bold text-lg'}">
-                            ${r.v} <small class="text-[10px] uppercase opacity-50">${r.u}</small>
+                            ${esc(r.v)} <small class="text-[10px] uppercase opacity-50">${esc(r.u)}</small>
                         </span>
                     </div>
                 `).join('')}

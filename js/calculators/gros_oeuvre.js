@@ -44,12 +44,11 @@ export function handleGrosCalculate() {
 
         const surf   = l * w;
         const vol    = surf * e * 1.05;          // +5% pertes
-        results.push({ l: 'Volume Béton (+ 5%)',       v: vol.toFixed(2),              u: 'm³',      h: true });
-        results.push({ l: 'Ciment (35kg)',             v: Math.ceil(vol * d / 35),     u: 'sacs' });
-        results.push({ l: 'Sable',                     v: (vol * 0.5).toFixed(2),      u: 'm³' });
-        results.push({ l: 'Gravier',                   v: (vol * 0.8).toFixed(2),      u: 'm³' });
-        results.push({ l: 'Treillis Soudé (2.4 m²)',  v: Math.ceil(surf * 1.1 / 2.4), u: 'panneaux' });
-        results.push({ l: 'Polyane (bâche)',           v: Math.ceil(surf * 1.10),       u: 'm²' });
+        results.push({ l: 'Volume Béton (+ 5%)',              v: vol.toFixed(2),               u: 'm³',      h: true });
+        results.push({ l: 'Ciment (sacs 35 kg)',              v: Math.ceil(vol * d / 35),      u: 'sacs' });
+        results.push({ l: 'Mélange béton (Big Bag ~1 m³)',    v: Math.ceil(vol * 1.3),         u: 'big bags' });
+        results.push({ l: 'Treillis soudé (3.6×2.4 m)',       v: Math.ceil(surf * 1.1 / 8),   u: 'panneaux' });
+        results.push({ l: 'Polyane (bâche)',                  v: Math.ceil(surf * 1.10),       u: 'm²' });
     }
 
     // ── Fondations ────────────────────────────────────────────────────────────
@@ -57,35 +56,37 @@ export function handleGrosCalculate() {
         const l = get('l'), w = get('w'), p = get('p'), d = get('d'), a = get('a');
         if (!ok()) return showToast('Remplis tous les champs requis', true);
 
-        const vol       = l * w * p;
-        const nbBarres  = Math.ceil(l / 5.5);   // acier semelle : 1 barre/file / 5.5m (recouvrement)
-        const terre     = vol * 1.3;             // foisonnement terre excavée
-        results.push({ l: 'Volume Béton',             v: vol.toFixed(2),             u: 'm³',        h: true });
-        results.push({ l: 'Ciment (35kg)',            v: Math.ceil(vol * d / 35),    u: 'sacs' });
-        results.push({ l: 'Sable',                    v: (vol * 0.5).toFixed(2),     u: 'm³' });
-        results.push({ l: 'Gravier',                  v: (vol * 0.8).toFixed(2),     u: 'm³' });
-        results.push({ l: 'Acier estimé',             v: Math.ceil(vol * a),         u: 'kg' });
-        results.push({ l: 'Acier semelle (barres/file)', v: nbBarres,                u: 'barres' });
-        results.push({ l: 'Terre à évacuer',          v: terre.toFixed(2),           u: 'm³' });
+        const vol  = l * w * p;
+        const terre = vol * 1.3;                 // foisonnement terre excavée
+        results.push({ l: 'Volume Béton',                     v: vol.toFixed(2),               u: 'm³',      h: true });
+        results.push({ l: 'Ciment (sacs 35 kg)',              v: Math.ceil(vol * d / 35),      u: 'sacs' });
+        results.push({ l: 'Mélange béton (Big Bag ~1 m³)',    v: Math.ceil(vol * 1.3),         u: 'big bags' });
+        results.push({ l: 'Acier estimé',                     v: Math.ceil(vol * a),           u: 'kg' });
+        results.push({ l: 'Armatures semelle (barres 6 m)',   v: Math.ceil(l / 6),             u: 'barres' });
+        results.push({ l: 'Terre à évacuer',                  v: terre.toFixed(2),             u: 'm³' });
     }
 
     // ── Mur Parpaings ─────────────────────────────────────────────────────────
     else if (activeGros === 'mur') {
-        const l = get('l'), h = get('h'), o = get('o', true);   // ouvertures = allowZero
+        const l = get('l'), h = get('h'), o = get('o', true), c = get('c', true);
         if (!ok()) return showToast('Remplis tous les champs requis', true);
 
         const surfBrute  = l * h;
         const surfNette  = Math.max(0, surfBrute - o);
-        const nbParp     = Math.ceil(surfNette * 10 * 1.05);     // 10/m² + 5% casse
+        // Parpaings d'angle : nb_angles × rangs (1 rang = 20 cm) + 5% casse
+        const nbAngle    = Math.ceil(c * (h / 0.20) * 1.05);
+        // Parpaings standards : surface nette × 10/m² + 5% casse, moins les angles
+        const nbStd      = Math.max(0, Math.ceil(surfNette * 10 * 1.05) - nbAngle);
         const volMortier = surfNette * 0.020;                    // 20 L/m² = 0.020 m³/m²
         const cimMort    = Math.ceil(volMortier * 350 / 35);
-        const sableMort  = (volMortier * 3).toFixed(2);          // dosage 1:3
+        const sableMort  = Math.ceil(volMortier * 3 * 1.0);     // dosage 1:3, en m³ arrondi au-dessus
 
-        results.push({ l: 'Parpaings 20×20×50',   v: nbParp,                  u: 'unités', h: true });
-        results.push({ l: 'Surface nette',         v: surfNette.toFixed(2),    u: 'm²' });
-        results.push({ l: 'Mortier (20 L/m²)',     v: volMortier.toFixed(3),   u: 'm³' });
-        results.push({ l: 'Ciment Mortier (35kg)', v: cimMort,                 u: 'sacs' });
-        results.push({ l: 'Sable Mortier (1:3)',   v: sableMort,               u: 'm³' });
+        results.push({ l: 'Parpaings standards 20×20×50',  v: nbStd,                    u: 'unités',  h: true });
+        results.push({ l: 'Parpaings d\'angle / piliers',  v: nbAngle,                  u: 'unités' });
+        results.push({ l: 'Surface nette',                  v: surfNette.toFixed(2),     u: 'm²' });
+        results.push({ l: 'Mortier (20 L/m²)',              v: volMortier.toFixed(3),    u: 'm³' });
+        results.push({ l: 'Ciment mortier (sacs 35 kg)',    v: cimMort,                  u: 'sacs' });
+        results.push({ l: 'Sable mortier 1:3 (big bag)',   v: Math.ceil(volMortier * 3), u: 'big bags' });
     }
 
     // ── Enduit Façade ─────────────────────────────────────────────────────────
@@ -99,11 +100,11 @@ export function handleGrosCalculate() {
 
         if (type === 'trad') {
             const vol = surf * e;
-            results.push({ l: 'Ciment (35kg)', v: Math.ceil(vol * 350 / 35), u: 'sacs' });
-            results.push({ l: 'Sable',          v: (vol * 1.2).toFixed(2),    u: 'm³' });
+            results.push({ l: 'Ciment (sacs 35 kg)',           v: Math.ceil(vol * 350 / 35), u: 'sacs' });
+            results.push({ l: 'Sable (big bag ~1 m³)',         v: Math.ceil(vol * 1.2),       u: 'big bags' });
         } else {
-            // ~1.8 kg/m²/mm = 18 kg/m²/cm
-            results.push({ l: "Enduit prêt-à-l'emploi (25kg)", v: Math.ceil(surf * (e * 100) * 18 / 25), u: 'sacs' });
+            // ~18 kg/m²/cm d'épaisseur (sac 25 kg)
+            results.push({ l: "Enduit prêt-à-l'emploi (sacs 25 kg)", v: Math.ceil(surf * (e * 100) * 18 / 25), u: 'sacs' });
         }
     }
 
@@ -113,9 +114,9 @@ export function handleGrosCalculate() {
         if (!ok()) return showToast('Remplis tous les champs requis', true);
 
         const vol = l * w * e;
-        results.push({ l: 'Volume Mortier', v: vol.toFixed(2),            u: 'm³',  h: true });
-        results.push({ l: 'Ciment (35kg)',  v: Math.ceil(vol * 350 / 35), u: 'sacs' });
-        results.push({ l: 'Sable',          v: (vol * 1.5).toFixed(2),    u: 'm³' });
+        results.push({ l: 'Volume Mortier',               v: vol.toFixed(2),             u: 'm³',      h: true });
+        results.push({ l: 'Ciment (sacs 35 kg)',          v: Math.ceil(vol * 350 / 35),  u: 'sacs' });
+        results.push({ l: 'Sable (big bag ~1 m³)',        v: Math.ceil(vol * 1.5),       u: 'big bags' });
     }
 
     // ── Escalier Béton ────────────────────────────────────────────────────────
@@ -123,16 +124,15 @@ export function handleGrosCalculate() {
         const n = get('n'), h = get('h') / 100, g = get('g') / 100, w = get('w') / 100, e = get('e') / 100;
         if (!ok()) return showToast('Remplis tous les champs requis', true);
 
-        const volMarches  = n * ((g * h) / 2) * w;
+        const volMarches    = n * ((g * h) / 2) * w;
         const longPaillasse = Math.sqrt(Math.pow(n * g, 2) + Math.pow(n * h, 2));
         const volPaillasse  = longPaillasse * w * e;
         const volT          = volMarches + volPaillasse;
 
-        results.push({ l: 'Volume Béton Total', v: volT.toFixed(2),            u: 'm³',  h: true });
-        results.push({ l: 'Ciment (35kg)',       v: Math.ceil(volT * 350 / 35), u: 'sacs' });
-        results.push({ l: 'Sable',               v: (volT * 0.5).toFixed(2),    u: 'm³' });
-        results.push({ l: 'Gravier',             v: (volT * 0.8).toFixed(2),    u: 'm³' });
-        results.push({ l: 'Acier estimé',        v: Math.ceil(volT * 110),       u: 'kg' });
+        results.push({ l: 'Volume Béton Total',              v: volT.toFixed(2),             u: 'm³',      h: true });
+        results.push({ l: 'Ciment (sacs 35 kg)',             v: Math.ceil(volT * 350 / 35),  u: 'sacs' });
+        results.push({ l: 'Mélange béton (Big Bag ~1 m³)',   v: Math.ceil(volT * 1.3),       u: 'big bags' });
+        results.push({ l: 'Acier estimé',                    v: Math.ceil(volT * 110),        u: 'kg' });
     }
 
     // ── Poteaux ───────────────────────────────────────────────────────────────
@@ -141,11 +141,10 @@ export function handleGrosCalculate() {
         if (!ok()) return showToast('Remplis tous les champs requis', true);
 
         const vol = sl * sw * h * n;
-        results.push({ l: 'Volume Béton',  v: vol.toFixed(2),            u: 'm³',  h: true });
-        results.push({ l: 'Ciment (35kg)', v: Math.ceil(vol * 350 / 35), u: 'sacs' });
-        results.push({ l: 'Sable',         v: (vol * 0.5).toFixed(2),    u: 'm³' });
-        results.push({ l: 'Gravier',       v: (vol * 0.8).toFixed(2),    u: 'm³' });
-        results.push({ l: 'Acier estimé',  v: Math.ceil(vol * 100),       u: 'kg' });
+        results.push({ l: 'Volume Béton',                    v: vol.toFixed(2),             u: 'm³',      h: true });
+        results.push({ l: 'Ciment (sacs 35 kg)',             v: Math.ceil(vol * 350 / 35),  u: 'sacs' });
+        results.push({ l: 'Mélange béton (Big Bag ~1 m³)',   v: Math.ceil(vol * 1.3),       u: 'big bags' });
+        results.push({ l: 'Acier estimé',                    v: Math.ceil(vol * 100),        u: 'kg' });
     }
 
     renderResults('gros-results', results, nom, `Maçonnerie (${GROS_CONFIG[activeGros].name})`);

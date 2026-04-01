@@ -37,7 +37,8 @@ export const GROS_CONFIG = {
         fields: [
             { id: 'l', label: 'Longueur',           unit: 'm',  default: 5   },
             { id: 'h', label: 'Hauteur',            unit: 'm',  default: 2.7 },
-            { id: 'o', label: 'Ouvertures (portes/fenêtres)', unit: 'm²', default: 0, optional: true }
+            { id: 'o', label: 'Ouvertures (portes/fenêtres)', unit: 'm²', default: 0, optional: true },
+            { id: 'c', label: 'Nb Angles / Coins',  unit: 'u',  default: 2, optional: true }
         ]
     },
     enduit: {
