@@ -24,11 +24,6 @@ export const GROS_CONFIG = {
                 { v: 300, t: '300 kg/m³' },
                 { v: 350, t: '350 kg/m³ (Std)', s: true },
                 { v: 400, t: '400 kg/m³' }
-            ]},
-            { id: 'a', label: 'Acier', type: 'select', opt: [
-                { v: 40, t: '40 kg/m³ (Faible)' },
-                { v: 60, t: '60 kg/m³ (Std)',    s: true },
-                { v: 80, t: '80 kg/m³ (Fort)'   }
             ]}
         ]
     },

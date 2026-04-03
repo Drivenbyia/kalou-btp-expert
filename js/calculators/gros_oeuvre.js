@@ -26,6 +26,32 @@ function makeGet(isValidRef) {
     };
 }
 
+/**
+ * Agrégats béton : Gravier 0/15 + Sable 0/2 en Tonnes si vol > 1 m³,
+ * sinon mélange Big Bag (ratio 1.3 pour foisonnement).
+ * Ratio densité : 1 m³ = 1.5 T. Dosage béton : 0.9T gravier + 0.6T sable par m³.
+ */
+function pushAgregatsBeton(results, vol) {
+    if (vol > 1) {
+        results.push({ l: 'Gravier 0/15', v: (vol * 0.9).toFixed(2), u: 'Tonnes' });
+        results.push({ l: 'Sable 0/2',    v: (vol * 0.6).toFixed(2), u: 'Tonnes' });
+    } else {
+        results.push({ l: 'Mélange béton (Big Bag ~1 m³)', v: Math.ceil(vol * 1.3), u: 'big bags' });
+    }
+}
+
+/**
+ * Sable mortier/chape : en Tonnes si volSableM3 > 1 m³, sinon Big Bags.
+ * @param {number} volSableM3 — volume de sable pur en m³
+ */
+function pushSable(results, volSableM3) {
+    if (volSableM3 > 1) {
+        results.push({ l: 'Sable 0/2', v: (volSableM3 * 1.5).toFixed(2), u: 'Tonnes' });
+    } else {
+        results.push({ l: 'Sable (big bag ~1 m³)', v: Math.ceil(volSableM3), u: 'big bags' });
+    }
+}
+
 // ─── Calcul principal ─────────────────────────────────────────────────────────
 
 export function handleGrosCalculate() {
@@ -46,23 +72,27 @@ export function handleGrosCalculate() {
         const vol    = surf * e * 1.05;          // +5% pertes
         results.push({ l: 'Volume Béton (+ 5%)',              v: vol.toFixed(2),               u: 'm³',      h: true });
         results.push({ l: 'Ciment (sacs 35 kg)',              v: Math.ceil(vol * d / 35),      u: 'sacs' });
-        results.push({ l: 'Mélange béton (Big Bag ~1 m³)',    v: Math.ceil(vol * 1.3),         u: 'big bags' });
+        pushAgregatsBeton(results, vol);
         results.push({ l: 'Treillis soudé (3.6×2.4 m)',       v: Math.ceil(surf * 1.1 / 8),   u: 'panneaux' });
         results.push({ l: 'Polyane (bâche)',                  v: Math.ceil(surf * 1.10),       u: 'm²' });
     }
 
     // ── Fondations ────────────────────────────────────────────────────────────
     else if (activeGros === 'fondation') {
-        const l = get('l'), w = get('w'), p = get('p'), d = get('d'), a = get('a');
+        const l = get('l'), w = get('w'), p = get('p'), d = get('d');
         if (!ok()) return showToast('Remplis tous les champs requis', true);
 
-        const vol  = l * w * p;
+        const vol   = l * w * p;
         const terre = vol * 1.3;                 // foisonnement terre excavée
+
+        // Épingles : espacées tous les 25 cm, périmètre section = 2×(l+p)
+        const epinglesML = Math.round(l / 0.25) * 2 * (w + p);
+
         results.push({ l: 'Volume Béton',                     v: vol.toFixed(2),               u: 'm³',      h: true });
         results.push({ l: 'Ciment (sacs 35 kg)',              v: Math.ceil(vol * d / 35),      u: 'sacs' });
-        results.push({ l: 'Mélange béton (Big Bag ~1 m³)',    v: Math.ceil(vol * 1.3),         u: 'big bags' });
-        results.push({ l: 'Acier estimé',                     v: Math.ceil(vol * a),           u: 'kg' });
-        results.push({ l: 'Armatures semelle (barres 6 m)',   v: Math.ceil(l / 6),             u: 'barres' });
+        pushAgregatsBeton(results, vol);
+        results.push({ l: 'Armatures Semelles',               v: l.toFixed(1),                 u: 'ml' });
+        results.push({ l: 'Épingles de chaînage',             v: epinglesML.toFixed(1),         u: 'ml' });
         results.push({ l: 'Terre à évacuer',                  v: terre.toFixed(2),             u: 'm³' });
     }
 
@@ -73,20 +103,19 @@ export function handleGrosCalculate() {
 
         const surfBrute  = l * h;
         const surfNette  = Math.max(0, surfBrute - o);
-        // Parpaings d'angle : nb_angles × rangs (1 rang = 20 cm) + 5% casse
+        // Agglos d'angle : nb_angles × rangs (1 rang = 20 cm) + 5% casse
         const nbAngle    = Math.ceil(c * (h / 0.20) * 1.05);
-        // Parpaings standards : surface nette × 10/m² + 5% casse, moins les angles
+        // Agglos standards : surface nette × 10/m² + 5% casse, moins les angles
         const nbStd      = Math.max(0, Math.ceil(surfNette * 10 * 1.05) - nbAngle);
         const volMortier = surfNette * 0.020;                    // 20 L/m² = 0.020 m³/m²
         const cimMort    = Math.ceil(volMortier * 350 / 35);
-        const sableMort  = Math.ceil(volMortier * 3 * 1.0);     // dosage 1:3, en m³ arrondi au-dessus
 
-        results.push({ l: 'Parpaings standards 20×20×50',  v: nbStd,                    u: 'unités',  h: true });
-        results.push({ l: 'Parpaings d\'angle / piliers',  v: nbAngle,                  u: 'unités' });
+        results.push({ l: 'Agglos 20×20×50',               v: nbStd,                    u: 'unités',  h: true });
+        results.push({ l: 'Agglos d\'angle',                v: nbAngle,                  u: 'unités' });
         results.push({ l: 'Surface nette',                  v: surfNette.toFixed(2),     u: 'm²' });
         results.push({ l: 'Mortier (20 L/m²)',              v: volMortier.toFixed(3),    u: 'm³' });
         results.push({ l: 'Ciment mortier (sacs 35 kg)',    v: cimMort,                  u: 'sacs' });
-        results.push({ l: 'Sable mortier 1:3 (big bag)',   v: Math.ceil(volMortier * 3), u: 'big bags' });
+        pushSable(results, volMortier * 3);
     }
 
     // ── Enduit Façade ─────────────────────────────────────────────────────────
@@ -101,7 +130,7 @@ export function handleGrosCalculate() {
         if (type === 'trad') {
             const vol = surf * e;
             results.push({ l: 'Ciment (sacs 35 kg)',           v: Math.ceil(vol * 350 / 35), u: 'sacs' });
-            results.push({ l: 'Sable (big bag ~1 m³)',         v: Math.ceil(vol * 1.2),       u: 'big bags' });
+            pushSable(results, vol * 1.2);
         } else {
             // ~18 kg/m²/cm d'épaisseur (sac 25 kg)
             results.push({ l: "Enduit prêt-à-l'emploi (sacs 25 kg)", v: Math.ceil(surf * (e * 100) * 18 / 25), u: 'sacs' });
@@ -116,7 +145,7 @@ export function handleGrosCalculate() {
         const vol = l * w * e;
         results.push({ l: 'Volume Mortier',               v: vol.toFixed(2),             u: 'm³',      h: true });
         results.push({ l: 'Ciment (sacs 35 kg)',          v: Math.ceil(vol * 350 / 35),  u: 'sacs' });
-        results.push({ l: 'Sable (big bag ~1 m³)',        v: Math.ceil(vol * 1.5),       u: 'big bags' });
+        pushSable(results, vol * 1.5);
     }
 
     // ── Escalier Béton ────────────────────────────────────────────────────────
@@ -129,10 +158,13 @@ export function handleGrosCalculate() {
         const volPaillasse  = longPaillasse * w * e;
         const volT          = volMarches + volPaillasse;
 
+        // Épingles : espacées tous les 20 cm le long de la paillasse
+        const epinglesML = Math.round(longPaillasse / 0.20) * (w + 2 * e + 0.10);
+
         results.push({ l: 'Volume Béton Total',              v: volT.toFixed(2),             u: 'm³',      h: true });
         results.push({ l: 'Ciment (sacs 35 kg)',             v: Math.ceil(volT * 350 / 35),  u: 'sacs' });
-        results.push({ l: 'Mélange béton (Big Bag ~1 m³)',   v: Math.ceil(volT * 1.3),       u: 'big bags' });
-        results.push({ l: 'Acier estimé',                    v: Math.ceil(volT * 110),        u: 'kg' });
+        pushAgregatsBeton(results, volT);
+        results.push({ l: 'Épingles de chaînage',            v: epinglesML.toFixed(1),        u: 'ml' });
     }
 
     // ── Poteaux ───────────────────────────────────────────────────────────────
@@ -141,10 +173,14 @@ export function handleGrosCalculate() {
         if (!ok()) return showToast('Remplis tous les champs requis', true);
 
         const vol = sl * sw * h * n;
+
+        // Épingles : espacées tous les 20 cm en hauteur, périmètre section = 2×(sl+sw)
+        const epinglesML = n * Math.round(h / 0.20) * (2 * (sl + sw) + 0.10);
+
         results.push({ l: 'Volume Béton',                    v: vol.toFixed(2),             u: 'm³',      h: true });
         results.push({ l: 'Ciment (sacs 35 kg)',             v: Math.ceil(vol * 350 / 35),  u: 'sacs' });
-        results.push({ l: 'Mélange béton (Big Bag ~1 m³)',   v: Math.ceil(vol * 1.3),       u: 'big bags' });
-        results.push({ l: 'Acier estimé',                    v: Math.ceil(vol * 100),        u: 'kg' });
+        pushAgregatsBeton(results, vol);
+        results.push({ l: 'Épingles de chaînage',            v: epinglesML.toFixed(1),       u: 'ml' });
     }
 
     renderResults('gros-results', results, nom, `Maçonnerie (${GROS_CONFIG[activeGros].name})`);

@@ -7,7 +7,7 @@ Logique métier pure. Aucune manipulation DOM sauf lecture des inputs et appel �
 
 | Fichier | Rôle | Exports |
 |---------|------|---------|
-| `gros_oeuvre.js` | 7 calculateurs béton/maçonnerie — sorties en unités magasin : Big Bags, sacs 35 kg, barres 6 m, panneaux treillis 3.6×2.4 m, parpaings std/angle | `handleGrosCalculate()` |
+| `gros_oeuvre.js` | 7 calculateurs béton/maçonnerie — sorties négociant matériaux : Gravier 0/15 + Sable 0/2 en Tonnes (si vol > 1m³) sinon Big Bags, sacs 35 kg, panneaux treillis 3.6×2.4 m, Agglos 20×20×50 / d'angle, Armatures Semelles (ml), Épingles de chaînage (ml) | `handleGrosCalculate()` |
 | `placo.js` | Calcul matériaux plaques de plâtre BA13 | `calculatePlaco()` |
 | `sols.js` | Calcul carrelage et parquet (pose droite/diagonale) | `calculateSols()` |
 

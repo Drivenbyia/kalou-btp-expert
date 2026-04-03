@@ -15,6 +15,18 @@
 | PWA / Offline | ✅ Stable | SW v2, cache-first, manifest dynamique |
 | Partage | ✅ Stable | Web Share API + fallback clipboard |
 
+## Décisions techniques — Session 2026-04-03 (Alignement Négociants Matériaux)
+
+| Date | Décision | Raison |
+|------|----------|--------|
+| 2026-04-03 | Agrégats béton : Big Bags → Gravier 0/15 + Sable 0/2 en Tonnes si vol > 1m³ | Unité négociant (livraison vrac) — ratio 0.9T gravier + 0.6T sable par m³ béton = 1.5T/m³ total |
+| 2026-04-03 | Sable mortier/chape/enduit : Big Bags → Sable 0/2 Tonnes si volSable > 1m³ | Même logique vrac — ratio densité 1.5T/m³ |
+| 2026-04-03 | Ferraillage fondation : Acier (kg) → Armatures Semelles (ml) + Épingles chaînage (ml) | Unité magasin : longueur linéaire achetable. Épingles = ceil(l/0.25) × 2×(w+p) |
+| 2026-04-03 | Ferraillage escalier : Acier (kg) → Épingles chaînage (ml) | Épingles = ceil(longPaillasse/0.20) × (w + 2e + 0.10) |
+| 2026-04-03 | Ferraillage poteau : Acier (kg) → Épingles chaînage (ml) | Épingles = n × ceil(h/0.20) × (2×(sl+sw) + 0.10) |
+| 2026-04-03 | Mur : "Parpaings std/angle" → "Agglos 20×20×50" / "Agglos d'angle" | Terminologie négociant Gedimat |
+| 2026-04-03 | Suppression champ `a` (Acier kg/m³) dans config.js fondation | Champ inutile après passage en ML |
+
 ## Prochaine étape immédiate
 
 > À définir — audit initial terminé.
@@ -52,6 +64,16 @@ Aucun bug ouvert.
 | Init | Cache SW nommé `kalou-btp-v2` | Auto-cleanup du cache v1 à l'activation |
 
 ## Historique des sessions
+
+### Session 2026-04-03 — Alignement Négociants Matériaux (Gedimat)
+- **Objectif** : Passer les sorties en unités négociant : Tonnes (agrégats vrac), ml (ferraillage achetable)
+- **Réalisé** :
+  - `gros_oeuvre.js` : helpers `pushAgregatsBeton()` + `pushSable()` — seuil 1m³ pour bascule Big Bags → Tonnes
+  - `gros_oeuvre.js` : ferraillage fondation → Armatures Semelles (ml) + Épingles chaînage (ml) via l et périmètre section
+  - `gros_oeuvre.js` : ferraillage escalier/poteau → Épingles chaînage (ml) remplacent "Acier estimé (kg)"
+  - `gros_oeuvre.js` : Agglos 20×20×50 / d'angle remplacent "Parpaings std/angle"
+  - `config.js` : suppression champ `a` (Acier kg/m³) — devenu inutile
+- **État laissé** : Vérification cible OK — 2m³ dalle → 20 sacs + 1.8T gravier + 1.2T sable = 3T agrégats
 
 ### Session 2026-04-01 — Refonte Gros Œuvre (liste de courses magasin)
 - **Objectif** : Remplacer les sorties théoriques (m³ sable/gravier) par des unités achetables en magasin BTP
