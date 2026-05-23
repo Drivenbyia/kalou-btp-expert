@@ -82,17 +82,20 @@ export function handleGrosCalculate() {
         const l = get('l'), w = get('w'), p = get('p'), d = get('d');
         if (!ok()) return showToast('Remplis tous les champs requis', true);
 
-        const vol   = l * w * p;
-        const terre = vol * 1.3;                 // foisonnement terre excavée
+        const volNet = l * w * p;
+        const vol    = volNet * 1.05;            // +5% pertes
+        const terre  = volNet * 1.3;             // foisonnement terre excavée (sur volume réel)
 
-        // Épingles : espacées tous les 25 cm, périmètre section = 2×(l+p)
-        const epinglesML = Math.round(l / 0.25) * 2 * (w + p);
+        // Chaînage : 4 fils HA (2 sup + 2 inf) sur toute la longueur
+        const armaturesML = l * 4;
+        // Épingles : 1 cadre tous les 25 cm, périmètre = 2×(w+p) + retour 10 cm
+        const epinglesML  = Math.round(l / 0.25) * (2 * (w + p) + 0.10);
 
-        results.push({ l: 'Volume Béton',                     v: vol.toFixed(2),               u: 'm³',      h: true });
+        results.push({ l: 'Volume Béton (+ 5%)',              v: vol.toFixed(2),               u: 'm³',      h: true });
         results.push({ l: 'Ciment (sacs 35 kg)',              v: Math.ceil(vol * d / 35),      u: 'sacs' });
         pushAgregatsBeton(results, vol);
-        results.push({ l: 'Armatures Semelles',               v: l.toFixed(1),                 u: 'ml' });
-        results.push({ l: 'Épingles de chaînage',             v: epinglesML.toFixed(1),         u: 'ml' });
+        results.push({ l: 'Armatures filantes (4 fils HA)',   v: armaturesML.toFixed(1),       u: 'ml' });
+        results.push({ l: 'Épingles de chaînage',             v: epinglesML.toFixed(1),        u: 'ml' });
         results.push({ l: 'Terre à évacuer',                  v: terre.toFixed(2),             u: 'm³' });
     }
 
@@ -115,7 +118,7 @@ export function handleGrosCalculate() {
         results.push({ l: 'Surface nette',                  v: surfNette.toFixed(2),     u: 'm²' });
         results.push({ l: 'Mortier (20 L/m²)',              v: volMortier.toFixed(3),    u: 'm³' });
         results.push({ l: 'Ciment mortier (sacs 35 kg)',    v: cimMort,                  u: 'sacs' });
-        pushSable(results, volMortier * 3);
+        pushSable(results, volMortier);
     }
 
     // ── Enduit Façade ─────────────────────────────────────────────────────────
@@ -128,9 +131,9 @@ export function handleGrosCalculate() {
         results.push({ l: 'Surface totale', v: surf.toFixed(2), u: 'm²', h: true });
 
         if (type === 'trad') {
-            const vol = surf * e;
+            const vol = surf * e * 1.05;        // +5% pertes
             results.push({ l: 'Ciment (sacs 35 kg)',           v: Math.ceil(vol * 350 / 35), u: 'sacs' });
-            pushSable(results, vol * 1.2);
+            pushSable(results, vol);
         } else {
             // ~18 kg/m²/cm d'épaisseur (sac 25 kg)
             results.push({ l: "Enduit prêt-à-l'emploi (sacs 25 kg)", v: Math.ceil(surf * (e * 100) * 18 / 25), u: 'sacs' });
@@ -142,10 +145,10 @@ export function handleGrosCalculate() {
         const l = get('l'), w = get('w'), e = get('e') / 100;
         if (!ok()) return showToast('Remplis tous les champs requis', true);
 
-        const vol = l * w * e;
-        results.push({ l: 'Volume Mortier',               v: vol.toFixed(2),             u: 'm³',      h: true });
+        const vol = l * w * e * 1.05;          // +5% pertes
+        results.push({ l: 'Volume Mortier (+ 5%)',        v: vol.toFixed(2),             u: 'm³',      h: true });
         results.push({ l: 'Ciment (sacs 35 kg)',          v: Math.ceil(vol * 350 / 35),  u: 'sacs' });
-        pushSable(results, vol * 1.5);
+        pushSable(results, vol);
     }
 
     // ── Escalier Béton ────────────────────────────────────────────────────────
@@ -156,12 +159,12 @@ export function handleGrosCalculate() {
         const volMarches    = n * ((g * h) / 2) * w;
         const longPaillasse = Math.sqrt(Math.pow(n * g, 2) + Math.pow(n * h, 2));
         const volPaillasse  = longPaillasse * w * e;
-        const volT          = volMarches + volPaillasse;
+        const volT          = (volMarches + volPaillasse) * 1.05;   // +5% pertes
 
         // Épingles : espacées tous les 20 cm le long de la paillasse
         const epinglesML = Math.round(longPaillasse / 0.20) * (w + 2 * e + 0.10);
 
-        results.push({ l: 'Volume Béton Total',              v: volT.toFixed(2),             u: 'm³',      h: true });
+        results.push({ l: 'Volume Béton Total (+ 5%)',       v: volT.toFixed(2),             u: 'm³',      h: true });
         results.push({ l: 'Ciment (sacs 35 kg)',             v: Math.ceil(volT * 350 / 35),  u: 'sacs' });
         pushAgregatsBeton(results, volT);
         results.push({ l: 'Épingles de chaînage',            v: epinglesML.toFixed(1),        u: 'ml' });
@@ -172,12 +175,12 @@ export function handleGrosCalculate() {
         const sl = get('l') / 100, sw = get('w') / 100, h = get('h'), n = get('n');
         if (!ok()) return showToast('Remplis tous les champs requis', true);
 
-        const vol = sl * sw * h * n;
+        const vol = sl * sw * h * n * 1.05;     // +5% pertes
 
         // Épingles : espacées tous les 20 cm en hauteur, périmètre section = 2×(sl+sw)
         const epinglesML = n * Math.round(h / 0.20) * (2 * (sl + sw) + 0.10);
 
-        results.push({ l: 'Volume Béton',                    v: vol.toFixed(2),             u: 'm³',      h: true });
+        results.push({ l: 'Volume Béton (+ 5%)',             v: vol.toFixed(2),             u: 'm³',      h: true });
         results.push({ l: 'Ciment (sacs 35 kg)',             v: Math.ceil(vol * 350 / 35),  u: 'sacs' });
         pushAgregatsBeton(results, vol);
         results.push({ l: 'Épingles de chaînage',            v: epinglesML.toFixed(1),       u: 'ml' });

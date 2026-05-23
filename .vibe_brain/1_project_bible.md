@@ -70,7 +70,10 @@ kalou-btp-expert/
 
 - **Séparation stricte** : UI (`js/ui/`) vs Logique métier (`js/calculators/`) vs Persistance (`storage.js`)
 - **Validation** : `makeGet()` dans gros_oeuvre pour closure avec flag `isValidRef.v` ; boucle inline dans second œuvre — toujours marquer `.field-error` sur le champ invalide
-- **Facteurs de perte** : Béton +5%, Parpaings +5%, Carrelage +10% (pose droite) / +15% (pose diagonale), Placo +10%
+- **Facteurs de perte** : Béton +5% (Dalle, Fondation, Chape, Escalier, Poteau, Enduit trad), Parpaings +5%, Carrelage +10% (pose droite) / +15% (pose diagonale), Placo +10%
+- **Ratio sable mortier** : 1 m³ de sable foisonné pour 1 m³ de mortier dosé 350 kg/m³ (Mur, Enduit, Chape) — `pushSable(volMortier)`
+- **Chaînage fondation** : 4 fils HA filants (2 sup + 2 inf), épingles tous les 25 cm de périmètre 2×(w+p)+0.10
+- **Placo plafond** : fourrures F530 + suspentes (≠ rails + montants des cloisons)
 - **Normes** : DTU 52.2 (carrelage collé), DTU 25.41 (placo 12 vis/m²)
 - **Format décimal** : Toujours remplacer la virgule par un point avant `parseFloat()` (saisie FR)
 - **Exposition globale** : Toutes les fonctions appelées en `onclick` HTML sont exposées sur `window` dans `app.js`
