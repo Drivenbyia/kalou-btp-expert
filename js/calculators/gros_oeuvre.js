@@ -27,28 +27,40 @@ function makeGet(isValidRef) {
 }
 
 /**
- * Agrégats béton : Gravier 0/15 + Sable 0/2 en Tonnes si vol > 1 m³,
+ * Agrégats béton : Gravier 0/15 + Sable 0/4 en Tonnes si vol > 1 m³,
  * sinon mélange Big Bag (ratio 1.3 pour foisonnement).
- * Ratio densité : 1 m³ = 1.5 T. Dosage béton : 0.9T gravier + 0.6T sable par m³.
+ * Densité : 1 m³ ≈ 1.5 T pour gravier et sable.
+ * Dosage standard : 0.9 T gravier + 0.6 T sable par m³ de béton.
  */
 function pushAgregatsBeton(results, vol) {
     if (vol > 1) {
-        results.push({ l: 'Gravier 0/15', v: (vol * 0.9).toFixed(2), u: 'Tonnes' });
-        results.push({ l: 'Sable 0/2',    v: (vol * 0.6).toFixed(2), u: 'Tonnes' });
+        const gravT  = vol * 0.9;
+        const sableT = vol * 0.6;
+        results.push({ l: 'Gravier 0/15',      v: gravT.toFixed(2),  u: `T ~ ${Math.round(gravT  * 1000)} kg` });
+        results.push({ l: 'Sable 0/4 (béton)', v: sableT.toFixed(2), u: `T ~ ${Math.round(sableT * 1000)} kg` });
     } else {
-        results.push({ l: 'Mélange béton (Big Bag ~1 m³)', v: Math.ceil(vol * 1.3), u: 'big bags' });
+        const nb     = Math.ceil(vol * 1.3);
+        const poids  = nb * 1500;                              // 1 big bag ≈ 1 m³ ≈ 1.5 T
+        results.push({ l: 'Mélange béton (big bag ~1 m³)', v: nb, u: `big bags ~ ${poids} kg` });
     }
 }
 
 /**
- * Sable mortier/chape : en Tonnes si volSableM3 > 1 m³, sinon Big Bags.
+ * Sable mortier / chape / enduit : en Tonnes si volSableM3 > 1 m³, sinon Big Bags.
+ * Densité : 1 m³ sable foisonné ≈ 1.5 T.
  * @param {number} volSableM3 — volume de sable pur en m³
+ * @param {string} grade      — granulométrie ('0/2' fin, '0/4' standard)
+ * @param {string} usage      — étiquette d'usage (ex: 'mortier', 'chape', 'enduit')
  */
-function pushSable(results, volSableM3) {
+function pushSable(results, volSableM3, grade = '0/4', usage = 'mortier') {
+    const poidsKg = Math.round(volSableM3 * 1500);
+    const label   = `Sable ${grade} (${usage})`;
+
     if (volSableM3 > 1) {
-        results.push({ l: 'Sable 0/2', v: (volSableM3 * 1.5).toFixed(2), u: 'Tonnes' });
+        const tonnes = volSableM3 * 1.5;
+        results.push({ l: label, v: tonnes.toFixed(2),         u: `T ~ ${poidsKg} kg` });
     } else {
-        results.push({ l: 'Sable (big bag ~1 m³)', v: Math.ceil(volSableM3), u: 'big bags' });
+        results.push({ l: label, v: Math.ceil(volSableM3),     u: `big bag ~ ${poidsKg} kg` });
     }
 }
 
@@ -118,7 +130,7 @@ export function handleGrosCalculate() {
         results.push({ l: 'Surface nette',                  v: surfNette.toFixed(2),     u: 'm²' });
         results.push({ l: 'Mortier (20 L/m²)',              v: volMortier.toFixed(3),    u: 'm³' });
         results.push({ l: 'Ciment mortier (sacs 35 kg)',    v: cimMort,                  u: 'sacs' });
-        pushSable(results, volMortier);
+        pushSable(results, volMortier, '0/4', 'mortier hourdage');
     }
 
     // ── Enduit Façade ─────────────────────────────────────────────────────────
@@ -133,7 +145,7 @@ export function handleGrosCalculate() {
         if (type === 'trad') {
             const vol = surf * e * 1.05;        // +5% pertes
             results.push({ l: 'Ciment (sacs 35 kg)',           v: Math.ceil(vol * 350 / 35), u: 'sacs' });
-            pushSable(results, vol);
+            pushSable(results, vol, '0/2', 'enduit fin');
         } else {
             // ~18 kg/m²/cm d'épaisseur (sac 25 kg)
             results.push({ l: "Enduit prêt-à-l'emploi (sacs 25 kg)", v: Math.ceil(surf * (e * 100) * 18 / 25), u: 'sacs' });
@@ -148,7 +160,7 @@ export function handleGrosCalculate() {
         const vol = l * w * e * 1.05;          // +5% pertes
         results.push({ l: 'Volume Mortier (+ 5%)',        v: vol.toFixed(2),             u: 'm³',      h: true });
         results.push({ l: 'Ciment (sacs 35 kg)',          v: Math.ceil(vol * 350 / 35),  u: 'sacs' });
-        pushSable(results, vol);
+        pushSable(results, vol, '0/4', 'chape');
     }
 
     // ── Escalier Béton ────────────────────────────────────────────────────────

@@ -71,7 +71,10 @@ kalou-btp-expert/
 - **Séparation stricte** : UI (`js/ui/`) vs Logique métier (`js/calculators/`) vs Persistance (`storage.js`)
 - **Validation** : `makeGet()` dans gros_oeuvre pour closure avec flag `isValidRef.v` ; boucle inline dans second œuvre — toujours marquer `.field-error` sur le champ invalide
 - **Facteurs de perte** : Béton +5% (Dalle, Fondation, Chape, Escalier, Poteau, Enduit trad), Parpaings +5%, Carrelage +10% (pose droite) / +15% (pose diagonale), Placo +10%
-- **Ratio sable mortier** : 1 m³ de sable foisonné pour 1 m³ de mortier dosé 350 kg/m³ (Mur, Enduit, Chape) — `pushSable(volMortier)`
+- **Ratio sable mortier** : 1 m³ de sable foisonné pour 1 m³ de mortier dosé 350 kg/m³ (Mur, Enduit, Chape) — `pushSable(volMortier, grade, usage)`
+- **Granulométrie sable par usage** : `0/4` pour béton, mortier hourdage, chape ; `0/2` pour enduit fin de façade ; `pushAgregatsBeton` utilise Gravier 0/15 + Sable 0/4
+- **Densités agrégats** : 1 m³ sable foisonné ≈ 1 500 kg, 1 m³ gravier ≈ 1 500 kg, 1 big bag ≈ 1 m³
+- **Affichage agrégats** : tous les sables/graviers affichent le poids en kg dans l'unité (`T ~ X kg` ou `big bag ~ X kg`)
 - **Chaînage fondation** : 4 fils HA filants (2 sup + 2 inf), épingles tous les 25 cm de périmètre 2×(w+p)+0.10
 - **Placo plafond** : fourrures F530 + suspentes (≠ rails + montants des cloisons)
 - **Normes** : DTU 52.2 (carrelage collé), DTU 25.41 (placo 12 vis/m²)
