@@ -15,12 +15,11 @@ function tauxDe(v) {
 
 // ─── Numérotation ────────────────────────────────────────────────────────────
 
-/** Génère le prochain numéro "DEV-{année}-{compteur}" en cherchant le max existant. */
-function prochainNumero() {
+/** Génère le prochain numéro "{code}-{année}-{compteur}" en cherchant le max existant. */
+function prochainNumero(code = 'DEV') {
     const annee = new Date().getFullYear();
-    const tous  = listDevis();
-    const prefixe = `DEV-${annee}-`;
-    const max = tous
+    const prefixe = `${code}-${annee}-`;
+    const max = listDevis()
         .map(d => d.num)
         .filter(n => n && n.startsWith(prefixe))
         .map(n => parseInt(n.slice(prefixe.length), 10))
@@ -29,14 +28,21 @@ function prochainNumero() {
     return `${prefixe}${String(max + 1).padStart(3, '0')}`;
 }
 
+/** Numéro selon le type de document. */
+function numeroPour(type) {
+    if (type === 'devis')   return prochainNumero('DEV');
+    if (type === 'facture') return prochainNumero('FAC');
+    return `EST-${Date.now()}`;
+}
+
 // ─── Création & modèle ───────────────────────────────────────────────────────
 
-/** @param {'devis'|'estimation'} type */
+/** @param {'devis'|'estimation'|'facture'} type */
 export function creerDevis(type = 'estimation') {
     const profil = getProfil();
     return {
         id:        Date.now(),
-        num:       type === 'devis' ? prochainNumero() : `EST-${Date.now()}`,
+        num:       numeroPour(type),
         type,
         date:      new Date().toISOString().slice(0, 10),
         validite:  profil.validite,
@@ -127,7 +133,7 @@ export function dupliquerDevis(devis) {
     const copie = {
         ...JSON.parse(JSON.stringify(devis)),
         id:   Date.now(),
-        num:  devis.type === 'devis' ? prochainNumero() : `EST-${Date.now()}`,
+        num:  numeroPour(devis.type),
         date: new Date().toISOString().slice(0, 10),
         statut: 'brouillon'
     };
@@ -140,10 +146,10 @@ export function transformerEnDevis(devis) {
     return changerType(devis, 'devis');
 }
 
-/** Change le type d'un document (devis <-> estimation) et régénère son numéro. */
+/** Change le type d'un document (estimation / devis / facture) et régénère son numéro. */
 export function changerType(devis, type) {
     devis.type = type;
-    devis.num  = type === 'devis' ? prochainNumero() : `EST-${Date.now()}`;
+    devis.num  = numeroPour(type);
     sauvegarderDevis(devis);
     return devis;
 }

@@ -39,9 +39,11 @@ export function renderDevisList() {
         return;
     }
 
+    const typeLabels = { estimation: 'Estimation', devis: 'Devis', facture: 'Facture' };
     container.innerHTML = tous.map(d => {
         const t = calculerTotaux(d);
-        const isDevis = d.type === 'devis';
+        const typeLabel = typeLabels[d.type] || 'Estimation';
+        const typeSolid = d.type === 'devis' || d.type === 'facture';
         const statutColors = {
             brouillon: 'bg-gray-100 text-gray-500', envoye: 'bg-amber-50 text-amber-600',
             accepte: 'bg-emerald-50 text-emerald-600', refuse: 'bg-red-50 text-red-500'
@@ -52,7 +54,7 @@ export function renderDevisList() {
             <div class="flex justify-between items-start gap-3">
                 <div class="min-w-0">
                     <div class="flex items-center gap-2 flex-wrap">
-                        <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-lg ${isDevis ? 'bg-kalou-dark text-white' : 'bg-gray-100 text-gray-500'}">${isDevis ? 'Devis' : 'Estimation'}</span>
+                        <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-lg ${typeSolid ? (d.type === 'facture' ? 'bg-kalou-orange text-white' : 'bg-kalou-dark text-white') : 'bg-gray-100 text-gray-500'}">${typeLabel}</span>
                         <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-lg ${statutColors[d.statut] || statutColors.brouillon}">${statutLabels[d.statut] || 'Brouillon'}</span>
                     </div>
                     <p class="font-black text-lg mt-1 truncate">${esc(d.client.nom) || 'Client à renseigner'}</p>
@@ -294,6 +296,8 @@ function renderEditor() {
     const container = document.getElementById('devis-editor-view');
     const t = calculerTotaux(_devis);
     const isDevis = _devis.type === 'devis';
+    const isEstimation = _devis.type === 'estimation';
+    const enTeteLabel = { estimation: 'Estimation', devis: 'Devis n°', facture: 'Facture n°' }[_devis.type] || 'Estimation';
     const materiaux = getMateriaux();
     const ouvrages  = getOuvrages();
     const historique = JSON.parse(localStorage.getItem('kalou_btp_v3') || '[]');
@@ -309,7 +313,7 @@ function renderEditor() {
         <div class="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
           <div class="flex items-center justify-between gap-3 mb-5 flex-wrap">
             <div>
-              <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest">${isDevis ? 'Devis n°' : 'Estimation'}</p>
+              <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest">${enTeteLabel}</p>
               <p class="text-xl font-black">${esc(_devis.num)}</p>
             </div>
             <select onchange="window.majChampDevis('statut', this.value)" class="text-xs font-black uppercase px-3 py-2 rounded-xl border-2 border-gray-100 bg-gray-50">
@@ -373,10 +377,12 @@ function renderEditor() {
       <aside class="space-y-4 lg:sticky lg:top-4">
         <div class="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
           <div class="flex bg-gray-100 p-1 rounded-2xl mb-4">
-            <button onclick="window.changerTypeDevisUI('estimation')" class="flex-1 py-2.5 rounded-xl font-bold text-xs uppercase transition-all ${!isDevis ? 'bg-kalou-dark text-white' : 'text-gray-500'}">Estimation</button>
-            <button onclick="window.changerTypeDevisUI('devis')" class="flex-1 py-2.5 rounded-xl font-bold text-xs uppercase transition-all ${isDevis ? 'bg-kalou-dark text-white' : 'text-gray-500'}">Devis</button>
+            <button onclick="window.changerTypeDevisUI('estimation')" class="flex-1 py-2.5 rounded-xl font-bold text-[11px] uppercase transition-all ${isEstimation ? 'bg-kalou-dark text-white' : 'text-gray-500'}">Estimation</button>
+            <button onclick="window.changerTypeDevisUI('devis')" class="flex-1 py-2.5 rounded-xl font-bold text-[11px] uppercase transition-all ${isDevis ? 'bg-kalou-dark text-white' : 'text-gray-500'}">Devis</button>
+            <button onclick="window.changerTypeDevisUI('facture')" class="flex-1 py-2.5 rounded-xl font-bold text-[11px] uppercase transition-all ${_devis.type === 'facture' ? 'bg-kalou-orange text-white' : 'text-gray-500'}">Facture</button>
           </div>
-          ${!isDevis ? `<p class="text-[11px] text-amber-600 font-bold bg-amber-50 rounded-xl p-3 mb-1">Non contractuel — bascule en "Devis" une fois ton entreprise déclarée pour ajouter les mentions légales.</p>` : ''}
+          ${isEstimation ? `<p class="text-[11px] text-amber-600 font-bold bg-amber-50 rounded-xl p-3 mb-1">Non contractuel — bascule en "Devis" une fois ton entreprise déclarée pour ajouter les mentions légales.</p>` : ''}
+          ${_devis.type === 'facture' ? `<p class="text-[11px] text-emerald-700 font-bold bg-emerald-50 rounded-xl p-3 mb-1">Facture générée à partir du devis accepté — payable à réception.</p>` : ''}
 
           <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest mt-4 mb-2">Régime TVA</p>
           <div class="space-y-2 mb-3">

@@ -19,6 +19,7 @@
 | Export/Import JSON | ✅ Nouveau (V2) | Pont téléphone ↔ PC + sauvegarde de secours (fusion additive) |
 | Ouvrages configurables | ✅ Nouveau (V2) | 12/12, prix réactif (temps MO + matériel/prestation) |
 | Métré interne + Liste de courses | ✅ Nouveau (V2) | `computeGros` pur, matériaux cachés/ligne, courses consolidées par devis |
+| Facture | ✅ Nouveau (V2) | 3e type de document (FAC-AAAA-###), échéance, net à payer, mentions facture |
 
 ## Décisions techniques — Session 2026-04-03 (Alignement Négociants Matériaux)
 
@@ -102,6 +103,12 @@ Note connue (non bloquant) : l'import d'un métré reste une base à ajuster (as
 - `chiffrage.js` → `listeCoursesDevis(devis)` : additionne les métrés internes (`ligne.materiaux`) de toutes les lignes, regroupés par matériau + unité de base (strip du suffixe « ~ X kg »), hors lignes intermédiaires.
 - `devis_view.js` : bouton « 🧱 Liste de courses » dans l'éditeur → panneau des matériaux à commander (interne) + bouton Partager (réutilise `shareResults` → texte WhatsApp/SMS au négociant). Handlers `toggleCourses`/`partagerCourses`.
 - Vérifié (Playwright, data-only) : 2 murs parpaing (12,5 + 10 m²) → Agglos 183 (consolidé sur 1 ligne), Angle 54, Ciment 5 sacs, Sable 2 big bag. Aucune erreur JS.
+
+**Facture — 3e type de document (2026-07-14)** :
+- `devis.js` : `numeroPour(type)` (DEV-/FAC-/EST-), `prochainNumero(code)` générique ; `creerDevis`/`changerType`/`dupliquerDevis` gèrent `facture`.
+- `print_devis.js` : titre FACTURE, « Échéance : à réception », bloc « Acompte déjà versé » + « Net à payer » (TTC − acompte), mentions facture (payable à réception, RIB, retard, médiateur), pas de bloc « Bon pour accord ». Décennale/SIRET/EI/TVA conservés.
+- `devis_view.js` : sélecteur 3 positions Estimation / Devis / Facture, badge facture orange, bandeau info.
+- Vérifié (Playwright) : FAC-2026-001, titre PDF FACTURE, net à payer, échéance, sans « bon pour accord », décennale présente. Aucune erreur JS.
 
 ## Prochaine étape immédiate (suite)
 
