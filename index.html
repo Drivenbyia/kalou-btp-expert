@@ -91,6 +91,19 @@
         .field-wrapper.field-error .field-error-msg {
             display: block;
         }
+
+        /* ── Impression Devis (PDF) ── */
+        #devis-print-sheet {
+            position: absolute;
+            left: -99999px;
+            top: 0;
+            width: 210mm;
+            background: #fff;
+        }
+        @media print {
+            body > *:not(#devis-print-sheet) { display: none !important; }
+            #devis-print-sheet { position: static !important; left: auto; width: auto; }
+        }
     </style>
 </head>
 <body class="text-kalou-dark">
@@ -103,13 +116,21 @@
             </svg>
             <h1 class="text-xl font-black uppercase tracking-tighter">Kalou <span class="text-kalou-orange">BTP</span></h1>
         </div>
-        <div id="status-dot" class="h-2.5 w-2.5 rounded-full bg-green-500"></div>
+        <div class="flex items-center gap-4">
+            <button onclick="window.switchTab('reglages')" aria-label="Réglages" class="text-gray-400 active:text-kalou-orange transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+            </button>
+            <div id="status-dot" class="h-2.5 w-2.5 rounded-full bg-green-500"></div>
+        </div>
     </header>
 
-    <main class="max-w-2xl mx-auto p-4 pb-32">
+    <main class="max-w-6xl mx-auto p-4 pb-32">
 
         <!-- ══════════════ ONGLET GROS OEUVRE ══════════════ -->
-        <section id="tab-gros-oeuvre" class="tab-content active">
+        <section id="tab-gros-oeuvre" class="tab-content active max-w-2xl mx-auto w-full">
             <h2 class="text-2xl font-black mb-4">Gros Œuvre</h2>
 
             <nav id="gros-sub-nav" class="flex overflow-x-auto no-scrollbar gap-2 mb-6 pb-2" role="tablist" aria-label="Types de calcul Gros Œuvre">
@@ -141,7 +162,7 @@
         </section>
 
         <!-- ══════════════ ONGLET SECOND OEUVRE ══════════════ -->
-        <section id="tab-second-oeuvre" class="tab-content">
+        <section id="tab-second-oeuvre" class="tab-content max-w-2xl mx-auto w-full">
             <h2 class="text-2xl font-black mb-4">Second Œuvre</h2>
 
             <div class="flex bg-white p-1.5 rounded-2xl mb-6 shadow-sm border border-gray-100" role="tablist">
@@ -297,7 +318,7 @@
         </section>
 
         <!-- ══════════════ ONGLET HISTORIQUE ══════════════ -->
-        <section id="tab-historique" class="tab-content">
+        <section id="tab-historique" class="tab-content max-w-2xl mx-auto w-full">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-black">Mes Chantiers</h2>
                 <button onclick="window.clearHistory()"
@@ -310,10 +331,44 @@
             </div>
         </section>
 
+        <!-- ══════════════ ONGLET DEVIS ══════════════ -->
+        <section id="tab-devis" class="tab-content">
+            <div id="devis-list-view" class="max-w-2xl mx-auto w-full">
+                <h2 class="text-2xl font-black mb-4">Devis &amp; Estimations</h2>
+                <div class="flex gap-3 mb-6">
+                    <button onclick="window.nouveauDevis('estimation')"
+                            class="flex-1 bg-white border-2 border-kalou-dark text-kalou-dark font-black h-14 rounded-2xl uppercase text-sm active:scale-95 transition-all">
+                        + Estimation
+                    </button>
+                    <button onclick="window.nouveauDevis('devis')"
+                            class="flex-1 bg-kalou-orange text-white font-black h-14 rounded-2xl uppercase text-sm shadow-lg active:scale-95 transition-all">
+                        + Devis
+                    </button>
+                </div>
+                <div id="devis-list-container" class="space-y-3">
+                    <!-- Rempli par renderDevisList() -->
+                </div>
+            </div>
+            <div id="devis-editor-view" class="hidden">
+                <!-- Rempli par ui/devis_view.js -->
+            </div>
+        </section>
+
+        <!-- ══════════════ ONGLET RÉGLAGES ══════════════ -->
+        <section id="tab-reglages" class="tab-content max-w-2xl mx-auto w-full">
+            <h2 class="text-2xl font-black mb-4">Réglages</h2>
+            <div id="reglages-container">
+                <!-- Rempli par renderReglages() -->
+            </div>
+        </section>
+
     </main>
 
+    <!-- Feuille imprimable du devis (hors écran, visible uniquement à l'impression) -->
+    <div id="devis-print-sheet"></div>
+
     <!-- Navigation Bar -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 pb-8 pt-3 flex justify-between items-center z-50"
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-2 pb-8 pt-3 grid grid-cols-4 items-center z-50"
          role="navigation" aria-label="Navigation principale">
         <button onclick="window.switchTab('gros-oeuvre')"
                 class="nav-item flex flex-col items-center gap-1 text-gray-400 active"
@@ -332,6 +387,15 @@
                       d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
             </svg>
             <span class="text-[10px] font-black uppercase">Second Œuvre</span>
+        </button>
+        <button onclick="window.switchTab('devis')"
+                class="nav-item flex flex-col items-center gap-1 text-gray-400"
+                id="nav-devis" aria-label="Devis et estimations">
+            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <span class="text-[10px] font-black uppercase">Devis</span>
         </button>
         <button onclick="window.switchTab('historique')"
                 class="nav-item flex flex-col items-center gap-1 text-gray-400"

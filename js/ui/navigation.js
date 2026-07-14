@@ -76,10 +76,15 @@ export function switchTab(tabId) {
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
     document.getElementById('tab-' + tabId).classList.add('active');
-    const navMap = { 'gros-oeuvre': 'gros', 'second-oeuvre': 'second', 'historique': 'history' };
-    document.getElementById('nav-' + navMap[tabId]).classList.add('active');
+
+    // 'reglages' n'a pas d'entrée dans la nav du bas (accès via l'icône réglages du header)
+    const navMap = { 'gros-oeuvre': 'gros', 'second-oeuvre': 'second', 'devis': 'devis', 'historique': 'history' };
+    const navBtn = navMap[tabId] && document.getElementById('nav-' + navMap[tabId]);
+    if (navBtn) navBtn.classList.add('active');
 
     if (tabId === 'historique') window.renderHistory();
+    if (tabId === 'devis')      window.fermerEditeurDevis(); // revient à la liste (et la rafraîchit)
+    if (tabId === 'reglages')   window.renderReglages();
 }
 
 // ─── Toggle Placo / Sols ──────────────────────────────────────────────────────

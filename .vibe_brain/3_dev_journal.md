@@ -14,6 +14,9 @@
 | Historique | ✅ Stable | Groupé par chantier, consolidation multi-calculs |
 | PWA / Offline | ✅ Stable | SW v2, cache-first, manifest dynamique |
 | Partage | ✅ Stable | Web Share API + fallback clipboard |
+| **Devis & Estimations** | ✅ Nouveau (V2) | Édition, TVA multi-taux, export PDF, mentions légales |
+| **Réglages / Tarifs** | ✅ Nouveau (V2) | Profil entreprise, décennale, taux horaire, catalogue éditable |
+| Export/Import JSON | ⏳ À faire | Pont téléphone ↔ PC + sauvegarde de secours |
 
 ## Décisions techniques — Session 2026-04-03 (Alignement Négociants Matériaux)
 
@@ -29,13 +32,39 @@
 
 ## Prochaine étape immédiate
 
-> À définir — audit initial terminé.
+> **V2 — Phase 0 + 1 livrées (2026-07-14) : moteur de prix + module Devis.**
+> Plan complet : voir **`.vibe_brain/4_plan_chiffrage_devis.md`**.
 
-Pistes identifiées lors de l'audit :
-- Ajouter d'autres types Second Œuvre (peinture, isolation…)
-- Migrer de localStorage vers IndexedDB pour des projets plus riches
-- Ajouter un calcul de coût estimatif (prix matériaux configurables)
-- Export PDF de la liste de courses d'un chantier
+Décisions cadrées avec le porteur (2026-07-14) :
+- Régime fiscal non arrêté → **TVA en interrupteur** (Franchise 293 B / 10 % rénovation / 20 % neuf), taux surchargeable par ligne.
+- Ouvrages prioritaires : **ouvertures & piscines**, **terrasses & dallages**, **murs pierre & chaux**.
+- Taux horaire : **méthode du déboursé** (à affiner avec ses vrais chiffres).
+- Usage multi-appareils : téléphone sur chantier, PC à la maison — le localStorage n'est PAS synchronisé entre les deux (pont manuel via Partage pour l'instant, export/import JSON en Phase 1 suivante).
+- Deux types de document : **Estimation** (non contractuelle) et **Devis** (contractuelle, activité déclarée).
+
+**Réalisé (Phase 0 + 1)** :
+- `data/prices.default.js` — catalogue matériaux + ouvrages (fourni-posé) + profil par défaut + `TVA_OPTIONS`
+- `pricing/tarifs.js` — fusion catalogue défaut/surcharges (`kalou_prix_v1`), CRUD profil (`kalou_profil_v1`)
+- `pricing/debourse.js` — calcul du taux horaire (déboursé → prix de vente)
+- `pricing/devis.js` — modèle devis, totaux TVA multi-taux, numérotation `DEV-{année}-{n}` / `EST-{ts}`, persistance (`kalou_devis_v1`), `lignesDepuisResultats()` pour importer un calcul de métré
+- `ui/devis_view.js` — liste + éditeur (client/chantier, lignes manuelles/ouvrage type/depuis un calcul, TVA, acompte, totaux live), layout responsive (1 colonne mobile, 2 colonnes dès `lg`)
+- `ui/print_devis.js` — aperçu A4 imprimable (`#devis-print-sheet`, `window.print()`), mentions légales générées (EI, SIRET, décennale, TVA/293 B, acompte, médiateur, Bon pour accord) — simplifiées si type Estimation
+- `ui/tarifs_view.js` — écran Réglages : profil entreprise, assurance décennale, régime TVA par défaut, calculateur "Mon taux horaire", catalogue de prix éditable (avec reset par ligne)
+- `render.js` — bouton `.btn-devis` sur les cartes de résultats → `ajouterAuDevis()` (pont calculateurs → devis)
+- `index.html` / `navigation.js` / `app.js` — nouveaux onglets Devis (nav du bas) et Réglages (icône engrenage header), `<main>` élargi (`max-w-6xl`) avec les anciens onglets recentrés en `max-w-2xl` pour ne pas changer leur rendu mobile
+- **Testé** en conditions réelles (Playwright + Tailwind local pour contourner le proxy sandbox) : création devis, ajout ligne "ouvrage type", calcul TVA (franchise → 10 % → 20 %), export PDF, écran Réglages (taux horaire + catalogue de prix). Aucune erreur JS, seul un 404 favicon.ico sans rapport.
+
+**Vérification (2026-07-14, relecture + test navigateur élargi)** — 3 correctifs :
+1. **PDF, colonne TVA par ligne** : s'affichait vide quand la TVA venait du régime (l.tva = null). Corrigé dans `print_devis.js` — affiche le taux effectif (`tauxLigne`).
+2. **Impression, pages blanches** : `@media print` passait par `visibility:hidden` (laissait l'espace). Remplacé par `body > *:not(#devis-print-sheet){ display:none }` dans `index.html`.
+3. **Double-comptage béton à l'import « depuis un calcul »** : la ligne « Volume Béton » était chiffrée comme béton toupie EN PLUS du ciment + agrégats qui le composent. Corrigé dans `lignesDepuisResultats()` — les lignes intermédiaires (`^volume|surface|terre`) sont importées à 0 € (à compléter), plus auto-chiffrées.
+
+Note connue (non bloquant) : l'import d'un métré reste une base à ajuster (association libellé→prix best-effort ; certaines lignes intermédiaires arrivent à 0 €). Toast « vérifie les prix » affiché.
+
+## Prochaine étape immédiate (suite)
+
+Phase 1 restante : **export/import JSON** (pont téléphone ↔ PC + sauvegarde de secours) — remonté prioritaire au §5 bis du plan, pas encore fait.
+Puis Phase 2 : nouveaux calculateurs métier (terrasse, dallage, mur pierre, rejointoiement/enduit chaux, création d'ouverture, piscine) branchés sur `OUVRAGES_DEFAUT`.
 
 ## Bugs en cours
 
