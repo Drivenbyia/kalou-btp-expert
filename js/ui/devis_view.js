@@ -2,7 +2,7 @@ import { showToast } from './toast.js';
 import { getMateriaux, getOuvrages, getProfil } from '../pricing/tarifs.js';
 import { TVA_OPTIONS } from '../data/prices.default.js';
 import { imprimerDevis } from './print_devis.js';
-import { estimerMateriaux, resumeMateriaux } from '../pricing/chiffrage.js';
+import { estimerMateriaux, resumeMateriaux, listeCoursesDevis } from '../pricing/chiffrage.js';
 import {
     listDevis, getDevisById, creerDevis, creerLigne, calculerTotaux, totalLigne,
     sauvegarderDevis, supprimerDevis, dupliquerDevis, changerType, lignesDepuisResultats
@@ -22,6 +22,7 @@ function fmt(n) {
 let _devis = null;
 let _picker = null; // 'ouvrage' | 'calcul' | null
 let _config = null; // configurateur d'ouvrage en cours : { id, dims:{}, opts:{} }
+let _courses = false; // panneau liste de courses ouvert ?
 
 // ─── Liste des devis / estimations ───────────────────────────────────────────
 
@@ -100,6 +101,7 @@ export function ajouterAuDevis(nom, categorie, data) {
 
 function openEditor() {
     _config = null;
+    _courses = false;
     document.getElementById('devis-list-view').classList.add('hidden');
     document.getElementById('devis-editor-view').classList.remove('hidden');
     renderEditor();
@@ -395,8 +397,11 @@ function renderEditor() {
 
         <div class="space-y-2">
           <button onclick="window.exporterPdfDevis()" class="w-full bg-kalou-orange text-white font-black text-sm uppercase h-14 rounded-2xl shadow-lg active:scale-95 transition-all">⤓ Aperçu / Export PDF</button>
+          <button onclick="window.toggleCoursesDevis()" class="w-full ${_courses ? 'bg-kalou-dark text-white' : 'bg-white border-2 border-gray-100 text-gray-600'} font-black text-sm uppercase h-12 rounded-2xl active:scale-95 transition-all">🧱 Liste de courses</button>
           <button onclick="window.dupliquerDevisUI(${_devis.id})" class="w-full bg-white border-2 border-gray-100 text-gray-600 font-black text-sm uppercase h-12 rounded-2xl active:scale-95 transition-all">Dupliquer</button>
         </div>
+
+        ${_courses ? renderCoursesHTML() : ''}
       </aside>
     </div>`;
 }
@@ -425,6 +430,39 @@ function renderTotauxHTML(t) {
 function renderTotauxPanel() {
     const panel = document.getElementById('devis-totaux-panel');
     if (panel) panel.innerHTML = renderTotauxHTML(calculerTotaux(_devis));
+}
+
+function renderCoursesHTML() {
+    const liste = listeCoursesDevis(_devis);
+    if (!liste.length) {
+        return `<div class="bg-white rounded-2xl p-4 border border-gray-100 text-sm text-gray-400 font-bold text-center">Aucun matériau estimé — ajoute des « ouvrages type » dimensionnés.</div>`;
+    }
+    return `
+    <div class="bg-white rounded-2xl p-4 border border-gray-100">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest">Matériaux à commander (interne)</p>
+        <button onclick="window.partagerCoursesDevis()" class="text-xs font-black text-kalou-orange uppercase">Partager</button>
+      </div>
+      <div class="space-y-1.5">
+        ${liste.map(m => `
+          <div class="flex justify-between items-center gap-2 text-sm">
+            <span class="text-gray-500 truncate">${esc(m.l)}</span>
+            <b class="shrink-0">${esc(m.v)} <small class="text-[10px] text-gray-400 uppercase">${esc(m.u)}</small></b>
+          </div>`).join('')}
+      </div>
+      <p class="text-[10px] text-gray-400 mt-3">Estimation d'après la surface des ouvrages — à vérifier avant commande.</p>
+    </div>`;
+}
+
+export function toggleCourses() {
+    _courses = !_courses;
+    renderEditor();
+}
+
+export function partagerCourses() {
+    const liste = listeCoursesDevis(_devis);
+    if (!liste.length) return showToast('Aucun matériau estimé', true);
+    window.shareResults('Matériaux – ' + (_devis.chantier.description || _devis.num), liste);
 }
 
 function renderOuvrageListHTML(ouvragesParCat) {

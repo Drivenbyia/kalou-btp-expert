@@ -11,7 +11,8 @@ import {
     majChamp, majLigne, supprimerLigne, ajouterLigneManuelle, togglePicker,
     ajouterLigneOuvrage, importerCalcul, changerTypeDevis, dupliquerDevisUI,
     supprimerDevisUI, exporterPdf,
-    ouvrirConfigOuvrage, majConfigDim, toggleConfigOpt, annulerConfig, validerConfig
+    ouvrirConfigOuvrage, majConfigDim, toggleConfigOpt, annulerConfig, validerConfig,
+    toggleCourses, partagerCourses
 }                                         from './ui/devis_view.js';
 import { renderReglages, majProfilChamp, majDebourse, appliquerTauxDebourse, majPrix, resetPrixCatalogue, exporterSauvegarde, importerSauvegarde } from './ui/tarifs_view.js';
 
@@ -52,6 +53,8 @@ window.majConfigDimDevis         = majConfigDim;
 window.toggleConfigOptDevis      = toggleConfigOpt;
 window.annulerConfigDevis        = annulerConfig;
 window.validerConfigDevis        = validerConfig;
+window.toggleCoursesDevis        = toggleCourses;
+window.partagerCoursesDevis      = partagerCourses;
 
 // Réglages / Tarifs
 window.renderReglages       = renderReglages;

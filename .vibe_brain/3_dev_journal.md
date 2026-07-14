@@ -17,6 +17,8 @@
 | **Devis & Estimations** | ✅ Nouveau (V2) | Édition, TVA multi-taux, export PDF, mentions légales |
 | **Réglages / Tarifs** | ✅ Nouveau (V2) | Profil entreprise, décennale, taux horaire, catalogue éditable |
 | Export/Import JSON | ✅ Nouveau (V2) | Pont téléphone ↔ PC + sauvegarde de secours (fusion additive) |
+| Ouvrages configurables | ✅ Nouveau (V2) | 12/12, prix réactif (temps MO + matériel/prestation) |
+| Métré interne + Liste de courses | ✅ Nouveau (V2) | `computeGros` pur, matériaux cachés/ligne, courses consolidées par devis |
 
 ## Décisions techniques — Session 2026-04-03 (Alignement Négociants Matériaux)
 
@@ -96,10 +98,14 @@ Note connue (non bloquant) : l'import d'un métré reste une base à ajuster (as
 - **Configurateur** : chaque prestation affiche sa valeur (€/m² ou +€), bloc « 🔧 Interne » (matériaux estimés + main d'œuvre) non imprimé.
 - **Vérifié (Playwright)** : mur parpaing 5×2,5 = 1 000 € (défaut) → 618,75 € (sans les 2 enduits) → 890,63 € (ext + arase) ; ligne stocke 6 lignes de métré cachées ; PDF client ne montre pas le métré interne ; calculateurs écran OK. Aucune erreur JS.
 
+**Liste de courses consolidée (2026-07-14)** :
+- `chiffrage.js` → `listeCoursesDevis(devis)` : additionne les métrés internes (`ligne.materiaux`) de toutes les lignes, regroupés par matériau + unité de base (strip du suffixe « ~ X kg »), hors lignes intermédiaires.
+- `devis_view.js` : bouton « 🧱 Liste de courses » dans l'éditeur → panneau des matériaux à commander (interne) + bouton Partager (réutilise `shareResults` → texte WhatsApp/SMS au négociant). Handlers `toggleCourses`/`partagerCourses`.
+- Vérifié (Playwright, data-only) : 2 murs parpaing (12,5 + 10 m²) → Agglos 183 (consolidé sur 1 ligne), Angle 54, Ciment 5 sacs, Sable 2 big bag. Aucune erreur JS.
+
 ## Prochaine étape immédiate (suite)
 
 Pistes restantes (non urgentes) :
-- Exploiter `ligne.materiaux` : une **liste de courses par chantier** consolidée depuis les devis (le métré est déjà stocké).
 - L'import « depuis un calcul » garde des approximations d'unité (ex. sable en big bag chiffré au prix €/T) — à affiner si besoin, mais le message « vérifie les prix » couvre le cas.
 - Second Œuvre : d'autres postes (peinture, isolation) si demandé.
 - Éventuelle synchro cloud (§5 bis du plan) si le transfert manuel gêne à l'usage.

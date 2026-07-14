@@ -74,3 +74,29 @@ export function resumeMateriaux(resultats) {
         .map(r => `${r.l} : ${r.v} ${String(r.u).split(' ~')[0]}`)
         .join(' · ');
 }
+
+/**
+ * Liste de courses consolidée d'un devis : additionne les métrés internes
+ * (`ligne.materiaux`) de toutes les lignes, regroupés par matériau + unité de base.
+ * Usage interne (commande négociant) — n'apparaît jamais sur le devis client.
+ * @returns {Array<{l,v,u}>}
+ */
+export function listeCoursesDevis(devis) {
+    const totals = new Map();   // clé "label|||unité de base" -> { label, unit, val }
+    (devis.lignes || []).forEach(ligne => {
+        (ligne.materiaux || []).forEach(m => {
+            if (INTERMEDIAIRE.test(m.l.trim())) return;
+            const baseU = String(m.u).split(' ~')[0].trim();     // "T ~ 2835 kg" -> "T"
+            const key   = m.l + '|||' + baseU;
+            const val   = parseFloat(String(m.v).replace(',', '.')) || 0;
+            const cur   = totals.get(key) || { label: m.l, unit: baseU, val: 0 };
+            cur.val += val;
+            totals.set(key, cur);
+        });
+    });
+    return Array.from(totals.values()).map(x => ({
+        l: x.label,
+        v: Number.isInteger(x.val) ? String(x.val) : x.val.toFixed(2),
+        u: x.unit
+    }));
+}
