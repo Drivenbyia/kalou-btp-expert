@@ -50,8 +50,9 @@ export function creerDevis(type = 'estimation') {
 }
 
 let _ligneSeq = 0;
-export function creerLigne({ designation, detail = '', qte = 1, unite = 'u', puHT = 0, tva = null }) {
-    return { id: `l${Date.now()}-${_ligneSeq++}`, designation, detail, qte, unite, puHT, tva };
+export function creerLigne({ designation, detail = '', qte = 1, unite = 'u', puHT = 0, tva = null, materiaux = null }) {
+    // `materiaux` : métré interne (caché du devis client), stocké pour la liste de courses.
+    return { id: `l${Date.now()}-${_ligneSeq++}`, designation, detail, qte, unite, puHT, tva, materiaux };
 }
 
 // ─── Calcul des totaux ────────────────────────────────────────────────────────

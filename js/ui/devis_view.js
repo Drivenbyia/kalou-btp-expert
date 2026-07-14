@@ -2,6 +2,7 @@ import { showToast } from './toast.js';
 import { getMateriaux, getOuvrages, getProfil } from '../pricing/tarifs.js';
 import { TVA_OPTIONS } from '../data/prices.default.js';
 import { imprimerDevis } from './print_devis.js';
+import { estimerMateriaux, resumeMateriaux } from '../pricing/chiffrage.js';
 import {
     listDevis, getDevisById, creerDevis, creerLigne, calculerTotaux, totalLigne,
     sauvegarderDevis, supprimerDevis, dupliquerDevis, changerType, lignesDepuisResultats
@@ -191,11 +192,17 @@ export function annulerConfig() {
     renderEditor();
 }
 
+/** Valeur d'une prestation par unité = matériel (€) + main d'œuvre (temps × taux). */
+function optionValeur(op, taux) {
+    return (op.prix || 0) + (op.tempsMO || 0) * taux;
+}
+
 /** Compose la ligne de devis à partir de l'état du configurateur. */
 function composeConfig() {
     const o = getOuvrages().find(x => x.id === _config.id);
     const c = o.config;
     const dims = _config.dims;
+    const taux = getProfil().tauxHoraire || 0;
     const inclus = c.options.filter(op => _config.opts[op.id]);
 
     let detail = c.resume(dims);
@@ -207,14 +214,29 @@ function composeConfig() {
     if (c.mode === 'm2' || c.mode === 'qte') {
         qte   = Math.round(Object.values(dims).reduce((a, b) => a * (parseFloat(b) || 0), 1) * 100) / 100;
         unite = c.mode === 'm2' ? 'm²' : o.unite;
-        puHT  = o.prix;
+        // Prix unitaire = tarif de référence ajusté selon les prestations cochées :
+        // chaque prestation retirée/ajoutée = temps de main d'œuvre + matériel en moins/plus.
+        let delta = 0;
+        c.options.forEach(op => {
+            const val = optionValeur(op, taux);
+            if (!val) return;
+            const sel = _config.opts[op.id];
+            if (sel && !op.defaut) delta += val;          // ajout d'une option hors standard
+            else if (!sel && op.defaut) delta -= val;     // retrait d'une option standard
+        });
+        puHT = Math.max(0, Math.round((o.prix + delta) * 100) / 100);
     } else {
         qte   = 1;
         unite = 'forfait';
         const base = typeof c.base === 'function' ? c.base(dims) : (c.base || o.prix);
-        puHT = base + inclus.reduce((s, op) => s + (op.prix || 0), 0);
+        puHT = Math.round((base + inclus.reduce((s, op) => s + optionValeur(op, taux), 0)) * 100) / 100;
     }
-    return { designation: o.label, detail, qte, unite, puHT };
+
+    // Métré matériaux interne (caché du devis client) + main d'œuvre estimée
+    const materiaux    = estimerMateriaux(o.id, dims);
+    const tempsMOtotal = Math.round((o.tempsMO || 0) * (c.mode === 'forfait' ? 1 : qte) * 10) / 10;
+
+    return { designation: o.label, detail, qte, unite, puHT, materiaux, tempsMOtotal };
 }
 
 export function validerConfig() {
@@ -427,6 +449,8 @@ function renderConfigHTML() {
     const o = getOuvrages().find(x => x.id === _config.id);
     const c = o.config;
     const preview = composeConfig();
+    const taux = getProfil().tauxHoraire || 0;
+    const uniteOpt = c.mode === 'm2' ? '/m²' : c.mode === 'qte' ? '/' + o.unite : '';
     const colClass = c.dims.length >= 3 ? 'grid-cols-3' : c.dims.length === 2 ? 'grid-cols-2' : 'grid-cols-1';
 
     return `
@@ -454,7 +478,7 @@ function renderConfigHTML() {
               <input type="checkbox" ${_config.opts[op.id] ? 'checked' : ''} onchange="window.toggleConfigOptDevis('${op.id}')" class="accent-kalou-orange w-4 h-4 shrink-0">
               ${esc(op.label)}
             </span>
-            ${op.prix ? `<span class="text-xs font-black shrink-0 ${_config.opts[op.id] ? 'text-gray-500' : 'text-gray-300'}">+${fmt(op.prix)} €</span>` : ''}
+            ${((op.prix || 0) + (op.tempsMO || 0) * taux) ? `<span class="text-xs font-black shrink-0 ${_config.opts[op.id] ? 'text-gray-500' : 'text-gray-300'}">${c.mode === 'forfait' ? '+' : ''}${fmt((op.prix || 0) + (op.tempsMO || 0) * taux)} €${uniteOpt}</span>` : ''}
           </label>`).join('')}
         </div>
       </div>
@@ -466,6 +490,12 @@ function renderConfigHTML() {
           <span class="text-xs font-bold text-gray-400">${preview.qte} ${esc(preview.unite)}${c.mode !== 'forfait' ? ' × ' + fmt(preview.puHT) + ' €' : ''}</span>
           <span class="font-black text-kalou-dark">${fmt(preview.qte * preview.puHT)} €</span>
         </div>
+      </div>
+
+      <div class="bg-gray-100 rounded-xl p-3 text-[11px] text-gray-500 leading-relaxed">
+        <p class="text-[9px] font-black uppercase text-gray-400 tracking-widest mb-1">🔧 Interne — n'apparaît pas sur le devis</p>
+        <p><b>Main d'œuvre estimée :</b> ${preview.tempsMOtotal} h</p>
+        ${preview.materiaux ? `<p class="mt-1"><b>Matériaux (surface) :</b> ${esc(resumeMateriaux(preview.materiaux))}</p>` : ''}
       </div>
 
       <button onclick="window.validerConfigDevis()" class="w-full bg-kalou-orange text-white font-black text-sm uppercase h-12 rounded-2xl active:scale-95 transition-all">

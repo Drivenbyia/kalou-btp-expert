@@ -88,9 +88,18 @@ Note connue (non bloquant) : l'import d'un métré reste une base à ajuster (as
 - `colClass` du configurateur : grid-cols 3/2/1 selon le nombre de dimensions.
 - Vérifié (Playwright) : les 12 ouvrages ouvrent un configurateur, dims + options OK, ajout de ligne, totaux justes (terrasse 1 560 €, mur parpaing 1 000 €, évacuation 290 €, terrassement 450 €…). 0 ouvrage sans config. Aucune erreur JS.
 
+**Prix réactif + métré interne (2026-07-14, retour beau-père sur captures)** :
+- Retour : sur les ouvrages au m² (mur parpaing), cocher/décocher les prestations ne changeait pas le prix (options descriptives). De plus, chaque prestation = du temps de travail en plus, et les matériaux doivent se calculer selon la surface (en interne).
+- **Refactor** : `gros_oeuvre.js` → `computeGros(activeGros, get, getRaw)` pure + `handleGrosCalculate` wrapper DOM. Sélecteurs via `getRaw('t')`. Régression vérifiée (écran Gros Œuvre inchangé).
+- **`pricing/chiffrage.js`** : mapping ouvrage → calculateur, `estimerMateriaux()`, `coutMateriaux()`, `resumeMateriaux()`.
+- **Prix** : options portent `tempsMO`/`prix` ; `optionValeur = prix + tempsMO×taux`. m²/qte = `o.prix` ± delta selon options ; forfait = `base + Σ options`. `creerLigne` transporte `materiaux` (caché).
+- **Configurateur** : chaque prestation affiche sa valeur (€/m² ou +€), bloc « 🔧 Interne » (matériaux estimés + main d'œuvre) non imprimé.
+- **Vérifié (Playwright)** : mur parpaing 5×2,5 = 1 000 € (défaut) → 618,75 € (sans les 2 enduits) → 890,63 € (ext + arase) ; ligne stocke 6 lignes de métré cachées ; PDF client ne montre pas le métré interne ; calculateurs écran OK. Aucune erreur JS.
+
 ## Prochaine étape immédiate (suite)
 
 Pistes restantes (non urgentes) :
+- Exploiter `ligne.materiaux` : une **liste de courses par chantier** consolidée depuis les devis (le métré est déjà stocké).
 - L'import « depuis un calcul » garde des approximations d'unité (ex. sable en big bag chiffré au prix €/T) — à affiner si besoin, mais le message « vérifie les prix » couvre le cas.
 - Second Œuvre : d'autres postes (peinture, isolation) si demandé.
 - Éventuelle synchro cloud (§5 bis du plan) si le transfert manuel gêne à l'usage.
