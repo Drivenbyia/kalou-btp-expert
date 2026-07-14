@@ -219,6 +219,50 @@ js/
 
 ---
 
+## 5 bis. Multi-appareils : téléphone (chantier) + PC (maison)
+
+Usage réel : **saisie rapide sur téléphone sur le chantier**, puis **finalisation des calculs et
+devis sur le PC à la maison**. Deux conséquences majeures :
+
+### a) Mise en page responsive (indispensable)
+Aujourd'hui l'UI est *mobile-first* (largeur `max-w-2xl`, nav en bas). Sur PC ça marche mais reste
+une colonne étroite centrée. Le **module Devis** (le gros du travail sur PC) doit avoir une **mise en
+page large façon bureau** : tableau de lignes multi-colonnes, totaux sur le côté, clavier/tab,
+aperçu A4 avant impression. → CSS responsive : `sm/md` = téléphone (capture), `lg+` = PC (édition).
+
+### b) ⚠️ Le `localStorage` n'est PAS synchronisé entre appareils
+C'est le piège n°1 à connaître : le `localStorage` est **propre à chaque appareil ET chaque
+navigateur**. Un chantier enregistré sur le **téléphone n'apparaîtra PAS sur le PC**, et inversement.
+Sans solution, son flux « je mesure sur le tel, je fais le devis à la maison » **casse**.
+
+Options, du plus simple au plus lourd (l'app reste offline / sans serveur par défaut) :
+1. **Pont manuel (dispo presque tout de suite)** — sur le chantier, le bouton **« Partager »**
+   existant envoie le récap (WhatsApp / SMS / mail) → il se l'envoie à lui-même et le rouvre sur le
+   PC. Zéro dev.
+2. **Export / Import JSON** — un fichier de sauvegarde (devis, clients, prix, profil) qu'on
+   transfère tel/PC (mail, cloud drive, clé USB). ➜ **remonté de la Phase 3 à la Phase 1** car
+   devenu essentiel au multi-appareils, plus seulement une sauvegarde.
+3. **Vraie synchro automatique tel ↔ PC** — nécessite **un petit backend ou un service cloud**
+   (Firebase, Supabase, ou un mini-serveur). ➜ **casse le "100 % local, zéro serveur"** actuel :
+   décision à prendre à part, plus tard, seulement si le transfert manuel le gêne vraiment.
+
+**Recommandation** : commencer par 1 + 2 (le PC reste la station principale du devis, le téléphone
+sert à capturer). Garder la synchro cloud (3) en option ultérieure.
+
+### Type de document : Estimation (pré-devis) vs Devis
+L'app produit **deux types de documents** :
+- **Estimation / pré-devis** — un chiffrage rapide, **non contractuel**, marqué explicitement
+  *« Estimation — ne vaut pas devis »*. Sert à donner un prix vite fait avant l'accord. Tout artisan
+  déclaré en fait. N'exige pas les mentions légales complètes.
+- **Devis** — document **contractuel** avec toutes les mentions obligatoires (§6). Suppose une
+  entreprise **déclarée** (micro-entreprise ou EI) : SIRET, mention EI, **assurance décennale**, TVA
+  ou mention 293 B. C'est la cible de l'app.
+
+Le profil entreprise se remplit **une seule fois** ; une estimation se transforme alors en devis
+conforme d'un clic. **L'app est conçue pour une activité déclarée** — voir la note du §8.
+
+---
+
 ## 6. Mentions légales du devis — générées automatiquement (obligatoire, sinon non conforme)
 
 L'app doit imprimer d'office :
@@ -251,11 +295,12 @@ L'app doit imprimer d'office :
 - Écran **Mon taux horaire** (`pricing/deboursé.js`).
 
 ### Phase 1 — Moteur de devis *(priorité choisie)*
-- `pricing/devis.js` (modèle + totaux + TVA multi-taux + numérotation).
+- `pricing/devis.js` (modèle + totaux + TVA multi-taux + numérotation ; types **Estimation** / **Devis**).
 - `ui/devis_view.js` (créer/éditer, lignes manuelles + depuis catalogue + depuis historique,
-  remises, acompte, statuts, duplication).
+  remises, acompte, statuts, duplication). **Mise en page responsive PC** (§5 bis a).
 - `ui/print_devis.js` + CSS print (PDF conforme, toutes les mentions §6).
 - Sauvegarde devis (`kalou_devis_v1`).
+- **Export / Import JSON** (remonté ici, §5 bis b) — pont téléphone ↔ PC + sauvegarde de secours.
 
 ### Phase 2 — Ouvrages métier
 - `data/ouvrages.js` + calculateurs : terrasse béton, terrasse sur plots, dallage/allée,
@@ -270,11 +315,21 @@ L'app doit imprimer d'office :
 ---
 
 ## 8. Points à valider avant de coder
-1. **Régime** : dès qu'il tranche (micro vs réel) → fige l'étiquette HT/TTC du catalogue et le mode
-   TVA par défaut. En attendant : interrupteur 3 positions.
-2. **Taux horaire** : faire l'exercice du §2 avec ses vrais chiffres (revenu voulu, frais, heures).
-3. **Décennale** : récupérer les coordonnées exactes de l'assureur + zone (bloquant pour un devis
+1. **Statut déclaré** : l'app cible une **activité déclarée** (micro-entreprise ou EI). La
+   micro-entreprise est faite pour ça : inscription **gratuite**, en ligne, ~15 min (guichet unique
+   INPI), **pas de cotisation tant qu'il ne facture pas** (~21,2 % uniquement sur ce qu'il encaisse),
+   pas de comptable obligatoire au démarrage. Point décisif pour un maçon : **sans déclaration, pas
+   d'assurance décennale** — or il fait de la structure (piscine, ouverture de mur porteur, murs). Un
+   sinistre dans les 10 ans = tout à sa charge, patrimoine personnel exposé. C'est pour le protéger,
+   lui, que l'app est pensée « déclaré ». Avant l'inscription : documents en mode **Estimation**
+   (non contractuel).
+2. **Régime TVA** : dès qu'il tranche (micro vs réel) → fige l'étiquette HT/TTC du catalogue et le
+   mode TVA par défaut. En attendant : interrupteur 3 positions.
+3. **Taux horaire** : faire l'exercice du §2 avec ses vrais chiffres (revenu voulu, frais, heures).
+4. **Décennale** : récupérer les coordonnées exactes de l'assureur + zone (bloquant pour un devis
    conforme).
-4. **Piscine / ouverture** : valider le périmètre exact du lot maçonnerie (ce qui est inclus / exclu).
+5. **Multi-appareils** : valider le pont téléphone → PC (partage + export/import JSON) avant
+   d'envisager une synchro cloud (§5 bis).
+6. **Piscine / ouverture** : valider le périmètre exact du lot maçonnerie (ce qui est inclus / exclu).
 </content>
 </invoke>
