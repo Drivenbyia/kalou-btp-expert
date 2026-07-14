@@ -27,6 +27,8 @@ export function imprimerDevis(devis) {
 
 function buildHTML(devis, profil, t) {
     const isEstimation = devis.type === 'estimation';
+    const regimeTaux = { franchise: 0, '10': 10, '20': 20 }[devis.regimeTVA] ?? 0;
+    const tauxLigne = l => (l.tva !== null && l.tva !== undefined) ? l.tva : regimeTaux;
 
     const enTeteEntreprise = `
         <div class="pp-co-nm">${esc(profil.entreprise) || 'Nom de l\'entreprise à renseigner'}${profil.formeJuridique ? `<span class="pp-ei">${esc(profil.formeJuridique)}</span>` : ''}</div>
@@ -46,7 +48,7 @@ function buildHTML(devis, profil, t) {
             <td>${esc(String(l.qte))}</td>
             <td>${esc(l.unite)}</td>
             <td>${fmt(l.puHT)}</td>
-            <td>${t.mentionFranchise ? '—' : (l.tva ?? '') !== '' ? esc(String(l.tva ?? '')) + (l.tva != null ? ' %' : '') : ''}</td>
+            <td>${t.mentionFranchise ? '—' : tauxLigne(l) + ' %'}</td>
             <td>${fmt(totalLigne(l))}</td>
         </tr>`).join('');
 

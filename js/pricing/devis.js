@@ -155,8 +155,16 @@ export function changerType(devis, type) {
  * correspondance existe ; sinon la ligne est ajoutée à prix 0 (à compléter).
  */
 export function lignesDepuisResultats(resultats, catalogue) {
+    // Lignes de quantité intermédiaire (volume de béton, surface, terre à évacuer) :
+    // ce ne sont pas des matériaux achetables et les chiffrer double-compterait le
+    // béton avec ses composants (ciment + agrégats). On les importe à 0 € à compléter.
+    const intermediaire = /^(volume|surface|terre)/i;
+
     return resultats.map(r => {
-        const match = catalogue.find(m => r.l.toLowerCase().includes(m.label.toLowerCase().split(' ')[0].toLowerCase()));
+        const estIntermediaire = intermediaire.test(r.l.trim());
+        const match = estIntermediaire
+            ? null
+            : catalogue.find(m => r.l.toLowerCase().includes(m.label.toLowerCase().split(' ')[0].toLowerCase()));
         return creerLigne({
             designation: r.l,
             detail:      '',

@@ -54,6 +54,13 @@ Décisions cadrées avec le porteur (2026-07-14) :
 - `index.html` / `navigation.js` / `app.js` — nouveaux onglets Devis (nav du bas) et Réglages (icône engrenage header), `<main>` élargi (`max-w-6xl`) avec les anciens onglets recentrés en `max-w-2xl` pour ne pas changer leur rendu mobile
 - **Testé** en conditions réelles (Playwright + Tailwind local pour contourner le proxy sandbox) : création devis, ajout ligne "ouvrage type", calcul TVA (franchise → 10 % → 20 %), export PDF, écran Réglages (taux horaire + catalogue de prix). Aucune erreur JS, seul un 404 favicon.ico sans rapport.
 
+**Vérification (2026-07-14, relecture + test navigateur élargi)** — 3 correctifs :
+1. **PDF, colonne TVA par ligne** : s'affichait vide quand la TVA venait du régime (l.tva = null). Corrigé dans `print_devis.js` — affiche le taux effectif (`tauxLigne`).
+2. **Impression, pages blanches** : `@media print` passait par `visibility:hidden` (laissait l'espace). Remplacé par `body > *:not(#devis-print-sheet){ display:none }` dans `index.html`.
+3. **Double-comptage béton à l'import « depuis un calcul »** : la ligne « Volume Béton » était chiffrée comme béton toupie EN PLUS du ciment + agrégats qui le composent. Corrigé dans `lignesDepuisResultats()` — les lignes intermédiaires (`^volume|surface|terre`) sont importées à 0 € (à compléter), plus auto-chiffrées.
+
+Note connue (non bloquant) : l'import d'un métré reste une base à ajuster (association libellé→prix best-effort ; certaines lignes intermédiaires arrivent à 0 €). Toast « vérifie les prix » affiché.
+
 ## Prochaine étape immédiate (suite)
 
 Phase 1 restante : **export/import JSON** (pont téléphone ↔ PC + sauvegarde de secours) — remonté prioritaire au §5 bis du plan, pas encore fait.

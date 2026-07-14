@@ -101,9 +101,8 @@
             background: #fff;
         }
         @media print {
-            body * { visibility: hidden; }
-            #devis-print-sheet, #devis-print-sheet * { visibility: visible; }
-            #devis-print-sheet { position: absolute; left: 0; top: 0; }
+            body > *:not(#devis-print-sheet) { display: none !important; }
+            #devis-print-sheet { position: static !important; left: auto; width: auto; }
         }
     </style>
 </head>
