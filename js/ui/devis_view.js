@@ -204,9 +204,9 @@ function composeConfig() {
     if (c.exclusions) detail += ' ' + c.exclusions;
 
     let qte, unite, puHT;
-    if (c.mode === 'm2') {
+    if (c.mode === 'm2' || c.mode === 'qte') {
         qte   = Math.round(Object.values(dims).reduce((a, b) => a * (parseFloat(b) || 0), 1) * 100) / 100;
-        unite = 'm²';
+        unite = c.mode === 'm2' ? 'm²' : o.unite;
         puHT  = o.prix;
     } else {
         qte   = 1;
@@ -427,7 +427,7 @@ function renderConfigHTML() {
     const o = getOuvrages().find(x => x.id === _config.id);
     const c = o.config;
     const preview = composeConfig();
-    const colClass = c.dims.length >= 3 ? 'grid-cols-3' : 'grid-cols-2';
+    const colClass = c.dims.length >= 3 ? 'grid-cols-3' : c.dims.length === 2 ? 'grid-cols-2' : 'grid-cols-1';
 
     return `
     <div class="mt-4 bg-gray-50 rounded-2xl p-4 space-y-4">
@@ -463,7 +463,7 @@ function renderConfigHTML() {
         <p class="text-[9px] font-black uppercase text-gray-400 tracking-widest mb-1">Aperçu de la ligne</p>
         <p class="text-xs text-gray-600 leading-relaxed">${esc(preview.detail)}</p>
         <div class="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
-          <span class="text-xs font-bold text-gray-400">${preview.qte} ${esc(preview.unite)}${c.mode === 'm2' ? ' × ' + fmt(preview.puHT) + ' €' : ''}</span>
+          <span class="text-xs font-bold text-gray-400">${preview.qte} ${esc(preview.unite)}${c.mode !== 'forfait' ? ' × ' + fmt(preview.puHT) + ' €' : ''}</span>
           <span class="font-black text-kalou-dark">${fmt(preview.qte * preview.puHT)} €</span>
         </div>
       </div>

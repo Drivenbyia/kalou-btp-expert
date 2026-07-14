@@ -62,10 +62,77 @@ export const OUVRAGES_DEFAUT = [
             ]
         }
     },
-    { id: 'terrasse_desac', label: 'Terrasse béton désactivé', unite: 'm²', prix: 105, tempsMO: 1.3, cat: 'Terrasses & dallages', detail: 'Fourniture et pose : décaissement, hérisson compacté, film polyane, treillis soudé, dalle béton 12 cm, finition désactivée (gravillon lavé apparent), réglage des pentes.' },
-    { id: 'terrasse_plots', label: 'Terrasse sur plots + dalles', unite: 'm²', prix: 60, tempsMO: 0.6, cat: 'Terrasses & dallages', detail: 'Fourniture et pose de dalles sur plots réglables (dalles fournies), réglage de niveau et des pentes, découpes de rive.' },
-    { id: 'dallage', label: 'Dallage / allée béton', unite: 'm²', prix: 62, tempsMO: 0.9, cat: 'Terrasses & dallages', detail: 'Fourniture et pose : décaissement, forme en tout-venant compacté, treillis soudé, dalle béton, finition balayée.' },
-    { id: 'mur_parpaing', label: 'Mur parpaing enduit (2 faces)', unite: 'm²', prix: 80, tempsMO: 1.2, cat: 'Murs', detail: 'Fourniture et pose : montage d\'agglos hourdés au mortier, chaînages, enduit de finition sur les deux faces.' },
+    {
+        id: 'terrasse_desac', label: 'Terrasse béton désactivé', unite: 'm²', prix: 105, tempsMO: 1.3,
+        cat: 'Terrasses & dallages',
+        detail: 'Fourniture et pose : décaissement, hérisson compacté, film polyane, treillis soudé, dalle béton 12 cm, finition désactivée (gravillon lavé apparent), réglage des pentes.',
+        config: {
+            mode: 'm2',
+            dims: [{ id: 'L', label: 'Longueur', unit: 'm', default: 5 }, { id: 'l', label: 'Largeur', unit: 'm', default: 4 }],
+            resume: d => `Terrasse béton désactivé de ${(d.L * d.l).toFixed(1)} m² (${d.L} × ${d.l} m)`,
+            options: [
+                { id: 'decaissement', label: 'Décaissement et préparation du fond de forme', defaut: true },
+                { id: 'herisson',     label: 'Hérisson compacté + film polyane',            defaut: true },
+                { id: 'treillis',     label: 'Treillis soudé de renfort',                    defaut: true },
+                { id: 'pente',        label: 'Réglage des pentes d\'écoulement',             defaut: true },
+                { id: 'desactive',    label: 'Finition désactivée (gravillon lavé apparent)', defaut: true },
+                { id: 'joints',       label: 'Joints de dilatation',                         defaut: false }
+            ]
+        }
+    },
+    {
+        id: 'terrasse_plots', label: 'Terrasse sur plots + dalles', unite: 'm²', prix: 60, tempsMO: 0.6,
+        cat: 'Terrasses & dallages',
+        detail: 'Fourniture et pose de dalles sur plots réglables (dalles fournies), réglage de niveau et des pentes, découpes de rive.',
+        config: {
+            mode: 'm2',
+            dims: [{ id: 'L', label: 'Longueur', unit: 'm', default: 5 }, { id: 'l', label: 'Largeur', unit: 'm', default: 4 }],
+            resume: d => `Terrasse sur plots de ${(d.L * d.l).toFixed(1)} m² (${d.L} × ${d.l} m)`,
+            options: [
+                { id: 'plots',       label: 'Fourniture et pose de plots réglables', defaut: true },
+                { id: 'niveau',      label: 'Réglage de niveau et des pentes',       defaut: true },
+                { id: 'coupes',      label: 'Découpes de rive',                      defaut: true },
+                { id: 'geotextile',  label: 'Géotextile anti-repousse',              defaut: false },
+                { id: 'dallesclient', label: 'Dalles fournies par le client',        defaut: true }
+            ]
+        }
+    },
+    {
+        id: 'dallage', label: 'Dallage / allée béton', unite: 'm²', prix: 62, tempsMO: 0.9,
+        cat: 'Terrasses & dallages',
+        detail: 'Fourniture et pose : décaissement, forme en tout-venant compacté, treillis soudé, dalle béton, finition balayée.',
+        config: {
+            mode: 'm2',
+            dims: [{ id: 'L', label: 'Longueur', unit: 'm', default: 5 }, { id: 'l', label: 'Largeur', unit: 'm', default: 4 }],
+            resume: d => `Dallage / allée béton de ${(d.L * d.l).toFixed(1)} m² (${d.L} × ${d.l} m)`,
+            options: [
+                { id: 'decaissement', label: 'Décaissement du terrain',              defaut: true },
+                { id: 'forme',        label: 'Forme en tout-venant compacté',        defaut: true },
+                { id: 'treillis',     label: 'Treillis soudé de renfort',            defaut: true },
+                { id: 'balayee',      label: 'Finition balayée',                     defaut: true },
+                { id: 'joints',       label: 'Joints de fractionnement',             defaut: false },
+                { id: 'bordures',     label: 'Pose de bordures',                     defaut: false }
+            ]
+        }
+    },
+    {
+        id: 'mur_parpaing', label: 'Mur parpaing enduit (2 faces)', unite: 'm²', prix: 80, tempsMO: 1.2,
+        cat: 'Murs',
+        detail: 'Fourniture et pose : montage d\'agglos hourdés au mortier, chaînages, enduit de finition sur les deux faces.',
+        config: {
+            mode: 'm2',
+            dims: [{ id: 'L', label: 'Longueur', unit: 'm', default: 5 }, { id: 'h', label: 'Hauteur', unit: 'm', default: 2.5 }],
+            resume: d => `Mur en parpaing de ${(d.L * d.h).toFixed(1)} m² (${d.L} × ${d.h} m)`,
+            options: [
+                { id: 'montage',    label: 'Montage d\'agglos hourdés au mortier',     defaut: true },
+                { id: 'ferraillage', label: 'Ferraillage (fers HA)',                   defaut: true },
+                { id: 'chainage',   label: 'Chaînages verticaux et horizontaux',       defaut: true },
+                { id: 'enduitext',  label: 'Enduit de finition face extérieure',       defaut: true },
+                { id: 'enduitint',  label: 'Enduit de finition face intérieure',       defaut: true },
+                { id: 'arase',      label: 'Arase supérieure',                         defaut: false }
+            ]
+        }
+    },
     {
         id: 'mur_pierre', label: 'Mur en pierre — parement moellons', unite: 'm²', prix: 185, tempsMO: 3.0,
         cat: 'Murs',
@@ -85,8 +152,40 @@ export const OUVRAGES_DEFAUT = [
             ]
         }
     },
-    { id: 'rejoint', label: 'Rejointoiement à la chaux', unite: 'm²', prix: 65, tempsMO: 1.5, cat: 'Murs', detail: 'Dégarnissage des joints existants, dépoussiérage, rejointoiement au mortier de chaux, finition brossée.' },
-    { id: 'enduit_chaux', label: 'Enduit à la chaux', unite: 'm²', prix: 68, tempsMO: 1.5, cat: 'Murs', detail: 'Enduit à la chaux NHL en trois passes (gobetis, corps d\'enduit, finition), sur mur pierre ou parpaing.' },
+    {
+        id: 'rejoint', label: 'Rejointoiement à la chaux', unite: 'm²', prix: 65, tempsMO: 1.5,
+        cat: 'Murs',
+        detail: 'Dégarnissage des joints existants, dépoussiérage, rejointoiement au mortier de chaux, finition brossée.',
+        config: {
+            mode: 'm2',
+            dims: [{ id: 'L', label: 'Longueur', unit: 'm', default: 5 }, { id: 'h', label: 'Hauteur', unit: 'm', default: 2.5 }],
+            resume: d => `Rejointoiement à la chaux de ${(d.L * d.h).toFixed(1)} m² (${d.L} × ${d.h} m)`,
+            options: [
+                { id: 'degarnissage',  label: 'Dégarnissage des joints existants',           defaut: true },
+                { id: 'depoussierage', label: 'Dépoussiérage et humidification du support',  defaut: true },
+                { id: 'joint',         label: 'Rejointoiement au mortier de chaux NHL',       defaut: true },
+                { id: 'finition',      label: 'Finition brossée',                            defaut: true },
+                { id: 'deuxfaces',     label: 'Deux faces',                                  defaut: false }
+            ]
+        }
+    },
+    {
+        id: 'enduit_chaux', label: 'Enduit à la chaux', unite: 'm²', prix: 68, tempsMO: 1.5,
+        cat: 'Murs',
+        detail: 'Enduit à la chaux NHL en trois passes (gobetis, corps d\'enduit, finition), sur mur pierre ou parpaing.',
+        config: {
+            mode: 'm2',
+            dims: [{ id: 'L', label: 'Longueur', unit: 'm', default: 6 }, { id: 'h', label: 'Hauteur', unit: 'm', default: 2.5 }],
+            resume: d => `Enduit à la chaux de ${(d.L * d.h).toFixed(1)} m² (${d.L} × ${d.h} m)`,
+            options: [
+                { id: 'gobetis',  label: 'Gobetis d\'accrochage',              defaut: true },
+                { id: 'corps',    label: 'Corps d\'enduit à la chaux NHL',     defaut: true },
+                { id: 'finition', label: 'Couche de finition',                defaut: true },
+                { id: 'taloche',  label: 'Finition talochée',                 defaut: true },
+                { id: 'gratte',   label: 'Finition grattée',                  defaut: false }
+            ]
+        }
+    },
     {
         id: 'ouverture', label: "Création d'ouverture (mur porteur)", unite: 'forfait', prix: 1500, tempsMO: 12,
         cat: 'Ouvertures & piscines',
@@ -128,8 +227,38 @@ export const OUVRAGES_DEFAUT = [
             exclusions: 'Non compris : étanchéité / liner, filtration et équipements, plage / terrasse, raccordements électriques.'
         }
     },
-    { id: 'evacuation', label: 'Évacuation des gravats', unite: 'forfait', prix: 290, tempsMO: 2, cat: 'Divers', detail: 'Location d\'une benne 8 m³, chargement et évacuation des gravats en déchetterie professionnelle.' },
-    { id: 'terrassement', label: 'Terrassement mini-pelle', unite: 'jour', prix: 450, tempsMO: 8, cat: 'Divers', detail: 'Terrassement à la mini-pelle (location + conducteur), réglage et mise en forme, à la journée.' }
+    {
+        id: 'evacuation', label: 'Évacuation des gravats', unite: 'benne', prix: 290, tempsMO: 2,
+        cat: 'Divers',
+        detail: 'Location d\'une benne 8 m³, chargement et évacuation des gravats en déchetterie professionnelle.',
+        config: {
+            mode: 'qte',
+            dims: [{ id: 'nb', label: 'Nombre de bennes', unit: 'benne 8 m³', default: 1 }],
+            resume: d => `Évacuation des gravats — ${d.nb} benne(s) de 8 m³`,
+            options: [
+                { id: 'location',    label: 'Location de la benne',                            defaut: true },
+                { id: 'chargement',  label: 'Chargement des gravats',                          defaut: true },
+                { id: 'dechetterie', label: 'Transport et dépose en déchetterie professionnelle', defaut: true },
+                { id: 'tri',         label: 'Tri des déchets',                                 defaut: false }
+            ]
+        }
+    },
+    {
+        id: 'terrassement', label: 'Terrassement mini-pelle', unite: 'jour', prix: 450, tempsMO: 8,
+        cat: 'Divers',
+        detail: 'Terrassement à la mini-pelle (location + conducteur), réglage et mise en forme, à la journée.',
+        config: {
+            mode: 'qte',
+            dims: [{ id: 'nb', label: 'Nombre de jours', unit: 'jour', default: 1 }],
+            resume: d => `Terrassement à la mini-pelle — ${d.nb} jour(s)`,
+            options: [
+                { id: 'location',   label: 'Location de la mini-pelle',              defaut: true },
+                { id: 'conducteur', label: 'Conducteur d\'engin',                    defaut: true },
+                { id: 'reglage',    label: 'Réglage et mise en forme du terrain',    defaut: true },
+                { id: 'evacuation', label: 'Évacuation des déblais',                 defaut: false }
+            ]
+        }
+    }
 ];
 
 // === PROFIL ENTREPRISE PAR DÉFAUT ===

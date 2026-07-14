@@ -82,6 +82,12 @@ Note connue (non bloquant) : l'import d'un métré reste une base à ajuster (as
 - `devis_view.js` : configurateur (dimensions + cases à cocher avec prix, aperçu live description + prix), `composeConfig()`, `ouvrirConfigOuvrage/majConfigDim/toggleConfigOpt/validerConfig/annulerConfig` ; détail de ligne passé en `<textarea>` pour les longues descriptions.
 - Vérifié (Playwright) : piscine 8×4 défaut = 16 400 € ; 10×5 sans terrassement + enduit = 22 100 € (description et prix recalculés en direct) ; terrasse m² = surface×prix ; PDF affiche les prestations « Comprend : … » + exclusions. Aucune erreur JS.
 
+**Configurateur généralisé à TOUS les ouvrages (2026-07-14, « fait le pour tout »)** :
+- Ajout du mode `qte` (qté = produit des dims, unité = `o.unite`) pour évacuation (bennes) et terrassement (jours).
+- `config` ajoutée aux 8 ouvrages restants : terrasse_desac, terrasse_plots, dallage, mur_parpaing, rejoint, enduit_chaux (m²), evacuation (benne, qte), terrassement (jour, qte). `evacuation` : unité passée de `forfait` à `benne` (prix 290/benne).
+- `colClass` du configurateur : grid-cols 3/2/1 selon le nombre de dimensions.
+- Vérifié (Playwright) : les 12 ouvrages ouvrent un configurateur, dims + options OK, ajout de ligne, totaux justes (terrasse 1 560 €, mur parpaing 1 000 €, évacuation 290 €, terrassement 450 €…). 0 ouvrage sans config. Aucune erreur JS.
+
 ## Prochaine étape immédiate (suite)
 
 Pistes restantes (non urgentes) :
