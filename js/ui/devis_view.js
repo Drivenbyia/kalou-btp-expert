@@ -270,7 +270,7 @@ function composeConfig() {
     const tempsMOtotal = Math.round(heuresUnit * (c.mode === 'forfait' ? 1 : qte) * 10) / 10;
 
     // Métré matériaux interne (caché du devis client)
-    const materiaux = estimerMateriaux(o.id, dims);
+    const materiaux = estimerMateriaux(o.id, dims, _config.opts);
 
     return { designation: o.label, detail, qte, unite, puHT, materiaux, tempsMOtotal,
              heuresUnit, tauxLigne: taux, coutMatUnit };

@@ -112,6 +112,19 @@ Note connue (non bloquant) : l'import d'un métré reste une base à ajuster (as
   - `gros_oeuvre.js` piscine : ajout **Agglos à bancher 20×20×50** (10/m² de parois +5%) et **Fer HA Ø10 (barres)** (~4 ml/m²). Béton = radier + remplissage des blocs.
   - `chiffrage.js` : `INTERMEDIAIRE` inclut désormais `terrassement` (le déblai n'est pas un achat). Vérifié : liste piscine contient « Agglos à bancher 378 u », plus de ligne Terrassement.
 
+**Audit systématique des 12 ouvrages — matériaux manquants dans la liste de courses (2026-07-14)** :
+- Suite au retour piscine/parpaings, demande explicite : auditer TOUS les ouvrages préconfigurés plutôt que d'attendre qu'une erreur arrive devant un client. Comparé chaque ouvrage (options du catalogue) au métré réellement généré.
+- **Trous trouvés et corrigés** dans `chiffrage.js` (mapping enrichi avec `extra(dims, opts, base)` sensible aux options cochées, et `custom(dims, opts)` pour les ouvrages sans calculateur de métré dédié) :
+  - `mur_parpaing` : "Enduit ext/int" et "Ferraillage" cochés par défaut → **aucun sac d'enduit ni fer** dans la liste. Ajout enduit prêt-à-l'emploi (18 kg/m²/cm/face) + fer HA (barres 6 m).
+  - `terrasse_desac` : finition désactivée cochée par défaut → **aucun désactivant**. Ajouté (~0,15 L/m²).
+  - `terrasse_plots` : **pas mappé du tout** → les plots (l'élément principal !) absents de la liste. Ajout `custom()` dédié (plots ~3,5/m², géotextile si coché).
+  - `dallage` : option "bordures" sans matériau. Ajout bordures béton (périmètre en ml).
+  - `mur_pierre` / `rejoint` : option "Deux faces" ne doublait pas pierre/chaux/sable. `extra()` duplique les lignes de base (se consolident naturellement dans la liste de courses).
+  - `piscine_go` : options "Enduit hydrofuge" et "Local technique" (optionnelles) sans matériau. Ajoutés.
+- `estimerMateriaux(ouvrageId, dims, opts)` prend désormais `opts` en 3e paramètre ; `composeConfig()` (devis_view.js) passe `_config.opts`.
+- **Vérifié systématiquement** (script d'audit direct sur les 12 ouvrages, options par défaut vs. inversées) : chaque option fait apparaître/disparaître le bon matériau, aucune régression sur les 12. Aucune erreur JS.
+- Limite assumée (documentée, pas bloquante) : `ouverture`, `evacuation`, `terrassement` restent sans métré caché — ce sont des forfaits/services où l'ouvrage catalogue EST déjà le produit livré (ex: linteau/IPN déjà dans le calc de base, benne/location déjà le prix affiché).
+
 **Facture — 3e type de document (2026-07-14)** :
 - `devis.js` : `numeroPour(type)` (DEV-/FAC-/EST-), `prochainNumero(code)` générique ; `creerDevis`/`changerType`/`dupliquerDevis` gèrent `facture`.
 - `print_devis.js` : titre FACTURE, « Échéance : à réception », bloc « Acompte déjà versé » + « Net à payer » (TTC − acompte), mentions facture (payable à réception, RIB, retard, médiateur), pas de bloc « Bon pour accord ». Décennale/SIRET/EI/TVA conservés.
