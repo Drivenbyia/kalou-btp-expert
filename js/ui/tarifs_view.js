@@ -2,6 +2,7 @@ import { showToast } from './toast.js';
 import { getProfil, updateProfil, getMateriaux, getOuvrages, setPrix, resetPrix } from '../pricing/tarifs.js';
 import { calculerDebourse } from '../pricing/debourse.js';
 import { TVA_OPTIONS } from '../data/prices.default.js';
+import { construireSauvegarde, estSauvegardeValide, resumeSauvegarde, fusionnerSauvegarde } from '../pricing/backup.js';
 
 function esc(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -16,6 +17,21 @@ export function renderReglages() {
 
     container.innerHTML = `
     <div class="space-y-6">
+
+      <!-- Sauvegarde & transfert -->
+      <div class="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+        <h3 class="font-black text-lg mb-1">Sauvegarde &amp; transfert</h3>
+        <p class="text-xs text-gray-400 font-bold mb-4">Le téléphone et le PC ne partagent pas leurs données. Exporte un fichier ici, ré-importe-le sur l'autre appareil. À faire aussi de temps en temps par sécurité.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button onclick="window.exporterSauvegarde()" class="bg-kalou-dark text-white font-black text-sm uppercase h-14 rounded-2xl active:scale-95 transition-all flex items-center justify-center gap-2">
+            ⤓ Exporter mes données
+          </button>
+          <button onclick="window.importerSauvegarde()" class="bg-white border-2 border-gray-200 text-gray-600 font-black text-sm uppercase h-14 rounded-2xl active:scale-95 transition-all flex items-center justify-center gap-2">
+            ⤒ Importer une sauvegarde
+          </button>
+        </div>
+        <p class="text-[11px] text-gray-400 mt-3">L'import <b>fusionne</b> avec tes données actuelles — rien n'est supprimé.</p>
+      </div>
 
       <!-- Profil entreprise -->
       <div class="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
@@ -190,4 +206,69 @@ export function resetPrixCatalogue(type, id) {
     resetPrix(type, id);
     renderReglages();
     showToast('Prix par défaut restauré');
+}
+
+// ─── Sauvegarde / restauration ────────────────────────────────────────────────
+
+export function exporterSauvegarde() {
+    const sauvegarde = construireSauvegarde();
+    const contenu    = JSON.stringify(sauvegarde, null, 2);
+    const date       = new Date().toISOString().slice(0, 10);
+    const nomFichier = `kalou-sauvegarde-${date}.json`;
+    const blob       = new Blob([contenu], { type: 'application/json' });
+
+    // Sur mobile : privilégier le partage natif (fichier) si disponible
+    if (navigator.canShare) {
+        const fichier = new File([blob], nomFichier, { type: 'application/json' });
+        if (navigator.canShare({ files: [fichier] })) {
+            navigator.share({ files: [fichier], title: 'Sauvegarde Kalou BTP' })
+                .then(() => showToast('Sauvegarde partagée'))
+                .catch(() => { /* annulé par l'utilisateur : rien à faire */ });
+            return;
+        }
+    }
+    // Sinon : téléchargement classique
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
+    a.href = url;
+    a.download = nomFichier;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast('Sauvegarde exportée');
+}
+
+export function importerSauvegarde() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json,.json';
+    input.addEventListener('change', () => {
+        const fichier = input.files && input.files[0];
+        if (!fichier) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            let obj;
+            try { obj = JSON.parse(reader.result); }
+            catch { return showToast('Fichier illisible', true); }
+
+            if (!estSauvegardeValide(obj)) return showToast('Ce n\'est pas une sauvegarde Kalou BTP', true);
+
+            const r = resumeSauvegarde(obj);
+            const details = [
+                `• ${r.devis} devis / estimation${r.devis > 1 ? 's' : ''}`,
+                `• ${r.chantiers} chantier${r.chantiers > 1 ? 's' : ''}`,
+                r.profil ? '• profil entreprise' : null,
+                r.prix   ? '• tarifs personnalisés' : null
+            ].filter(Boolean).join('\n');
+
+            if (!confirm(`Importer cette sauvegarde ?\n\n${details}\n\nElle sera fusionnée avec tes données actuelles (rien n'est supprimé).`)) return;
+
+            fusionnerSauvegarde(obj);
+            renderReglages();
+            showToast('Sauvegarde importée');
+        };
+        reader.readAsText(fichier);
+    });
+    input.click();
 }

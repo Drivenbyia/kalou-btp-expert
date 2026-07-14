@@ -8,7 +8,7 @@
 
 | Module | État | Notes |
 |--------|------|-------|
-| Gros Œuvre (7 types) | ✅ Stable | Dalle, Fondations, Mur, Enduit, Chape, Escalier, Poteaux |
+| Gros Œuvre (12 types) | ✅ Stable | Dalle, Fondations, Mur, Enduit, Chape, Escalier, Poteaux + Terrasse/Dallage, Mur pierre, Enduit/Joint chaux, Ouverture, Piscine (V2) |
 | Placo | ✅ Stable | Simple/doublage/plafond, trame simple/double |
 | Sols | ✅ Stable | Carrelage + parquet, pose droite/diagonale |
 | Historique | ✅ Stable | Groupé par chantier, consolidation multi-calculs |
@@ -16,7 +16,7 @@
 | Partage | ✅ Stable | Web Share API + fallback clipboard |
 | **Devis & Estimations** | ✅ Nouveau (V2) | Édition, TVA multi-taux, export PDF, mentions légales |
 | **Réglages / Tarifs** | ✅ Nouveau (V2) | Profil entreprise, décennale, taux horaire, catalogue éditable |
-| Export/Import JSON | ⏳ À faire | Pont téléphone ↔ PC + sauvegarde de secours |
+| Export/Import JSON | ✅ Nouveau (V2) | Pont téléphone ↔ PC + sauvegarde de secours (fusion additive) |
 
 ## Décisions techniques — Session 2026-04-03 (Alignement Négociants Matériaux)
 
@@ -61,10 +61,39 @@ Décisions cadrées avec le porteur (2026-07-14) :
 
 Note connue (non bloquant) : l'import d'un métré reste une base à ajuster (association libellé→prix best-effort ; certaines lignes intermédiaires arrivent à 0 €). Toast « vérifie les prix » affiché.
 
+**Export / Import JSON (2026-07-14)** — `pricing/backup.js` + carte « Sauvegarde & transfert » en tête de l'écran Réglages :
+- `construireSauvegarde()` : snapshot des 4 clés (`kalou_devis_v1`, `kalou_btp_v3`, `kalou_profil_v1`, `kalou_prix_v1`) → `{ app:'kalou-btp', version, date, stores }`
+- Export : partage natif de fichier sur mobile (`navigator.canShare({files})`), sinon téléchargement Blob (`kalou-sauvegarde-AAAA-MM-JJ.json`)
+- Import : sélecteur de fichier → validation → confirmation avec résumé → `fusionnerSauvegarde()` : **fusion additive** (listes union par `id`, import prioritaire sur conflit ; objets `{...actuel, ...importé}`) → rien n'est supprimé, idempotent
+- Vérifié (Playwright) : export → clear → import restaure tout ; ré-import garde les entrées locales, aucun doublon ; bouton export déclenche le download.
+
+**Phase 2 — nouveaux calculateurs métier (2026-07-14)** — 5 ajouts dans `GROS_CONFIG` + branches dans `gros_oeuvre.js` :
+- **terrasse** (Terrasse / Dallage) : béton + treillis + tout-venant hérisson (T) + polyane + terre à évacuer
+- **pierre** (Mur en pierre) : pierre/moellon en T (~75% du volume × 2,4) + mortier de chaux NHL + sable (0/4)
+- **chaux** (Enduit / Rejointoiement) : chaux NHL + sable 0/2 ; enduit = surf×ép, joint = ~15 L/m²
+- **ouverture** : linteau/IPN (ml, +40 cm d'appuis), nb d'étais, volume à démolir, gravats
+- **piscine** (structure GO) : béton radier + murs, ciment/agrégats, treillis radier, terrassement déblai — HORS étanchéité/local technique
+- Héritent automatiquement de la sous-nav (`renderGrosSubNav` itère `GROS_CONFIG`) et du bouton « Ajouter au devis ».
+- Vérifié (Playwright) : les 5 calculent sans erreur, sous-nav à 12 calculateurs, pont pierre→devis OK.
+
+**Configurateur d'ouvrages + descriptions client (2026-07-14, retour beau-père)** — suite au test :
+- Retour : lignes d'ouvrage trop légères pour un client ; piscine à adapter (dimensions + sélecteur compris/non compris).
+- `prices.default.js` : `detail` enrichis (prestations comprises) sur tous les ouvrages ; ajout d'un objet `config` à **terrasse_beton, mur_pierre (mode m2)** et **ouverture, piscine_go (mode forfait)** — voir bible §config.
+- `devis_view.js` : configurateur (dimensions + cases à cocher avec prix, aperçu live description + prix), `composeConfig()`, `ouvrirConfigOuvrage/majConfigDim/toggleConfigOpt/validerConfig/annulerConfig` ; détail de ligne passé en `<textarea>` pour les longues descriptions.
+- Vérifié (Playwright) : piscine 8×4 défaut = 16 400 € ; 10×5 sans terrassement + enduit = 22 100 € (description et prix recalculés en direct) ; terrasse m² = surface×prix ; PDF affiche les prestations « Comprend : … » + exclusions. Aucune erreur JS.
+
+**Configurateur généralisé à TOUS les ouvrages (2026-07-14, « fait le pour tout »)** :
+- Ajout du mode `qte` (qté = produit des dims, unité = `o.unite`) pour évacuation (bennes) et terrassement (jours).
+- `config` ajoutée aux 8 ouvrages restants : terrasse_desac, terrasse_plots, dallage, mur_parpaing, rejoint, enduit_chaux (m²), evacuation (benne, qte), terrassement (jour, qte). `evacuation` : unité passée de `forfait` à `benne` (prix 290/benne).
+- `colClass` du configurateur : grid-cols 3/2/1 selon le nombre de dimensions.
+- Vérifié (Playwright) : les 12 ouvrages ouvrent un configurateur, dims + options OK, ajout de ligne, totaux justes (terrasse 1 560 €, mur parpaing 1 000 €, évacuation 290 €, terrassement 450 €…). 0 ouvrage sans config. Aucune erreur JS.
+
 ## Prochaine étape immédiate (suite)
 
-Phase 1 restante : **export/import JSON** (pont téléphone ↔ PC + sauvegarde de secours) — remonté prioritaire au §5 bis du plan, pas encore fait.
-Puis Phase 2 : nouveaux calculateurs métier (terrasse, dallage, mur pierre, rejointoiement/enduit chaux, création d'ouverture, piscine) branchés sur `OUVRAGES_DEFAUT`.
+Pistes restantes (non urgentes) :
+- L'import « depuis un calcul » garde des approximations d'unité (ex. sable en big bag chiffré au prix €/T) — à affiner si besoin, mais le message « vérifie les prix » couvre le cas.
+- Second Œuvre : d'autres postes (peinture, isolation) si demandé.
+- Éventuelle synchro cloud (§5 bis du plan) si le transfert manuel gêne à l'usage.
 
 ## Bugs en cours
 
