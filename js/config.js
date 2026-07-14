@@ -74,5 +74,58 @@ export const GROS_CONFIG = {
             { id: 'h', label: 'Hauteur',   unit: 'm',  default: 3  },
             { id: 'n', label: 'Nombre',    unit: 'u',  default: 4  }
         ]
+    },
+    terrasse: {
+        name: "Terrasse / Dallage",
+        fields: [
+            { id: 'l',  label: 'Longueur',      unit: 'm',  default: 5   },
+            { id: 'w',  label: 'Largeur',       unit: 'm',  default: 4   },
+            { id: 'e',  label: 'Ép. dalle',     unit: 'cm', default: 12  },
+            { id: 'he', label: 'Ép. hérisson',  unit: 'cm', default: 15, optional: true },
+            { id: 'd',  label: 'Dosage', type: 'select', opt: [
+                { v: 300, t: '300 kg/m³' },
+                { v: 350, t: '350 kg/m³ (Std)', s: true },
+                { v: 400, t: '400 kg/m³' }
+            ]}
+        ]
+    },
+    pierre: {
+        name: "Mur en pierre",
+        fields: [
+            { id: 'l',  label: 'Longueur',       unit: 'm',  default: 5   },
+            { id: 'h',  label: 'Hauteur',        unit: 'm',  default: 1.5 },
+            { id: 'ep', label: 'Épaisseur mur',  unit: 'cm', default: 30  },
+            { id: 'o',  label: 'Ouvertures',     unit: 'm²', default: 0, optional: true }
+        ]
+    },
+    chaux: {
+        name: "Enduit / Joint chaux",
+        fields: [
+            { id: 'l', label: 'Longueur',        unit: 'm',  default: 8 },
+            { id: 'h', label: 'Hauteur',         unit: 'm',  default: 3 },
+            { id: 'o', label: 'Ouvertures',      unit: 'm²', default: 0, optional: true },
+            { id: 'e', label: 'Épaisseur enduit', unit: 'cm', default: 2 },
+            { id: 't', label: 'Type', type: 'select', opt: [
+                { v: 'enduit', t: 'Enduit à la chaux', s: true },
+                { v: 'joint',  t: 'Rejointoiement'            }
+            ]}
+        ]
+    },
+    ouverture: {
+        name: "Création ouverture",
+        fields: [
+            { id: 'larg', label: 'Largeur ouverture',  unit: 'm',  default: 1.2  },
+            { id: 'haut', label: 'Hauteur ouverture',  unit: 'm',  default: 2.15 },
+            { id: 'ep',   label: 'Épaisseur mur',      unit: 'cm', default: 20   }
+        ]
+    },
+    piscine: {
+        name: "Piscine (structure)",
+        fields: [
+            { id: 'l',  label: 'Longueur',           unit: 'm',  default: 8   },
+            { id: 'w',  label: 'Largeur',            unit: 'm',  default: 4   },
+            { id: 'p',  label: 'Profondeur',         unit: 'm',  default: 1.5 },
+            { id: 'ep', label: 'Ép. parois/radier',  unit: 'cm', default: 20  }
+        ]
     }
 };

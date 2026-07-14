@@ -8,7 +8,7 @@
 
 | Module | État | Notes |
 |--------|------|-------|
-| Gros Œuvre (7 types) | ✅ Stable | Dalle, Fondations, Mur, Enduit, Chape, Escalier, Poteaux |
+| Gros Œuvre (12 types) | ✅ Stable | Dalle, Fondations, Mur, Enduit, Chape, Escalier, Poteaux + Terrasse/Dallage, Mur pierre, Enduit/Joint chaux, Ouverture, Piscine (V2) |
 | Placo | ✅ Stable | Simple/doublage/plafond, trame simple/double |
 | Sols | ✅ Stable | Carrelage + parquet, pose droite/diagonale |
 | Historique | ✅ Stable | Groupé par chantier, consolidation multi-calculs |
@@ -67,9 +67,21 @@ Note connue (non bloquant) : l'import d'un métré reste une base à ajuster (as
 - Import : sélecteur de fichier → validation → confirmation avec résumé → `fusionnerSauvegarde()` : **fusion additive** (listes union par `id`, import prioritaire sur conflit ; objets `{...actuel, ...importé}`) → rien n'est supprimé, idempotent
 - Vérifié (Playwright) : export → clear → import restaure tout ; ré-import garde les entrées locales, aucun doublon ; bouton export déclenche le download.
 
+**Phase 2 — nouveaux calculateurs métier (2026-07-14)** — 5 ajouts dans `GROS_CONFIG` + branches dans `gros_oeuvre.js` :
+- **terrasse** (Terrasse / Dallage) : béton + treillis + tout-venant hérisson (T) + polyane + terre à évacuer
+- **pierre** (Mur en pierre) : pierre/moellon en T (~75% du volume × 2,4) + mortier de chaux NHL + sable (0/4)
+- **chaux** (Enduit / Rejointoiement) : chaux NHL + sable 0/2 ; enduit = surf×ép, joint = ~15 L/m²
+- **ouverture** : linteau/IPN (ml, +40 cm d'appuis), nb d'étais, volume à démolir, gravats
+- **piscine** (structure GO) : béton radier + murs, ciment/agrégats, treillis radier, terrassement déblai — HORS étanchéité/local technique
+- Héritent automatiquement de la sous-nav (`renderGrosSubNav` itère `GROS_CONFIG`) et du bouton « Ajouter au devis ».
+- Vérifié (Playwright) : les 5 calculent sans erreur, sous-nav à 12 calculateurs, pont pierre→devis OK.
+
 ## Prochaine étape immédiate (suite)
 
-Phase 2 : nouveaux calculateurs métier (terrasse, dallage, mur pierre, rejointoiement/enduit chaux, création d'ouverture, piscine) branchés sur `OUVRAGES_DEFAUT`. Les prix/ouvrages existent déjà dans le catalogue ; il manque les écrans de saisie/quantitatif dédiés (comme dalle/mur parpaing en gros œuvre).
+Pistes restantes (non urgentes) :
+- L'import « depuis un calcul » garde des approximations d'unité (ex. sable en big bag chiffré au prix €/T) — à affiner si besoin, mais le message « vérifie les prix » couvre le cas.
+- Second Œuvre : d'autres postes (peinture, isolation) si demandé.
+- Éventuelle synchro cloud (§5 bis du plan) si le transfert manuel gêne à l'usage.
 
 ## Bugs en cours
 

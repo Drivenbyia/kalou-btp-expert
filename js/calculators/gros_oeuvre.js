@@ -198,5 +198,94 @@ export function handleGrosCalculate() {
         results.push({ l: 'Épingles de chaînage',            v: epinglesML.toFixed(1),       u: 'ml' });
     }
 
+    // ── Terrasse / Dallage béton ──────────────────────────────────────────────
+    else if (activeGros === 'terrasse') {
+        const l = get('l'), w = get('w'), e = get('e') / 100, he = get('he', true) / 100, d = get('d');
+        if (!ok()) return showToast('Remplis tous les champs requis', true);
+
+        const surf = l * w;
+        const vol  = surf * e * 1.05;            // +5% pertes
+
+        results.push({ l: 'Volume Béton (+ 5%)',              v: vol.toFixed(2),               u: 'm³',      h: true });
+        results.push({ l: 'Ciment (sacs 35 kg)',              v: Math.ceil(vol * d / 35),      u: 'sacs' });
+        pushAgregatsBeton(results, vol);
+        results.push({ l: 'Treillis soudé (3.6×2.4 m)',       v: Math.ceil(surf * 1.1 / 8),    u: 'panneaux' });
+        if (he > 0) {
+            const volHer = surf * he;
+            results.push({ l: 'Tout-venant 0/31.5 (hérisson)', v: (volHer * 1.8).toFixed(2),   u: `T ~ ${Math.round(volHer * 1800)} kg` });
+        }
+        results.push({ l: 'Polyane (film)',                   v: Math.ceil(surf * 1.10),       u: 'm²' });
+        results.push({ l: 'Terre à évacuer',                  v: (surf * (e + he) * 1.3).toFixed(2), u: 'm³' });
+    }
+
+    // ── Mur en pierre (moellons hourdés à la chaux) ───────────────────────────
+    else if (activeGros === 'pierre') {
+        const l = get('l'), h = get('h'), ep = get('ep') / 100, o = get('o', true);
+        if (!ok()) return showToast('Remplis tous les champs requis', true);
+
+        const surfNette  = Math.max(0, l * h - o);
+        const volMur     = surfNette * ep;
+        const pierreT    = volMur * 0.75 * 2.4;                  // ~75% du volume, calcaire ~2.4 T/m³
+        const volMortier = volMur * 0.30;                        // ~30% du volume en joints/hourdage
+        const chauxSacs  = Math.ceil(volMortier * 350 / 35);
+
+        results.push({ l: 'Surface parement',                 v: surfNette.toFixed(2),         u: 'm²',      h: true });
+        results.push({ l: 'Volume de mur',                    v: volMur.toFixed(2),            u: 'm³' });
+        results.push({ l: 'Pierre / moellon',                 v: pierreT.toFixed(2),           u: `T ~ ${Math.round(pierreT * 1000)} kg` });
+        results.push({ l: 'Chaux NHL (sacs 35 kg)',           v: chauxSacs,                    u: 'sacs' });
+        pushSable(results, volMortier, '0/4', 'mortier chaux');
+    }
+
+    // ── Enduit / Rejointoiement à la chaux ────────────────────────────────────
+    else if (activeGros === 'chaux') {
+        const l = get('l'), h = get('h'), o = get('o', true), e = get('e') / 100;
+        const type = document.getElementById('g-t').value;
+        if (!ok()) return showToast('Remplis tous les champs requis', true);
+
+        const surf = Math.max(0, l * h - o);
+        results.push({ l: 'Surface', v: surf.toFixed(2), u: 'm²', h: true });
+
+        // Enduit : volume = surface × épaisseur (+10% pertes).
+        // Rejointoiement : ~15 L/m² de mortier de joint.
+        const vol       = type === 'enduit' ? surf * e * 1.10 : surf * 0.015;
+        const chauxSacs = Math.ceil(vol * 350 / 35);
+
+        results.push({ l: 'Chaux NHL (sacs 35 kg)', v: chauxSacs, u: 'sacs' });
+        pushSable(results, vol, '0/2', type === 'enduit' ? 'enduit chaux' : 'joint chaux');
+    }
+
+    // ── Création d'ouverture (mur porteur) ────────────────────────────────────
+    else if (activeGros === 'ouverture') {
+        const larg = get('larg'), haut = get('haut'), ep = get('ep') / 100;
+        if (!ok()) return showToast('Remplis tous les champs requis', true);
+
+        const linteau  = larg + 0.40;                            // + 20 cm d'appui de chaque côté
+        const etais    = Math.ceil(larg / 0.5 + 1) * 2;          // étaiement des deux côtés
+        const volDemol = larg * haut * ep;
+
+        results.push({ l: 'Linteau / IPN',        v: linteau.toFixed(2),        u: 'ml',      h: true });
+        results.push({ l: 'Étais (étaiement)',    v: etais,                     u: 'u' });
+        results.push({ l: 'Volume à démolir',     v: volDemol.toFixed(2),       u: 'm³' });
+        results.push({ l: 'Gravats à évacuer',    v: (volDemol * 1.5).toFixed(2), u: 'm³' });
+    }
+
+    // ── Piscine maçonnée — structure gros œuvre ───────────────────────────────
+    else if (activeGros === 'piscine') {
+        const L = get('l'), w = get('w'), p = get('p'), ep = get('ep') / 100;
+        if (!ok()) return showToast('Remplis tous les champs requis', true);
+
+        const volRadier = L * w * ep * 1.05;
+        const volMurs   = 2 * (L + w) * p * ep * 1.05;
+        const volBeton  = volRadier + volMurs;
+        const surfRadier = L * w;
+        const terre     = (L + 1) * (w + 1) * (p + 0.3) * 1.3;   // sur-largeur de fouille + foisonnement
+
+        results.push({ l: 'Volume Béton total (+ 5%)',        v: volBeton.toFixed(2),          u: 'm³',      h: true });
+        results.push({ l: 'Ciment (sacs 35 kg)',              v: Math.ceil(volBeton * 350 / 35), u: 'sacs' });
+        pushAgregatsBeton(results, volBeton);
+        results.push({ l: 'Treillis soudé (radier)',          v: Math.ceil(surfRadier * 1.1 / 8), u: 'panneaux' });
+        results.push({ l: 'Terrassement (déblai)',            v: terre.toFixed(2),             u: 'm³' });
+    }
+
     renderResults('gros-results', results, nom, `Maçonnerie (${GROS_CONFIG[activeGros].name})`);
 }
