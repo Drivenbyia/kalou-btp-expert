@@ -16,7 +16,7 @@
 | Partage | ✅ Stable | Web Share API + fallback clipboard |
 | **Devis & Estimations** | ✅ Nouveau (V2) | Édition, TVA multi-taux, export PDF, mentions légales |
 | **Réglages / Tarifs** | ✅ Nouveau (V2) | Profil entreprise, décennale, taux horaire, catalogue éditable |
-| Export/Import JSON | ⏳ À faire | Pont téléphone ↔ PC + sauvegarde de secours |
+| Export/Import JSON | ✅ Nouveau (V2) | Pont téléphone ↔ PC + sauvegarde de secours (fusion additive) |
 
 ## Décisions techniques — Session 2026-04-03 (Alignement Négociants Matériaux)
 
@@ -61,10 +61,15 @@ Décisions cadrées avec le porteur (2026-07-14) :
 
 Note connue (non bloquant) : l'import d'un métré reste une base à ajuster (association libellé→prix best-effort ; certaines lignes intermédiaires arrivent à 0 €). Toast « vérifie les prix » affiché.
 
+**Export / Import JSON (2026-07-14)** — `pricing/backup.js` + carte « Sauvegarde & transfert » en tête de l'écran Réglages :
+- `construireSauvegarde()` : snapshot des 4 clés (`kalou_devis_v1`, `kalou_btp_v3`, `kalou_profil_v1`, `kalou_prix_v1`) → `{ app:'kalou-btp', version, date, stores }`
+- Export : partage natif de fichier sur mobile (`navigator.canShare({files})`), sinon téléchargement Blob (`kalou-sauvegarde-AAAA-MM-JJ.json`)
+- Import : sélecteur de fichier → validation → confirmation avec résumé → `fusionnerSauvegarde()` : **fusion additive** (listes union par `id`, import prioritaire sur conflit ; objets `{...actuel, ...importé}`) → rien n'est supprimé, idempotent
+- Vérifié (Playwright) : export → clear → import restaure tout ; ré-import garde les entrées locales, aucun doublon ; bouton export déclenche le download.
+
 ## Prochaine étape immédiate (suite)
 
-Phase 1 restante : **export/import JSON** (pont téléphone ↔ PC + sauvegarde de secours) — remonté prioritaire au §5 bis du plan, pas encore fait.
-Puis Phase 2 : nouveaux calculateurs métier (terrasse, dallage, mur pierre, rejointoiement/enduit chaux, création d'ouverture, piscine) branchés sur `OUVRAGES_DEFAUT`.
+Phase 2 : nouveaux calculateurs métier (terrasse, dallage, mur pierre, rejointoiement/enduit chaux, création d'ouverture, piscine) branchés sur `OUVRAGES_DEFAUT`. Les prix/ouvrages existent déjà dans le catalogue ; il manque les écrans de saisie/quantitatif dédiés (comme dalle/mur parpaing en gros œuvre).
 
 ## Bugs en cours
 

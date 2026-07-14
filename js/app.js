@@ -12,7 +12,7 @@ import {
     ajouterLigneOuvrage, importerCalcul, changerTypeDevis, dupliquerDevisUI,
     supprimerDevisUI, exporterPdf
 }                                         from './ui/devis_view.js';
-import { renderReglages, majProfilChamp, majDebourse, appliquerTauxDebourse, majPrix, resetPrixCatalogue } from './ui/tarifs_view.js';
+import { renderReglages, majProfilChamp, majDebourse, appliquerTauxDebourse, majPrix, resetPrixCatalogue, exporterSauvegarde, importerSauvegarde } from './ui/tarifs_view.js';
 
 // Exposition globale (nécessaire pour les onclick dans le HTML)
 window.handleGrosCalculate = handleGrosCalculate;
@@ -54,6 +54,8 @@ window.majDebourse          = majDebourse;
 window.appliquerTauxDebourse = appliquerTauxDebourse;
 window.majPrix               = majPrix;
 window.resetPrixCatalogue    = resetPrixCatalogue;
+window.exporterSauvegarde    = exporterSauvegarde;
+window.importerSauvegarde    = importerSauvegarde;
 
 window.addEventListener('load', () => {
     initPWA();
