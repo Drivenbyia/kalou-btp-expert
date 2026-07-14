@@ -10,7 +10,8 @@ import {
     renderDevisList, nouveauDevis, ouvrirDevis, fermerEditeurDevis, ajouterAuDevis,
     majChamp, majLigne, supprimerLigne, ajouterLigneManuelle, togglePicker,
     ajouterLigneOuvrage, importerCalcul, changerTypeDevis, dupliquerDevisUI,
-    supprimerDevisUI, exporterPdf
+    supprimerDevisUI, exporterPdf,
+    ouvrirConfigOuvrage, majConfigDim, toggleConfigOpt, annulerConfig, validerConfig
 }                                         from './ui/devis_view.js';
 import { renderReglages, majProfilChamp, majDebourse, appliquerTauxDebourse, majPrix, resetPrixCatalogue, exporterSauvegarde, importerSauvegarde } from './ui/tarifs_view.js';
 
@@ -46,6 +47,11 @@ window.changerTypeDevisUI        = changerTypeDevis;
 window.dupliquerDevisUI          = dupliquerDevisUI;
 window.supprimerDevisUI          = supprimerDevisUI;
 window.exporterPdfDevis          = exporterPdf;
+window.ouvrirConfigOuvrageDevis  = ouvrirConfigOuvrage;
+window.majConfigDimDevis         = majConfigDim;
+window.toggleConfigOptDevis      = toggleConfigOpt;
+window.annulerConfigDevis        = annulerConfig;
+window.validerConfigDevis        = validerConfig;
 
 // Réglages / Tarifs
 window.renderReglages       = renderReglages;

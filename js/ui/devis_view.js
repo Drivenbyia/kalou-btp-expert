@@ -20,6 +20,7 @@ function fmt(n) {
 
 let _devis = null;
 let _picker = null; // 'ouvrage' | 'calcul' | null
+let _config = null; // configurateur d'ouvrage en cours : { id, dims:{}, opts:{} }
 
 // ─── Liste des devis / estimations ───────────────────────────────────────────
 
@@ -97,6 +98,7 @@ export function ajouterAuDevis(nom, categorie, data) {
 }
 
 function openEditor() {
+    _config = null;
     document.getElementById('devis-list-view').classList.add('hidden');
     document.getElementById('devis-editor-view').classList.remove('hidden');
     renderEditor();
@@ -147,6 +149,7 @@ export function ajouterLigneManuelle() {
 
 export function togglePicker(type) {
     _picker = _picker === type ? null : type;
+    _config = null;
     renderEditor();
 }
 
@@ -155,7 +158,72 @@ export function ajouterLigneOuvrage(id) {
     if (!o) return;
     _devis.lignes.push(creerLigne({ designation: o.label, detail: o.detail, qte: 1, unite: o.unite, puHT: o.prix }));
     _picker = null;
+    _config = null;
     persist(true);
+}
+
+// ─── Configurateur d'ouvrage (dimensions + prestations comprises) ─────────────
+
+export function ouvrirConfigOuvrage(id) {
+    const o = getOuvrages().find(x => x.id === id);
+    if (!o || !o.config) return ajouterLigneOuvrage(id);
+    const dims = {}; o.config.dims.forEach(d => dims[d.id] = d.default);
+    const opts = {}; o.config.options.forEach(op => opts[op.id] = op.defaut);
+    _config = { id: o.id, dims, opts };
+    _picker = 'ouvrage';
+    renderEditor();
+}
+
+export function majConfigDim(dimId, val) {
+    if (!_config) return;
+    _config.dims[dimId] = parseFloat(String(val).replace(',', '.')) || 0;
+    renderEditor();
+}
+
+export function toggleConfigOpt(optId) {
+    if (!_config) return;
+    _config.opts[optId] = !_config.opts[optId];
+    renderEditor();
+}
+
+export function annulerConfig() {
+    _config = null;
+    renderEditor();
+}
+
+/** Compose la ligne de devis à partir de l'état du configurateur. */
+function composeConfig() {
+    const o = getOuvrages().find(x => x.id === _config.id);
+    const c = o.config;
+    const dims = _config.dims;
+    const inclus = c.options.filter(op => _config.opts[op.id]);
+
+    let detail = c.resume(dims);
+    const liste = inclus.map(op => op.label).join(' ; ');
+    detail += liste ? `. Comprend : ${liste}.` : '.';
+    if (c.exclusions) detail += ' ' + c.exclusions;
+
+    let qte, unite, puHT;
+    if (c.mode === 'm2') {
+        qte   = Math.round(Object.values(dims).reduce((a, b) => a * (parseFloat(b) || 0), 1) * 100) / 100;
+        unite = 'm²';
+        puHT  = o.prix;
+    } else {
+        qte   = 1;
+        unite = 'forfait';
+        const base = typeof c.base === 'function' ? c.base(dims) : (c.base || o.prix);
+        puHT = base + inclus.reduce((s, op) => s + (op.prix || 0), 0);
+    }
+    return { designation: o.label, detail, qte, unite, puHT };
+}
+
+export function validerConfig() {
+    if (!_config) return;
+    _devis.lignes.push(creerLigne(composeConfig()));
+    _config = null;
+    _picker = null;
+    persist(true);
+    showToast('Ligne ajoutée au devis');
 }
 
 export function importerCalcul(entryId) {
@@ -249,7 +317,7 @@ function renderEditor() {
                 <input value="${esc(l.designation)}" onchange="window.majLigneDevis('${l.id}','designation',this.value)" class="font-black text-sm flex-1 bg-transparent border-b-2 border-transparent focus:border-kalou-orange outline-none">
                 <button onclick="window.supprimerLigneDevis('${l.id}')" class="text-red-300 hover:text-red-500 text-xs font-black px-2">✕</button>
               </div>
-              <input value="${esc(l.detail)}" placeholder="Détail (optionnel)" onchange="window.majLigneDevis('${l.id}','detail',this.value)" class="w-full text-xs text-gray-500 bg-transparent mb-3 outline-none">
+              <textarea rows="2" placeholder="Détail / prestations (optionnel)" onchange="window.majLigneDevis('${l.id}','detail',this.value)" class="w-full text-xs text-gray-500 bg-gray-50 rounded-lg p-2 mb-3 outline-none resize-none focus:bg-white border border-transparent focus:border-gray-100">${esc(l.detail)}</textarea>
               <div class="grid grid-cols-4 gap-2 items-end">
                 <div><label class="text-[9px] font-bold text-gray-400 uppercase">Qté</label><input type="number" step="any" value="${l.qte}" onchange="window.majLigneDevis('${l.id}','qte',this.value)" class="w-full h-10 px-2 rounded-lg border-2 border-gray-100 bg-gray-50 font-bold text-sm"></div>
                 <div><label class="text-[9px] font-bold text-gray-400 uppercase">Unité</label><input value="${esc(l.unite)}" onchange="window.majLigneDevis('${l.id}','unite',this.value)" class="w-full h-10 px-2 rounded-lg border-2 border-gray-100 bg-gray-50 font-bold text-sm"></div>
@@ -265,20 +333,7 @@ function renderEditor() {
             <button onclick="window.ajouterLigneManuelleDevis()" class="text-xs font-black uppercase px-4 py-3 rounded-xl border-2 border-dashed border-gray-200 text-gray-500">+ Ligne manuelle</button>
           </div>
 
-          ${_picker === 'ouvrage' ? `
-          <div class="mt-4 bg-gray-50 rounded-2xl p-4 max-h-72 overflow-y-auto space-y-4">
-            ${Object.entries(ouvragesParCat).map(([cat, list]) => `
-              <div>
-                <p class="text-[9px] font-black uppercase text-gray-400 tracking-widest mb-2">${esc(cat)}</p>
-                <div class="space-y-1">
-                  ${list.map(o => `
-                  <button onclick="window.ajouterLigneOuvrageDevis('${o.id}')" class="w-full flex justify-between items-center bg-white rounded-xl px-3 py-2.5 text-left hover:bg-orange-50">
-                    <span class="font-bold text-sm">${esc(o.label)}</span>
-                    <span class="text-xs font-black text-gray-400">${fmt(o.prix)} €/${esc(o.unite)}</span>
-                  </button>`).join('')}
-                </div>
-              </div>`).join('')}
-          </div>` : ''}
+          ${_picker === 'ouvrage' ? (_config ? renderConfigHTML() : renderOuvrageListHTML(ouvragesParCat)) : ''}
 
           ${_picker === 'calcul' ? `
           <div class="mt-4 bg-gray-50 rounded-2xl p-4 max-h-72 overflow-y-auto space-y-2">
@@ -348,4 +403,73 @@ function renderTotauxHTML(t) {
 function renderTotauxPanel() {
     const panel = document.getElementById('devis-totaux-panel');
     if (panel) panel.innerHTML = renderTotauxHTML(calculerTotaux(_devis));
+}
+
+function renderOuvrageListHTML(ouvragesParCat) {
+    return `
+    <div class="mt-4 bg-gray-50 rounded-2xl p-4 max-h-80 overflow-y-auto space-y-4">
+      ${Object.entries(ouvragesParCat).map(([cat, list]) => `
+        <div>
+          <p class="text-[9px] font-black uppercase text-gray-400 tracking-widest mb-2">${esc(cat)}</p>
+          <div class="space-y-1">
+            ${list.map(o => `
+            <button onclick="window.${o.config ? 'ouvrirConfigOuvrageDevis' : 'ajouterLigneOuvrageDevis'}('${o.id}')"
+                    class="w-full flex justify-between items-center gap-2 bg-white rounded-xl px-3 py-2.5 text-left hover:bg-orange-50">
+              <span class="font-bold text-sm">${esc(o.label)}${o.config ? ' <span class="text-[9px] font-black text-kalou-orange uppercase">· à configurer</span>' : ''}</span>
+              <span class="text-xs font-black text-gray-400 shrink-0">${o.config && o.config.mode === 'forfait' ? 'forfait' : fmt(o.prix) + ' €/' + esc(o.unite)}</span>
+            </button>`).join('')}
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
+function renderConfigHTML() {
+    const o = getOuvrages().find(x => x.id === _config.id);
+    const c = o.config;
+    const preview = composeConfig();
+    const colClass = c.dims.length >= 3 ? 'grid-cols-3' : 'grid-cols-2';
+
+    return `
+    <div class="mt-4 bg-gray-50 rounded-2xl p-4 space-y-4">
+      <div class="flex items-center justify-between">
+        <p class="font-black text-sm">${esc(o.label)}</p>
+        <button onclick="window.annulerConfigDevis()" class="text-xs font-bold text-gray-400 uppercase">Annuler</button>
+      </div>
+
+      <div class="grid ${colClass} gap-2">
+        ${c.dims.map(d => `
+        <div>
+          <label class="block text-[9px] font-bold text-gray-400 uppercase mb-1">${esc(d.label)} (${esc(d.unit)})</label>
+          <input type="number" step="any" value="${_config.dims[d.id]}" onchange="window.majConfigDimDevis('${d.id}', this.value)"
+                 class="w-full h-10 px-2 rounded-lg border-2 border-gray-100 bg-white font-bold text-sm">
+        </div>`).join('')}
+      </div>
+
+      <div>
+        <p class="text-[9px] font-black uppercase text-gray-400 tracking-widest mb-2">Ce qui apparaît dans le devis</p>
+        <div class="space-y-1.5">
+          ${c.options.map(op => `
+          <label class="flex items-center justify-between gap-2 bg-white rounded-xl px-3 py-2 cursor-pointer">
+            <span class="flex items-center gap-2 text-sm font-bold ${_config.opts[op.id] ? 'text-kalou-dark' : 'text-gray-400'}">
+              <input type="checkbox" ${_config.opts[op.id] ? 'checked' : ''} onchange="window.toggleConfigOptDevis('${op.id}')" class="accent-kalou-orange w-4 h-4 shrink-0">
+              ${esc(op.label)}
+            </span>
+            ${op.prix ? `<span class="text-xs font-black shrink-0 ${_config.opts[op.id] ? 'text-gray-500' : 'text-gray-300'}">+${fmt(op.prix)} €</span>` : ''}
+          </label>`).join('')}
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl p-3 border border-gray-100">
+        <p class="text-[9px] font-black uppercase text-gray-400 tracking-widest mb-1">Aperçu de la ligne</p>
+        <p class="text-xs text-gray-600 leading-relaxed">${esc(preview.detail)}</p>
+        <div class="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
+          <span class="text-xs font-bold text-gray-400">${preview.qte} ${esc(preview.unite)}${c.mode === 'm2' ? ' × ' + fmt(preview.puHT) + ' €' : ''}</span>
+          <span class="font-black text-kalou-dark">${fmt(preview.qte * preview.puHT)} €</span>
+        </div>
+      </div>
+
+      <button onclick="window.validerConfigDevis()" class="w-full bg-kalou-orange text-white font-black text-sm uppercase h-12 rounded-2xl active:scale-95 transition-all">
+        Ajouter au devis
+      </button>
+    </div>`;
 }

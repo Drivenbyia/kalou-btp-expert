@@ -76,6 +76,12 @@ Note connue (non bloquant) : l'import d'un métré reste une base à ajuster (as
 - Héritent automatiquement de la sous-nav (`renderGrosSubNav` itère `GROS_CONFIG`) et du bouton « Ajouter au devis ».
 - Vérifié (Playwright) : les 5 calculent sans erreur, sous-nav à 12 calculateurs, pont pierre→devis OK.
 
+**Configurateur d'ouvrages + descriptions client (2026-07-14, retour beau-père)** — suite au test :
+- Retour : lignes d'ouvrage trop légères pour un client ; piscine à adapter (dimensions + sélecteur compris/non compris).
+- `prices.default.js` : `detail` enrichis (prestations comprises) sur tous les ouvrages ; ajout d'un objet `config` à **terrasse_beton, mur_pierre (mode m2)** et **ouverture, piscine_go (mode forfait)** — voir bible §config.
+- `devis_view.js` : configurateur (dimensions + cases à cocher avec prix, aperçu live description + prix), `composeConfig()`, `ouvrirConfigOuvrage/majConfigDim/toggleConfigOpt/validerConfig/annulerConfig` ; détail de ligne passé en `<textarea>` pour les longues descriptions.
+- Vérifié (Playwright) : piscine 8×4 défaut = 16 400 € ; 10×5 sans terrassement + enduit = 22 100 € (description et prix recalculés en direct) ; terrasse m² = surface×prix ; PDF affiche les prestations « Comprend : … » + exclusions. Aucune erreur JS.
+
 ## Prochaine étape immédiate (suite)
 
 Pistes restantes (non urgentes) :
