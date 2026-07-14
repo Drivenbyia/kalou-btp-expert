@@ -262,16 +262,21 @@ export function computeGros(activeGros, get, getRaw) {
     else if (activeGros === 'piscine') {
         const L = get('l'), w = get('w'), p = get('p'), ep = get('ep') / 100;
 
+        const surfMurs  = 2 * (L + w) * p;                      // surface des parois
         const volRadier = L * w * ep * 1.05;
-        const volMurs   = 2 * (L + w) * p * ep * 1.05;
+        const volMurs   = surfMurs * ep * 1.05;                 // béton de remplissage des blocs à bancher
         const volBeton  = volRadier + volMurs;
         const surfRadier = L * w;
-        const terre     = (L + 1) * (w + 1) * (p + 0.3) * 1.3;   // sur-largeur de fouille + foisonnement
+        const nbAgglos  = Math.ceil(surfMurs * 10 * 1.05);      // blocs à bancher 20×20×50 : 10/m² + 5% casse
+        const ferML     = surfMurs * 4;                         // armatures verticales + horizontales (~4 ml/m²)
+        const terre     = (L + 1) * (w + 1) * (p + 0.3) * 1.3;  // sur-largeur de fouille + foisonnement
 
         results.push({ l: 'Volume Béton total (+ 5%)',        v: volBeton.toFixed(2),          u: 'm³',      h: true });
+        results.push({ l: 'Agglos à bancher 20×20×50',        v: nbAgglos,                     u: 'unités' });
         results.push({ l: 'Ciment (sacs 35 kg)',              v: Math.ceil(volBeton * 350 / 35), u: 'sacs' });
         pushAgregatsBeton(results, volBeton);
         results.push({ l: 'Treillis soudé (radier)',          v: Math.ceil(surfRadier * 1.1 / 8), u: 'panneaux' });
+        results.push({ l: 'Fer HA Ø10 (barres 6 m)',          v: Math.ceil(ferML / 6),         u: 'barres' });
         results.push({ l: 'Terrassement (déblai)',            v: terre.toFixed(2),             u: 'm³' });
     }
 
