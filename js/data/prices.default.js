@@ -52,13 +52,13 @@ export const OUVRAGES_DEFAUT = [
             dims: [{ id: 'L', label: 'Longueur', unit: 'm', default: 5 }, { id: 'l', label: 'Largeur', unit: 'm', default: 4 }],
             resume: d => `Terrasse béton de ${(d.L * d.l).toFixed(1)} m² (${d.L} × ${d.l} m)`,
             options: [
-                { id: 'decaissement', label: 'Décaissement et préparation du fond de forme', defaut: true },
-                { id: 'herisson',     label: 'Hérisson compacté + film polyane',            defaut: true },
-                { id: 'treillis',     label: 'Treillis soudé de renfort',                    defaut: true },
+                { id: 'decaissement', label: 'Décaissement et préparation du fond de forme', defaut: true,  tempsMO: 0.15 },
+                { id: 'herisson',     label: 'Hérisson compacté + film polyane',            defaut: true,  tempsMO: 0.12, prix: 4 },
+                { id: 'treillis',     label: 'Treillis soudé de renfort',                    defaut: true,  tempsMO: 0.05, prix: 3 },
                 { id: 'pente',        label: 'Réglage des pentes d\'écoulement des eaux',    defaut: true },
                 { id: 'lissee',       label: 'Finition lissée',                              defaut: true },
-                { id: 'desactive',    label: 'Finition béton désactivé (gravillon apparent)', defaut: false },
-                { id: 'joints',       label: 'Joints de dilatation',                         defaut: false }
+                { id: 'desactive',    label: 'Finition béton désactivé (gravillon apparent)', defaut: false, tempsMO: 0.3, prix: 8 },
+                { id: 'joints',       label: 'Joints de dilatation',                         defaut: false, tempsMO: 0.05, prix: 2 }
             ]
         }
     },
@@ -71,12 +71,12 @@ export const OUVRAGES_DEFAUT = [
             dims: [{ id: 'L', label: 'Longueur', unit: 'm', default: 5 }, { id: 'l', label: 'Largeur', unit: 'm', default: 4 }],
             resume: d => `Terrasse béton désactivé de ${(d.L * d.l).toFixed(1)} m² (${d.L} × ${d.l} m)`,
             options: [
-                { id: 'decaissement', label: 'Décaissement et préparation du fond de forme', defaut: true },
-                { id: 'herisson',     label: 'Hérisson compacté + film polyane',            defaut: true },
-                { id: 'treillis',     label: 'Treillis soudé de renfort',                    defaut: true },
+                { id: 'decaissement', label: 'Décaissement et préparation du fond de forme', defaut: true,  tempsMO: 0.15 },
+                { id: 'herisson',     label: 'Hérisson compacté + film polyane',            defaut: true,  tempsMO: 0.12, prix: 4 },
+                { id: 'treillis',     label: 'Treillis soudé de renfort',                    defaut: true,  tempsMO: 0.05, prix: 3 },
                 { id: 'pente',        label: 'Réglage des pentes d\'écoulement',             defaut: true },
                 { id: 'desactive',    label: 'Finition désactivée (gravillon lavé apparent)', defaut: true },
-                { id: 'joints',       label: 'Joints de dilatation',                         defaut: false }
+                { id: 'joints',       label: 'Joints de dilatation',                         defaut: false, tempsMO: 0.05, prix: 2 }
             ]
         }
     },
@@ -91,8 +91,8 @@ export const OUVRAGES_DEFAUT = [
             options: [
                 { id: 'plots',       label: 'Fourniture et pose de plots réglables', defaut: true },
                 { id: 'niveau',      label: 'Réglage de niveau et des pentes',       defaut: true },
-                { id: 'coupes',      label: 'Découpes de rive',                      defaut: true },
-                { id: 'geotextile',  label: 'Géotextile anti-repousse',              defaut: false },
+                { id: 'coupes',      label: 'Découpes de rive',                      defaut: true,  tempsMO: 0.05 },
+                { id: 'geotextile',  label: 'Géotextile anti-repousse',              defaut: false, tempsMO: 0.03, prix: 1.5 },
                 { id: 'dallesclient', label: 'Dalles fournies par le client',        defaut: true }
             ]
         }
@@ -106,12 +106,12 @@ export const OUVRAGES_DEFAUT = [
             dims: [{ id: 'L', label: 'Longueur', unit: 'm', default: 5 }, { id: 'l', label: 'Largeur', unit: 'm', default: 4 }],
             resume: d => `Dallage / allée béton de ${(d.L * d.l).toFixed(1)} m² (${d.L} × ${d.l} m)`,
             options: [
-                { id: 'decaissement', label: 'Décaissement du terrain',              defaut: true },
-                { id: 'forme',        label: 'Forme en tout-venant compacté',        defaut: true },
-                { id: 'treillis',     label: 'Treillis soudé de renfort',            defaut: true },
+                { id: 'decaissement', label: 'Décaissement du terrain',              defaut: true,  tempsMO: 0.15 },
+                { id: 'forme',        label: 'Forme en tout-venant compacté',        defaut: true,  tempsMO: 0.12, prix: 4 },
+                { id: 'treillis',     label: 'Treillis soudé de renfort',            defaut: true,  tempsMO: 0.05, prix: 3 },
                 { id: 'balayee',      label: 'Finition balayée',                     defaut: true },
-                { id: 'joints',       label: 'Joints de fractionnement',             defaut: false },
-                { id: 'bordures',     label: 'Pose de bordures',                     defaut: false }
+                { id: 'joints',       label: 'Joints de fractionnement',             defaut: false, tempsMO: 0.05, prix: 2 },
+                { id: 'bordures',     label: 'Pose de bordures',                     defaut: false, tempsMO: 0.2,  prix: 8 }
             ]
         }
     },
@@ -125,11 +125,11 @@ export const OUVRAGES_DEFAUT = [
             resume: d => `Mur en parpaing de ${(d.L * d.h).toFixed(1)} m² (${d.L} × ${d.h} m)`,
             options: [
                 { id: 'montage',    label: 'Montage d\'agglos hourdés au mortier',     defaut: true },
-                { id: 'ferraillage', label: 'Ferraillage (fers HA)',                   defaut: true },
-                { id: 'chainage',   label: 'Chaînages verticaux et horizontaux',       defaut: true },
-                { id: 'enduitext',  label: 'Enduit de finition face extérieure',       defaut: true },
-                { id: 'enduitint',  label: 'Enduit de finition face intérieure',       defaut: true },
-                { id: 'arase',      label: 'Arase supérieure',                         defaut: false }
+                { id: 'ferraillage', label: 'Ferraillage (fers HA)',                   defaut: true,  tempsMO: 0.05, prix: 3 },
+                { id: 'chainage',   label: 'Chaînages verticaux et horizontaux',       defaut: true,  tempsMO: 0.1 },
+                { id: 'enduitext',  label: 'Enduit de finition face extérieure',       defaut: true,  tempsMO: 0.25, prix: 4 },
+                { id: 'enduitint',  label: 'Enduit de finition face intérieure',       defaut: true,  tempsMO: 0.25, prix: 4 },
+                { id: 'arase',      label: 'Arase supérieure',                         defaut: false, tempsMO: 0.1,  prix: 2 }
             ]
         }
     },
@@ -145,10 +145,10 @@ export const OUVRAGES_DEFAUT = [
                 { id: 'moellon',  label: 'Montage de moellons en pierre du pays',   defaut: true },
                 { id: 'chaux',    label: 'Hourdage au mortier de chaux NHL',        defaut: true },
                 { id: 'facevue',  label: 'Une face vue (parement soigné)',          defaut: true },
-                { id: 'arase',    label: 'Arase supérieure',                        defaut: true },
-                { id: 'rejoint',  label: 'Rejointoiement de finition',              defaut: false },
-                { id: 'deuxfaces', label: 'Deux faces vues',                        defaut: false },
-                { id: 'drainage', label: 'Drainage arrière + barbacanes',          defaut: false }
+                { id: 'arase',    label: 'Arase supérieure',                        defaut: true,  tempsMO: 0.15, prix: 3 },
+                { id: 'rejoint',  label: 'Rejointoiement de finition',              defaut: false, tempsMO: 0.5,  prix: 2 },
+                { id: 'deuxfaces', label: 'Deux faces vues',                        defaut: false, tempsMO: 1.2,  prix: 10 },
+                { id: 'drainage', label: 'Drainage arrière + barbacanes',          defaut: false, tempsMO: 0.3,  prix: 8 }
             ]
         }
     },
@@ -161,11 +161,11 @@ export const OUVRAGES_DEFAUT = [
             dims: [{ id: 'L', label: 'Longueur', unit: 'm', default: 5 }, { id: 'h', label: 'Hauteur', unit: 'm', default: 2.5 }],
             resume: d => `Rejointoiement à la chaux de ${(d.L * d.h).toFixed(1)} m² (${d.L} × ${d.h} m)`,
             options: [
-                { id: 'degarnissage',  label: 'Dégarnissage des joints existants',           defaut: true },
+                { id: 'degarnissage',  label: 'Dégarnissage des joints existants',           defaut: true,  tempsMO: 0.4 },
                 { id: 'depoussierage', label: 'Dépoussiérage et humidification du support',  defaut: true },
                 { id: 'joint',         label: 'Rejointoiement au mortier de chaux NHL',       defaut: true },
                 { id: 'finition',      label: 'Finition brossée',                            defaut: true },
-                { id: 'deuxfaces',     label: 'Deux faces',                                  defaut: false }
+                { id: 'deuxfaces',     label: 'Deux faces',                                  defaut: false, tempsMO: 1.2 }
             ]
         }
     },
@@ -239,7 +239,7 @@ export const OUVRAGES_DEFAUT = [
                 { id: 'location',    label: 'Location de la benne',                            defaut: true },
                 { id: 'chargement',  label: 'Chargement des gravats',                          defaut: true },
                 { id: 'dechetterie', label: 'Transport et dépose en déchetterie professionnelle', defaut: true },
-                { id: 'tri',         label: 'Tri des déchets',                                 defaut: false }
+                { id: 'tri',         label: 'Tri des déchets',                                 defaut: false, prix: 30 }
             ]
         }
     },

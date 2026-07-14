@@ -64,21 +64,20 @@ function pushSable(results, volSableM3, grade = '0/4', usage = 'mortier') {
     }
 }
 
-// ─── Calcul principal ─────────────────────────────────────────────────────────
+// ─── Calcul (pur, réutilisable en interne) ────────────────────────────────────
 
-export function handleGrosCalculate() {
-    const activeGros = getActiveGros();
-    const results    = [];
-    const nom        = document.getElementById('g-chantier-nom').value.trim() || 'Chantier Gros Œuvre';
-
-    const isValidRef = { v: true };
-    const get        = makeGet(isValidRef);
-    const ok         = () => isValidRef.v;
+/**
+ * Calcul des matériaux — fonction pure. `get(id, allowZero)` renvoie un nombre,
+ * `getRaw(id)` la valeur brute (listes déroulantes). Aucune manipulation du DOM
+ * ni validation ici : elle sert à la fois à l'écran (via handleGrosCalculate) et
+ * au chiffrage interne des ouvrages du devis (pricing/chiffrage.js).
+ */
+export function computeGros(activeGros, get, getRaw) {
+    const results = [];
 
     // ── Dalle Béton ───────────────────────────────────────────────────────────
     if (activeGros === 'dalle') {
         const l = get('l'), w = get('w'), e = get('e') / 100, d = get('d');
-        if (!ok()) return showToast('Remplis tous les champs requis', true);
 
         const surf   = l * w;
         const vol    = surf * e * 1.05;          // +5% pertes
@@ -92,7 +91,6 @@ export function handleGrosCalculate() {
     // ── Fondations ────────────────────────────────────────────────────────────
     else if (activeGros === 'fondation') {
         const l = get('l'), w = get('w'), p = get('p'), d = get('d');
-        if (!ok()) return showToast('Remplis tous les champs requis', true);
 
         const volNet = l * w * p;
         const vol    = volNet * 1.05;            // +5% pertes
@@ -114,7 +112,6 @@ export function handleGrosCalculate() {
     // ── Mur Parpaings ─────────────────────────────────────────────────────────
     else if (activeGros === 'mur') {
         const l = get('l'), h = get('h'), o = get('o', true), c = get('c', true);
-        if (!ok()) return showToast('Remplis tous les champs requis', true);
 
         const surfBrute  = l * h;
         const surfNette  = Math.max(0, surfBrute - o);
@@ -136,8 +133,7 @@ export function handleGrosCalculate() {
     // ── Enduit Façade ─────────────────────────────────────────────────────────
     else if (activeGros === 'enduit') {
         const l = get('l'), h = get('h'), e = get('e') / 100;
-        const type = document.getElementById('g-t').value;
-        if (!ok()) return showToast('Remplis tous les champs requis', true);
+        const type = getRaw('t');
 
         const surf = l * h;
         results.push({ l: 'Surface totale', v: surf.toFixed(2), u: 'm²', h: true });
@@ -155,7 +151,6 @@ export function handleGrosCalculate() {
     // ── Chape Sol ─────────────────────────────────────────────────────────────
     else if (activeGros === 'chape') {
         const l = get('l'), w = get('w'), e = get('e') / 100;
-        if (!ok()) return showToast('Remplis tous les champs requis', true);
 
         const vol = l * w * e * 1.05;          // +5% pertes
         results.push({ l: 'Volume Mortier (+ 5%)',        v: vol.toFixed(2),             u: 'm³',      h: true });
@@ -166,7 +161,6 @@ export function handleGrosCalculate() {
     // ── Escalier Béton ────────────────────────────────────────────────────────
     else if (activeGros === 'escalier') {
         const n = get('n'), h = get('h') / 100, g = get('g') / 100, w = get('w') / 100, e = get('e') / 100;
-        if (!ok()) return showToast('Remplis tous les champs requis', true);
 
         const volMarches    = n * ((g * h) / 2) * w;
         const longPaillasse = Math.sqrt(Math.pow(n * g, 2) + Math.pow(n * h, 2));
@@ -185,7 +179,6 @@ export function handleGrosCalculate() {
     // ── Poteaux ───────────────────────────────────────────────────────────────
     else if (activeGros === 'poteau') {
         const sl = get('l') / 100, sw = get('w') / 100, h = get('h'), n = get('n');
-        if (!ok()) return showToast('Remplis tous les champs requis', true);
 
         const vol = sl * sw * h * n * 1.05;     // +5% pertes
 
@@ -201,7 +194,6 @@ export function handleGrosCalculate() {
     // ── Terrasse / Dallage béton ──────────────────────────────────────────────
     else if (activeGros === 'terrasse') {
         const l = get('l'), w = get('w'), e = get('e') / 100, he = get('he', true) / 100, d = get('d');
-        if (!ok()) return showToast('Remplis tous les champs requis', true);
 
         const surf = l * w;
         const vol  = surf * e * 1.05;            // +5% pertes
@@ -221,7 +213,6 @@ export function handleGrosCalculate() {
     // ── Mur en pierre (moellons hourdés à la chaux) ───────────────────────────
     else if (activeGros === 'pierre') {
         const l = get('l'), h = get('h'), ep = get('ep') / 100, o = get('o', true);
-        if (!ok()) return showToast('Remplis tous les champs requis', true);
 
         const surfNette  = Math.max(0, l * h - o);
         const volMur     = surfNette * ep;
@@ -239,8 +230,7 @@ export function handleGrosCalculate() {
     // ── Enduit / Rejointoiement à la chaux ────────────────────────────────────
     else if (activeGros === 'chaux') {
         const l = get('l'), h = get('h'), o = get('o', true), e = get('e') / 100;
-        const type = document.getElementById('g-t').value;
-        if (!ok()) return showToast('Remplis tous les champs requis', true);
+        const type = getRaw('t');
 
         const surf = Math.max(0, l * h - o);
         results.push({ l: 'Surface', v: surf.toFixed(2), u: 'm²', h: true });
@@ -257,7 +247,6 @@ export function handleGrosCalculate() {
     // ── Création d'ouverture (mur porteur) ────────────────────────────────────
     else if (activeGros === 'ouverture') {
         const larg = get('larg'), haut = get('haut'), ep = get('ep') / 100;
-        if (!ok()) return showToast('Remplis tous les champs requis', true);
 
         const linteau  = larg + 0.40;                            // + 20 cm d'appui de chaque côté
         const etais    = Math.ceil(larg / 0.5 + 1) * 2;          // étaiement des deux côtés
@@ -272,7 +261,6 @@ export function handleGrosCalculate() {
     // ── Piscine maçonnée — structure gros œuvre ───────────────────────────────
     else if (activeGros === 'piscine') {
         const L = get('l'), w = get('w'), p = get('p'), ep = get('ep') / 100;
-        if (!ok()) return showToast('Remplis tous les champs requis', true);
 
         const volRadier = L * w * ep * 1.05;
         const volMurs   = 2 * (L + w) * p * ep * 1.05;
@@ -286,6 +274,22 @@ export function handleGrosCalculate() {
         results.push({ l: 'Treillis soudé (radier)',          v: Math.ceil(surfRadier * 1.1 / 8), u: 'panneaux' });
         results.push({ l: 'Terrassement (déblai)',            v: terre.toFixed(2),             u: 'm³' });
     }
+
+    return results;
+}
+
+// ─── Handler écran ─────────────────────────────────────────────────────────────
+
+export function handleGrosCalculate() {
+    const activeGros = getActiveGros();
+    const nom        = document.getElementById('g-chantier-nom').value.trim() || 'Chantier Gros Œuvre';
+
+    const isValidRef = { v: true };
+    const get        = makeGet(isValidRef);
+    const getRaw     = id => { const el = document.getElementById('g-' + id); return el ? el.value : ''; };
+
+    const results = computeGros(activeGros, get, getRaw);
+    if (!isValidRef.v) return showToast('Remplis tous les champs requis', true);
 
     renderResults('gros-results', results, nom, `Maçonnerie (${GROS_CONFIG[activeGros].name})`);
 }

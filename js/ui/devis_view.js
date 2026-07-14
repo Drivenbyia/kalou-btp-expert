@@ -2,6 +2,7 @@ import { showToast } from './toast.js';
 import { getMateriaux, getOuvrages, getProfil } from '../pricing/tarifs.js';
 import { TVA_OPTIONS } from '../data/prices.default.js';
 import { imprimerDevis } from './print_devis.js';
+import { estimerMateriaux, resumeMateriaux, listeCoursesDevis } from '../pricing/chiffrage.js';
 import {
     listDevis, getDevisById, creerDevis, creerLigne, calculerTotaux, totalLigne,
     sauvegarderDevis, supprimerDevis, dupliquerDevis, changerType, lignesDepuisResultats
@@ -21,6 +22,7 @@ function fmt(n) {
 let _devis = null;
 let _picker = null; // 'ouvrage' | 'calcul' | null
 let _config = null; // configurateur d'ouvrage en cours : { id, dims:{}, opts:{} }
+let _courses = false; // panneau liste de courses ouvert ?
 
 // ─── Liste des devis / estimations ───────────────────────────────────────────
 
@@ -37,9 +39,11 @@ export function renderDevisList() {
         return;
     }
 
+    const typeLabels = { estimation: 'Estimation', devis: 'Devis', facture: 'Facture' };
     container.innerHTML = tous.map(d => {
         const t = calculerTotaux(d);
-        const isDevis = d.type === 'devis';
+        const typeLabel = typeLabels[d.type] || 'Estimation';
+        const typeSolid = d.type === 'devis' || d.type === 'facture';
         const statutColors = {
             brouillon: 'bg-gray-100 text-gray-500', envoye: 'bg-amber-50 text-amber-600',
             accepte: 'bg-emerald-50 text-emerald-600', refuse: 'bg-red-50 text-red-500'
@@ -50,7 +54,7 @@ export function renderDevisList() {
             <div class="flex justify-between items-start gap-3">
                 <div class="min-w-0">
                     <div class="flex items-center gap-2 flex-wrap">
-                        <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-lg ${isDevis ? 'bg-kalou-dark text-white' : 'bg-gray-100 text-gray-500'}">${isDevis ? 'Devis' : 'Estimation'}</span>
+                        <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-lg ${typeSolid ? (d.type === 'facture' ? 'bg-kalou-orange text-white' : 'bg-kalou-dark text-white') : 'bg-gray-100 text-gray-500'}">${typeLabel}</span>
                         <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-lg ${statutColors[d.statut] || statutColors.brouillon}">${statutLabels[d.statut] || 'Brouillon'}</span>
                     </div>
                     <p class="font-black text-lg mt-1 truncate">${esc(d.client.nom) || 'Client à renseigner'}</p>
@@ -99,6 +103,7 @@ export function ajouterAuDevis(nom, categorie, data) {
 
 function openEditor() {
     _config = null;
+    _courses = false;
     document.getElementById('devis-list-view').classList.add('hidden');
     document.getElementById('devis-editor-view').classList.remove('hidden');
     renderEditor();
@@ -191,11 +196,17 @@ export function annulerConfig() {
     renderEditor();
 }
 
+/** Valeur d'une prestation par unité = matériel (€) + main d'œuvre (temps × taux). */
+function optionValeur(op, taux) {
+    return (op.prix || 0) + (op.tempsMO || 0) * taux;
+}
+
 /** Compose la ligne de devis à partir de l'état du configurateur. */
 function composeConfig() {
     const o = getOuvrages().find(x => x.id === _config.id);
     const c = o.config;
     const dims = _config.dims;
+    const taux = getProfil().tauxHoraire || 0;
     const inclus = c.options.filter(op => _config.opts[op.id]);
 
     let detail = c.resume(dims);
@@ -207,14 +218,29 @@ function composeConfig() {
     if (c.mode === 'm2' || c.mode === 'qte') {
         qte   = Math.round(Object.values(dims).reduce((a, b) => a * (parseFloat(b) || 0), 1) * 100) / 100;
         unite = c.mode === 'm2' ? 'm²' : o.unite;
-        puHT  = o.prix;
+        // Prix unitaire = tarif de référence ajusté selon les prestations cochées :
+        // chaque prestation retirée/ajoutée = temps de main d'œuvre + matériel en moins/plus.
+        let delta = 0;
+        c.options.forEach(op => {
+            const val = optionValeur(op, taux);
+            if (!val) return;
+            const sel = _config.opts[op.id];
+            if (sel && !op.defaut) delta += val;          // ajout d'une option hors standard
+            else if (!sel && op.defaut) delta -= val;     // retrait d'une option standard
+        });
+        puHT = Math.max(0, Math.round((o.prix + delta) * 100) / 100);
     } else {
         qte   = 1;
         unite = 'forfait';
         const base = typeof c.base === 'function' ? c.base(dims) : (c.base || o.prix);
-        puHT = base + inclus.reduce((s, op) => s + (op.prix || 0), 0);
+        puHT = Math.round((base + inclus.reduce((s, op) => s + optionValeur(op, taux), 0)) * 100) / 100;
     }
-    return { designation: o.label, detail, qte, unite, puHT };
+
+    // Métré matériaux interne (caché du devis client) + main d'œuvre estimée
+    const materiaux    = estimerMateriaux(o.id, dims);
+    const tempsMOtotal = Math.round((o.tempsMO || 0) * (c.mode === 'forfait' ? 1 : qte) * 10) / 10;
+
+    return { designation: o.label, detail, qte, unite, puHT, materiaux, tempsMOtotal };
 }
 
 export function validerConfig() {
@@ -270,6 +296,8 @@ function renderEditor() {
     const container = document.getElementById('devis-editor-view');
     const t = calculerTotaux(_devis);
     const isDevis = _devis.type === 'devis';
+    const isEstimation = _devis.type === 'estimation';
+    const enTeteLabel = { estimation: 'Estimation', devis: 'Devis n°', facture: 'Facture n°' }[_devis.type] || 'Estimation';
     const materiaux = getMateriaux();
     const ouvrages  = getOuvrages();
     const historique = JSON.parse(localStorage.getItem('kalou_btp_v3') || '[]');
@@ -285,7 +313,7 @@ function renderEditor() {
         <div class="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
           <div class="flex items-center justify-between gap-3 mb-5 flex-wrap">
             <div>
-              <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest">${isDevis ? 'Devis n°' : 'Estimation'}</p>
+              <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest">${enTeteLabel}</p>
               <p class="text-xl font-black">${esc(_devis.num)}</p>
             </div>
             <select onchange="window.majChampDevis('statut', this.value)" class="text-xs font-black uppercase px-3 py-2 rounded-xl border-2 border-gray-100 bg-gray-50">
@@ -349,10 +377,12 @@ function renderEditor() {
       <aside class="space-y-4 lg:sticky lg:top-4">
         <div class="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
           <div class="flex bg-gray-100 p-1 rounded-2xl mb-4">
-            <button onclick="window.changerTypeDevisUI('estimation')" class="flex-1 py-2.5 rounded-xl font-bold text-xs uppercase transition-all ${!isDevis ? 'bg-kalou-dark text-white' : 'text-gray-500'}">Estimation</button>
-            <button onclick="window.changerTypeDevisUI('devis')" class="flex-1 py-2.5 rounded-xl font-bold text-xs uppercase transition-all ${isDevis ? 'bg-kalou-dark text-white' : 'text-gray-500'}">Devis</button>
+            <button onclick="window.changerTypeDevisUI('estimation')" class="flex-1 py-2.5 rounded-xl font-bold text-[11px] uppercase transition-all ${isEstimation ? 'bg-kalou-dark text-white' : 'text-gray-500'}">Estimation</button>
+            <button onclick="window.changerTypeDevisUI('devis')" class="flex-1 py-2.5 rounded-xl font-bold text-[11px] uppercase transition-all ${isDevis ? 'bg-kalou-dark text-white' : 'text-gray-500'}">Devis</button>
+            <button onclick="window.changerTypeDevisUI('facture')" class="flex-1 py-2.5 rounded-xl font-bold text-[11px] uppercase transition-all ${_devis.type === 'facture' ? 'bg-kalou-orange text-white' : 'text-gray-500'}">Facture</button>
           </div>
-          ${!isDevis ? `<p class="text-[11px] text-amber-600 font-bold bg-amber-50 rounded-xl p-3 mb-1">Non contractuel — bascule en "Devis" une fois ton entreprise déclarée pour ajouter les mentions légales.</p>` : ''}
+          ${isEstimation ? `<p class="text-[11px] text-amber-600 font-bold bg-amber-50 rounded-xl p-3 mb-1">Non contractuel — bascule en "Devis" une fois ton entreprise déclarée pour ajouter les mentions légales.</p>` : ''}
+          ${_devis.type === 'facture' ? `<p class="text-[11px] text-emerald-700 font-bold bg-emerald-50 rounded-xl p-3 mb-1">Facture générée à partir du devis accepté — payable à réception.</p>` : ''}
 
           <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest mt-4 mb-2">Régime TVA</p>
           <div class="space-y-2 mb-3">
@@ -373,8 +403,11 @@ function renderEditor() {
 
         <div class="space-y-2">
           <button onclick="window.exporterPdfDevis()" class="w-full bg-kalou-orange text-white font-black text-sm uppercase h-14 rounded-2xl shadow-lg active:scale-95 transition-all">⤓ Aperçu / Export PDF</button>
+          <button onclick="window.toggleCoursesDevis()" class="w-full ${_courses ? 'bg-kalou-dark text-white' : 'bg-white border-2 border-gray-100 text-gray-600'} font-black text-sm uppercase h-12 rounded-2xl active:scale-95 transition-all">🧱 Liste de courses</button>
           <button onclick="window.dupliquerDevisUI(${_devis.id})" class="w-full bg-white border-2 border-gray-100 text-gray-600 font-black text-sm uppercase h-12 rounded-2xl active:scale-95 transition-all">Dupliquer</button>
         </div>
+
+        ${_courses ? renderCoursesHTML() : ''}
       </aside>
     </div>`;
 }
@@ -405,6 +438,39 @@ function renderTotauxPanel() {
     if (panel) panel.innerHTML = renderTotauxHTML(calculerTotaux(_devis));
 }
 
+function renderCoursesHTML() {
+    const liste = listeCoursesDevis(_devis);
+    if (!liste.length) {
+        return `<div class="bg-white rounded-2xl p-4 border border-gray-100 text-sm text-gray-400 font-bold text-center">Aucun matériau estimé — ajoute des « ouvrages type » dimensionnés.</div>`;
+    }
+    return `
+    <div class="bg-white rounded-2xl p-4 border border-gray-100">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest">Matériaux à commander (interne)</p>
+        <button onclick="window.partagerCoursesDevis()" class="text-xs font-black text-kalou-orange uppercase">Partager</button>
+      </div>
+      <div class="space-y-1.5">
+        ${liste.map(m => `
+          <div class="flex justify-between items-center gap-2 text-sm">
+            <span class="text-gray-500 truncate">${esc(m.l)}</span>
+            <b class="shrink-0">${esc(m.v)} <small class="text-[10px] text-gray-400 uppercase">${esc(m.u)}</small></b>
+          </div>`).join('')}
+      </div>
+      <p class="text-[10px] text-gray-400 mt-3">Estimation d'après la surface des ouvrages — à vérifier avant commande.</p>
+    </div>`;
+}
+
+export function toggleCourses() {
+    _courses = !_courses;
+    renderEditor();
+}
+
+export function partagerCourses() {
+    const liste = listeCoursesDevis(_devis);
+    if (!liste.length) return showToast('Aucun matériau estimé', true);
+    window.shareResults('Matériaux – ' + (_devis.chantier.description || _devis.num), liste);
+}
+
 function renderOuvrageListHTML(ouvragesParCat) {
     return `
     <div class="mt-4 bg-gray-50 rounded-2xl p-4 max-h-80 overflow-y-auto space-y-4">
@@ -427,6 +493,8 @@ function renderConfigHTML() {
     const o = getOuvrages().find(x => x.id === _config.id);
     const c = o.config;
     const preview = composeConfig();
+    const taux = getProfil().tauxHoraire || 0;
+    const uniteOpt = c.mode === 'm2' ? '/m²' : c.mode === 'qte' ? '/' + o.unite : '';
     const colClass = c.dims.length >= 3 ? 'grid-cols-3' : c.dims.length === 2 ? 'grid-cols-2' : 'grid-cols-1';
 
     return `
@@ -454,7 +522,7 @@ function renderConfigHTML() {
               <input type="checkbox" ${_config.opts[op.id] ? 'checked' : ''} onchange="window.toggleConfigOptDevis('${op.id}')" class="accent-kalou-orange w-4 h-4 shrink-0">
               ${esc(op.label)}
             </span>
-            ${op.prix ? `<span class="text-xs font-black shrink-0 ${_config.opts[op.id] ? 'text-gray-500' : 'text-gray-300'}">+${fmt(op.prix)} €</span>` : ''}
+            ${((op.prix || 0) + (op.tempsMO || 0) * taux) ? `<span class="text-xs font-black shrink-0 ${_config.opts[op.id] ? 'text-gray-500' : 'text-gray-300'}">${c.mode === 'forfait' ? '+' : ''}${fmt((op.prix || 0) + (op.tempsMO || 0) * taux)} €${uniteOpt}</span>` : ''}
           </label>`).join('')}
         </div>
       </div>
@@ -466,6 +534,12 @@ function renderConfigHTML() {
           <span class="text-xs font-bold text-gray-400">${preview.qte} ${esc(preview.unite)}${c.mode !== 'forfait' ? ' × ' + fmt(preview.puHT) + ' €' : ''}</span>
           <span class="font-black text-kalou-dark">${fmt(preview.qte * preview.puHT)} €</span>
         </div>
+      </div>
+
+      <div class="bg-gray-100 rounded-xl p-3 text-[11px] text-gray-500 leading-relaxed">
+        <p class="text-[9px] font-black uppercase text-gray-400 tracking-widest mb-1">🔧 Interne — n'apparaît pas sur le devis</p>
+        <p><b>Main d'œuvre estimée :</b> ${preview.tempsMOtotal} h</p>
+        ${preview.materiaux ? `<p class="mt-1"><b>Matériaux (surface) :</b> ${esc(resumeMateriaux(preview.materiaux))}</p>` : ''}
       </div>
 
       <button onclick="window.validerConfigDevis()" class="w-full bg-kalou-orange text-white font-black text-sm uppercase h-12 rounded-2xl active:scale-95 transition-all">

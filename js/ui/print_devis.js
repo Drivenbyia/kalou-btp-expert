@@ -27,6 +27,8 @@ export function imprimerDevis(devis) {
 
 function buildHTML(devis, profil, t) {
     const isEstimation = devis.type === 'estimation';
+    const isFacture    = devis.type === 'facture';
+    const netAPayer    = Math.round((t.totalTTC - t.acompte) * 100) / 100;
     const regimeTaux = { franchise: 0, '10': 10, '20': 20 }[devis.regimeTVA] ?? 0;
     const tauxLigne = l => (l.tva !== null && l.tva !== undefined) ? l.tva : regimeTaux;
 
@@ -52,20 +54,27 @@ function buildHTML(devis, profil, t) {
             <td>${fmt(totalLigne(l))}</td>
         </tr>`).join('');
 
+    const mentionTVA = t.mentionFranchise
+        ? 'TVA non applicable, art. 293 B du CGI.'
+        : 'TVA au taux indiqué ci-dessus — attestation TVA à compléter par le client si travaux à taux réduit.';
+    const mentionRetard = 'En cas de retard de paiement : pénalités au taux légal en vigueur + indemnité forfaitaire de recouvrement de 40 €.';
+    const mentionMediateur = profil.mediateur ? `Le client peut recourir au médiateur de la consommation : <b>${esc(profil.mediateur)}</b>.` : '';
+
     const mentionsLegales = isEstimation ? `
         <div class="pp-mentions">
             <b>Estimation à titre indicatif — ne vaut pas devis.</b> Ce document ne constitue pas un engagement contractuel
             et ne comporte pas l'ensemble des mentions légales obligatoires. Un devis conforme sera établi avant le début
             des travaux, une fois l'entreprise déclarée.
+        </div>` : isFacture ? `
+        <div class="pp-mentions">
+            <b>Conditions de règlement.</b> Facture payable à réception${profil.rib ? ' — RIB : ' + esc(profil.rib) : ''}. ${mentionTVA}
+            ${mentionRetard} ${mentionMediateur}
+            Assurance décennale et RC pro souscrites (voir en-tête). Travaux exécutés conformément au devis accepté.
         </div>` : `
         <div class="pp-mentions">
             <b>Conditions.</b> Devis gratuit, valable ${esc(profil.validite)}. Acompte de ${devis.acomptePct}% à la commande,
-            solde à la fin des travaux.
-            ${t.mentionFranchise
-                ? 'TVA non applicable, art. 293 B du CGI.'
-                : `TVA au taux indiqué ci-dessus — attestation TVA à compléter par le client si travaux à taux réduit.`}
-            En cas de retard de paiement : pénalités au taux légal en vigueur + indemnité forfaitaire de recouvrement de 40 €.
-            ${profil.mediateur ? `Le client peut recourir au médiateur de la consommation : <b>${esc(profil.mediateur)}</b>.` : ''}
+            solde à la fin des travaux. ${mentionTVA}
+            ${mentionRetard} ${mentionMediateur}
             Assurance décennale et RC pro souscrites (voir en-tête).
             <br><br><b>À retourner signé</b> avec la mention « Bon pour accord », daté, avant tout début de travaux.
         </div>`;
@@ -107,11 +116,11 @@ function buildHTML(devis, profil, t) {
     <div class="pp-head">
         <div>${enTeteEntreprise}</div>
         <div class="pp-title">
-            <div class="pp-big">${isEstimation ? 'ESTIMATION' : 'DEVIS'}</div>
+            <div class="pp-big">${isFacture ? 'FACTURE' : isEstimation ? 'ESTIMATION' : 'DEVIS'}</div>
             <div class="pp-mt">
                 N° <b>${esc(devis.num)}</b><br>
                 Date : <b>${fmtDate(devis.date)}</b><br>
-                ${!isEstimation ? `Validité : <b>${esc(profil.validite)}</b>` : ''}
+                ${isFacture ? 'Échéance : <b>à réception</b>' : !isEstimation ? `Validité : <b>${esc(profil.validite)}</b>` : ''}
             </div>
         </div>
     </div>
@@ -141,13 +150,19 @@ function buildHTML(devis, profil, t) {
                 ? `<div class="r"><span style="font-size:10px">TVA non applicable, art. 293 B du CGI</span></div>`
                 : t.parTaux.map(g => `<div class="r"><span>TVA ${g.taux}%</span><b>${fmt(g.montant)} €</b></div>`).join('')}
             <div class="r grand"><span>Total TTC</span><b>${fmt(t.totalTTC)} €</b></div>
-            ${!isEstimation ? `<div class="r ac"><span>Acompte ${devis.acomptePct}% à la commande</span><b>${fmt(t.acompte)} €</b></div>` : ''}
+            ${isFacture
+                ? (devis.acomptePct > 0
+                    ? `<div class="r"><span>Acompte déjà versé</span><b>− ${fmt(t.acompte)} €</b></div><div class="r ac"><span>Net à payer</span><b>${fmt(netAPayer)} €</b></div>`
+                    : `<div class="r ac"><span>Net à payer</span><b>${fmt(t.totalTTC)} €</b></div>`)
+                : !isEstimation
+                    ? `<div class="r ac"><span>Acompte ${devis.acomptePct}% à la commande</span><b>${fmt(t.acompte)} €</b></div>`
+                    : ''}
         </div>
     </div>
 
     ${mentionsLegales}
 
-    ${!isEstimation ? `
+    ${!isEstimation && !isFacture ? `
     <div class="pp-sign">
         <div class="s"><div class="lab">L'entreprise</div></div>
         <div class="s"><div class="lab">Le client — Bon pour accord</div></div>
