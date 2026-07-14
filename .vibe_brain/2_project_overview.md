@@ -17,8 +17,21 @@ Présentation et interactions. Lit l'état, manipule le DOM, ne contient aucune 
 | Fichier | Rôle | Exports |
 |---------|------|---------|
 | `navigation.js` | Switching onglets, rendu sous-nav gros œuvre dynamique depuis GROS_CONFIG | `switchTab()`, `setGrosType()`, `setSecondType()`, `renderGrosSubNav()` |
-| `render.js` | Template carte résultats, boutons Share/Save, Web Share API + fallback clipboard | `renderResults()`, `shareResults()` |
+| `render.js` | Template carte résultats, boutons Share/Save/Devis, Web Share API + fallback clipboard | `renderResults()`, `shareResults()` |
 | `toast.js` | Notifications auto-dismiss 2.5s, état erreur (rouge) ou succès | `showToast(msg, isError?)` |
+| `devis_view.js` | Liste + éditeur de devis (client, chantier, lignes, TVA, totaux, export) | `renderDevisList()`, `nouveauDevis()`, `ouvrirDevis()`, `ajouterAuDevis()`, `fermerEditeurDevis()`, handlers `maj*`/`ajouter*`/`supprimer*` |
+| `print_devis.js` | Vue imprimable A4 avec mentions légales, remplit `#devis-print-sheet` | `imprimerDevis()` |
+| `tarifs_view.js` | Écran Réglages : profil entreprise, décennale, TVA par défaut, taux horaire, catalogue de prix éditable | `renderReglages()`, `majProfilChamp()`, `majDebourse()`, `appliquerTauxDebourse()`, `majPrix()`, `resetPrixCatalogue()` |
+
+### `js/data/` & `js/pricing/`
+Données et logique métier du chiffrage — aucune manipulation DOM.
+
+| Fichier | Rôle | Exports |
+|---------|------|---------|
+| `data/prices.default.js` | Catalogue par défaut (matériaux, ouvrages fourni-posé, profil entreprise, options TVA) | `MATERIAUX_DEFAUT`, `OUVRAGES_DEFAUT`, `PROFIL_DEFAUT`, `TVA_OPTIONS` |
+| `pricing/tarifs.js` | Fusion défauts + surcharges (`kalou_prix_v1`), CRUD profil (`kalou_profil_v1`) | `getMateriaux()`, `getOuvrages()`, `setPrix()`, `resetPrix()`, `getProfil()`, `updateProfil()` |
+| `pricing/debourse.js` | Calcul du taux horaire (méthode du déboursé) | `calculerDebourse(params)` |
+| `pricing/devis.js` | Modèle devis, calcul des totaux (TVA multi-taux), numérotation, persistance (`kalou_devis_v1`) | `creerDevis()`, `creerLigne()`, `calculerTotaux()`, `changerType()`, `sauvegarderDevis()`, `dupliquerDevis()`, `lignesDepuisResultats()` |
 
 ### `js/core/` — fichiers racine équivalents
 | Fichier | Rôle | Exports |
@@ -116,3 +129,40 @@ window.load
 **Règles storage :**
 - Max 50 entrées (les plus anciennes supprimées)
 - Consolidation : agrégation des `v` par clé `l|||u` pour un même `name`
+
+---
+
+## Modèle de données — Devis (`localStorage['kalou_devis_v1']`)
+
+```js
+{
+  id: 1784022317949,             // Date.now()
+  num: "DEV-2026-001",           // ou "EST-{timestamp}" pour une estimation
+  type: "devis",                 // "devis" | "estimation"
+  date: "2026-07-14",
+  validite: "3 mois",
+  client:   { nom, adresse, tel, email },
+  chantier: { adresse, description },
+  regimeTVA: "10",                // "franchise" | "10" | "20"
+  lignes: [
+    { id: "l...", designation, detail, qte, unite, puHT, tva: null }  // tva: override ligne (sinon regimeTVA)
+  ],
+  acomptePct: 30,
+  statut: "brouillon"             // brouillon | envoye | accepte | refuse
+}
+```
+
+`calculerTotaux(devis)` groupe les lignes par taux de TVA effectif et retourne
+`{ totalHT, parTaux[], totalTVA, totalTTC, acompte, solde, mentionFranchise }`.
+
+## Modèle de données — Profil entreprise (`localStorage['kalou_profil_v1']`)
+
+Fusionné avec `PROFIL_DEFAUT` (data/prices.default.js) : identité entreprise (nom, SIRET, EI, APE),
+assurance décennale (assureur, contrat, zone), médiateur, régime TVA par défaut, acompte/validité par
+défaut, taux horaire (`tauxHoraire`) et paramètres du déboursé (`debourse: { revenuMensuel,
+fraisAnnuels, heuresFacturables, cotisationsPct, margePct }`).
+
+## Modèle de données — Prix (`localStorage['kalou_prix_v1']`)
+
+Ne stocke que les **diffs** par rapport au catalogue par défaut : `{ materiaux: { [id]: prix },
+ouvrages: { [id]: prix } }`. `getMateriaux()` / `getOuvrages()` fusionnent à la lecture.

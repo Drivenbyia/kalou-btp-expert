@@ -6,6 +6,13 @@ import { shareResults }                  from './ui/render.js';
 import { showToast }                     from './ui/toast.js';
 import { saveHistory, deleteHistory, clearHistory, renderHistory, shareConsolidated } from './storage.js';
 import { initPWA }                       from './pwa.js';
+import {
+    renderDevisList, nouveauDevis, ouvrirDevis, fermerEditeurDevis, ajouterAuDevis,
+    majChamp, majLigne, supprimerLigne, ajouterLigneManuelle, togglePicker,
+    ajouterLigneOuvrage, importerCalcul, changerTypeDevis, dupliquerDevisUI,
+    supprimerDevisUI, exporterPdf
+}                                         from './ui/devis_view.js';
+import { renderReglages, majProfilChamp, majDebourse, appliquerTauxDebourse, majPrix, resetPrixCatalogue } from './ui/tarifs_view.js';
 
 // Exposition globale (nécessaire pour les onclick dans le HTML)
 window.handleGrosCalculate = handleGrosCalculate;
@@ -21,6 +28,32 @@ window.deleteHistory       = deleteHistory;
 window.clearHistory        = clearHistory;
 window.renderHistory       = renderHistory;
 window.shareConsolidated   = shareConsolidated;
+
+// Devis / Estimations
+window.renderDevisList           = renderDevisList;
+window.nouveauDevis              = nouveauDevis;
+window.ouvrirDevis               = ouvrirDevis;
+window.fermerEditeurDevis        = fermerEditeurDevis;
+window.ajouterAuDevis            = ajouterAuDevis;
+window.majChampDevis             = majChamp;
+window.majLigneDevis             = majLigne;
+window.supprimerLigneDevis       = supprimerLigne;
+window.ajouterLigneManuelleDevis = ajouterLigneManuelle;
+window.togglePickerDevis         = togglePicker;
+window.ajouterLigneOuvrageDevis  = ajouterLigneOuvrage;
+window.importerCalculDevis       = importerCalcul;
+window.changerTypeDevisUI        = changerTypeDevis;
+window.dupliquerDevisUI          = dupliquerDevisUI;
+window.supprimerDevisUI          = supprimerDevisUI;
+window.exporterPdfDevis          = exporterPdf;
+
+// Réglages / Tarifs
+window.renderReglages       = renderReglages;
+window.majProfilChamp       = majProfilChamp;
+window.majDebourse          = majDebourse;
+window.appliquerTauxDebourse = appliquerTauxDebourse;
+window.majPrix               = majPrix;
+window.resetPrixCatalogue    = resetPrixCatalogue;
 
 window.addEventListener('load', () => {
     initPWA();

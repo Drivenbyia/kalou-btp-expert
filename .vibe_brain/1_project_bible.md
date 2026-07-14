@@ -60,10 +60,19 @@ kalou-btp-expert/
 │   │   ├── gros_oeuvre.js  ← 7 calculateurs béton/maçonnerie
 │   │   ├── placo.js        ← Calculateur plaques de plâtre
 │   │   └── sols.js         ← Calculateur carrelage / parquet
+│   ├── data/
+│   │   └── prices.default.js ← Catalogue prix par défaut (matériaux, ouvrages, profil, TVA_OPTIONS)
+│   ├── pricing/
+│   │   ├── tarifs.js       ← Fusion catalogue défaut + surcharges localStorage, CRUD profil
+│   │   ├── debourse.js     ← Calcul du taux horaire (déboursé → prix de vente)
+│   │   └── devis.js        ← Modèle devis, totaux TVA multi-taux, numérotation, persistance
 │   └── ui/
 │       ├── navigation.js   ← Onglets, sous-nav dynamique, injection champs
-│       ├── render.js       ← Template carte résultats + share/save
-│       └── toast.js        ← Notifications auto-dismiss (2.5s)
+│       ├── render.js       ← Template carte résultats + share/save/devis
+│       ├── toast.js        ← Notifications auto-dismiss (2.5s)
+│       ├── devis_view.js   ← Éditeur de devis (liste + édition, lignes, TVA, totaux)
+│       ├── print_devis.js  ← Vue imprimable A4 (mentions légales) → window.print()
+│       └── tarifs_view.js  ← Écran Réglages (profil, décennale, TVA, taux horaire, catalogue)
 ```
 
 ### Bonnes pratiques
@@ -81,3 +90,14 @@ kalou-btp-expert/
 - **Format décimal** : Toujours remplacer la virgule par un point avant `parseFloat()` (saisie FR)
 - **Exposition globale** : Toutes les fonctions appelées en `onclick` HTML sont exposées sur `window` dans `app.js`
 - **Structure résultat** : `{ l: label, v: valeur_string, u: unité, h?: boolean }` — `h: true` = ligne mise en avant (orange)
+
+### Module Devis (V2)
+
+- **Clés localStorage** : `kalou_prix_v1` (surcharges de prix, diff uniquement — jamais les catalogues par défaut), `kalou_profil_v1` (entreprise/décennale/TVA/taux horaire), `kalou_devis_v1` (liste devis + estimations)
+- **Numérotation** : `DEV-{année}-{compteur}` pour les devis, `EST-{timestamp}` pour les estimations (pas de valeur contractuelle)
+- **TVA en interrupteur** : `TVA_OPTIONS` = `franchise` (0%, mention art. 293 B) / `10` (rénovation) / `20` (neuf) — réglage par défaut dans le profil, surchargeable par devis, et par ligne si besoin (chantier mixte)
+- **Types de document** : `estimation` (non contractuel, pas de mentions légales complètes) vs `devis` (contractuel, mentions légales générées automatiquement à l'impression) — `changerType()` dans `pricing/devis.js` bascule l'un vers l'autre en renumérotant
+- **Pont calculateurs → devis** : bouton `.btn-devis` sur chaque carte de résultats (`render.js`) → `window.ajouterAuDevis(nom, categorie, data)` crée une estimation et convertit les lignes de métré en lignes de devis via `lignesDepuisResultats()` (association par libellé au catalogue matériaux)
+- **Export PDF sans dépendance** : `#devis-print-sheet` toujours présent dans le DOM (hors écran via `left:-99999px`), rempli dynamiquement par `print_devis.js`, rendu visible uniquement par la règle CSS `@media print` puis `window.print()` — aucune librairie externe
+- **Convention de rendu** : chaque module UI Devis/Réglages définit son propre petit helper local `esc()` (échappement HTML) et `fmt()` (formatage `toLocaleString('fr-FR')`), à l'identique du pattern déjà utilisé dans `render.js` — pas de module utilitaire partagé, cohérent avec le zéro-abstraction du projet
+- **Pas d'accents dans les identifiants JS** : `debourse.js` / `calculerDebourse()` (pas de `é`) pour éviter tout risque d'encodage — seuls les textes UI (chaînes, labels) portent les accents

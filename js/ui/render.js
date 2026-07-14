@@ -65,6 +65,11 @@ export function renderResults(containerId, data, name, category) {
                             <path d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" stroke-width="2"/>
                         </svg>
                     </button>
+                    <button class="btn-devis bg-kalou-orange p-3 rounded-2xl active:scale-95 transition-all" title="Chiffrer / Ajouter au devis">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-width="2"/>
+                        </svg>
+                    </button>
                 </div>
             </div>
 
@@ -86,6 +91,7 @@ export function renderResults(containerId, data, name, category) {
     // Attacher les listeners (évite les inline onclick avec JSON)
     container.querySelector('.btn-share').addEventListener('click', () => shareResults(name, data));
     container.querySelector('.btn-save').addEventListener('click', () => window.saveHistory(name, category, data));
+    container.querySelector('.btn-devis').addEventListener('click', () => window.ajouterAuDevis(name, category, data));
 
     container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
