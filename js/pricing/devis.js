@@ -56,9 +56,13 @@ export function creerDevis(type = 'estimation') {
 }
 
 let _ligneSeq = 0;
-export function creerLigne({ designation, detail = '', qte = 1, unite = 'u', puHT = 0, tva = null, materiaux = null }) {
-    // `materiaux` : métré interne (caché du devis client), stocké pour la liste de courses.
-    return { id: `l${Date.now()}-${_ligneSeq++}`, designation, detail, qte, unite, puHT, tva, materiaux };
+export function creerLigne({ designation, detail = '', qte = 1, unite = 'u', puHT = 0, tva = null,
+                            materiaux = null, heuresUnit = null, tauxLigne = null, coutMatUnit = null }) {
+    // `materiaux` : métré interne (caché du devis client).
+    // `heuresUnit`/`tauxLigne`/`coutMatUnit` : décomposition main d'œuvre éditable par ligne
+    // (puHT = coutMatUnit + heuresUnit × tauxLigne). null pour les lignes manuelles.
+    return { id: `l${Date.now()}-${_ligneSeq++}`, designation, detail, qte, unite, puHT, tva,
+             materiaux, heuresUnit, tauxLigne, coutMatUnit };
 }
 
 // ─── Calcul des totaux ────────────────────────────────────────────────────────

@@ -43,8 +43,9 @@ export function estimerMateriaux(ouvrageId, dims) {
     }
 }
 
-// Lignes de quantité intermédiaire (ni matériau achetable, ni à chiffrer).
-const INTERMEDIAIRE = /^(volume|surface|terre|mortier|gravats|volume de mur)/i;
+// Lignes de quantité intermédiaire (ni matériau achetable, ni à chiffrer) :
+// volumes de béton/mur, surfaces, terre/terrassement à évacuer, gravats, volume de mortier.
+const INTERMEDIAIRE = /^(volume|surface|terre|terrassement|mortier|gravats)/i;
 
 /**
  * Coût matériaux approximatif à partir des résultats de métré et du catalogue.

@@ -104,6 +104,14 @@ Note connue (non bloquant) : l'import d'un métré reste une base à ajuster (as
 - `devis_view.js` : bouton « 🧱 Liste de courses » dans l'éditeur → panneau des matériaux à commander (interne) + bouton Partager (réutilise `shareResults` → texte WhatsApp/SMS au négociant). Handlers `toggleCourses`/`partagerCourses`.
 - Vérifié (Playwright, data-only) : 2 murs parpaing (12,5 + 10 m²) → Agglos 183 (consolidé sur 1 ligne), Angle 54, Ciment 5 sacs, Sable 2 big bag. Aucune erreur JS.
 
+**Taux/temps de MO éditables par ligne + piscine parpaings (2026-07-14, retour beau-père)** :
+- Retour 1 : pouvoir ajuster le prix/heure (et le temps) de chaque ligne (« si j'estime passer moins de temps »).
+  - `creerLigne` transporte `heuresUnit` (h/unité), `tauxLigne` (€/h), `coutMatUnit` (part matériel/fixe). `composeConfig` les calcule (heures ajustées par les options comme le prix ; coutMat = puHT − heures×taux). Ligne : `puHT = coutMatUnit + heuresUnit × tauxLigne`.
+  - `devis_view.js` : sous-ligne compacte « Main d'œuvre : [h/u] × [€/h] » sur les lignes d'ouvrage ; `majLigne` recalcule le PU quand on change heures/taux (et réajuste coutMat si on édite le PU directement). Vérifié : mur 80 €/m² → 0,9 h/m² = 66,50 € → 60 €/h = 80 €.
+- Retour 2 : la **piscine maçonnée** oubliait les **parpaings** dans la liste de courses (or il y a des murs à bâtir).
+  - `gros_oeuvre.js` piscine : ajout **Agglos à bancher 20×20×50** (10/m² de parois +5%) et **Fer HA Ø10 (barres)** (~4 ml/m²). Béton = radier + remplissage des blocs.
+  - `chiffrage.js` : `INTERMEDIAIRE` inclut désormais `terrassement` (le déblai n'est pas un achat). Vérifié : liste piscine contient « Agglos à bancher 378 u », plus de ligne Terrassement.
+
 **Facture — 3e type de document (2026-07-14)** :
 - `devis.js` : `numeroPour(type)` (DEV-/FAC-/EST-), `prochainNumero(code)` générique ; `creerDevis`/`changerType`/`dupliquerDevis` gèrent `facture`.
 - `print_devis.js` : titre FACTURE, « Échéance : à réception », bloc « Acompte déjà versé » + « Net à payer » (TTC − acompte), mentions facture (payable à réception, RIB, retard, médiateur), pas de bloc « Bon pour accord ». Décennale/SIRET/EI/TVA conservés.

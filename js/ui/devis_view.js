@@ -134,7 +134,21 @@ export function majChamp(chemin, valeur) {
 export function majLigne(ligneId, champ, valeur) {
     const l = _devis.lignes.find(x => x.id === ligneId);
     if (!l) return;
-    l[champ] = (champ === 'qte' || champ === 'puHT') ? (parseFloat(String(valeur).replace(',', '.')) || 0) : valeur;
+    const champsNum = ['qte', 'puHT', 'heuresUnit', 'tauxLigne'];
+    l[champ] = champsNum.includes(champ) ? (parseFloat(String(valeur).replace(',', '.')) || 0) : valeur;
+
+    // Décomposition main d'œuvre : PU = matériel/fixe + heures × taux
+    if ((champ === 'heuresUnit' || champ === 'tauxLigne') && l.coutMatUnit != null) {
+        l.puHT = Math.round((l.coutMatUnit + (l.heuresUnit || 0) * (l.tauxLigne || 0)) * 100) / 100;
+        persist();
+        renderEditor();   // rafraîchit le champ PU HT + les repères de MO
+        return;
+    }
+    // Si l'utilisateur modifie directement le PU d'une ligne à MO, on garde la MO et on
+    // ajuste la part matériel/fixe pour rester cohérent aux prochaines modifs.
+    if (champ === 'puHT' && l.coutMatUnit != null) {
+        l.coutMatUnit = Math.max(0, Math.round((l.puHT - (l.heuresUnit || 0) * (l.tauxLigne || 0)) * 100) / 100);
+    }
     persist();
     const cell = document.getElementById('lt-' + ligneId);
     if (cell) cell.textContent = fmt(totalLigne(l));
@@ -236,11 +250,30 @@ function composeConfig() {
         puHT = Math.round((base + inclus.reduce((s, op) => s + optionValeur(op, taux), 0)) * 100) / 100;
     }
 
-    // Métré matériaux interne (caché du devis client) + main d'œuvre estimée
-    const materiaux    = estimerMateriaux(o.id, dims);
-    const tempsMOtotal = Math.round((o.tempsMO || 0) * (c.mode === 'forfait' ? 1 : qte) * 10) / 10;
+    // Main d'œuvre embarquée (heures par unité), ajustée par les options comme le prix.
+    let heuresUnit;
+    if (c.mode === 'forfait') {
+        heuresUnit = (o.tempsMO || 0) + inclus.reduce((s, op) => s + (op.tempsMO || 0), 0);
+    } else {
+        let dh = 0;
+        c.options.forEach(op => {
+            const h = op.tempsMO || 0; if (!h) return;
+            const sel = _config.opts[op.id];
+            if (sel && !op.defaut) dh += h;
+            else if (!sel && op.defaut) dh -= h;
+        });
+        heuresUnit = Math.max(0, Math.round(((o.tempsMO || 0) + dh) * 100) / 100);
+    }
+    // Part matériel/fixe = prix unitaire − main d'œuvre : permet de recalculer le prix
+    // quand l'utilisateur ajuste les heures ou le taux de la ligne, sans toucher le reste.
+    const coutMatUnit  = Math.max(0, Math.round((puHT - heuresUnit * taux) * 100) / 100);
+    const tempsMOtotal = Math.round(heuresUnit * (c.mode === 'forfait' ? 1 : qte) * 10) / 10;
 
-    return { designation: o.label, detail, qte, unite, puHT, materiaux, tempsMOtotal };
+    // Métré matériaux interne (caché du devis client)
+    const materiaux = estimerMateriaux(o.id, dims);
+
+    return { designation: o.label, detail, qte, unite, puHT, materiaux, tempsMOtotal,
+             heuresUnit, tauxLigne: taux, coutMatUnit };
 }
 
 export function validerConfig() {
@@ -352,6 +385,16 @@ function renderEditor() {
                 <div><label class="text-[9px] font-bold text-gray-400 uppercase">PU HT</label><input type="number" step="any" value="${l.puHT}" onchange="window.majLigneDevis('${l.id}','puHT',this.value)" class="w-full h-10 px-2 rounded-lg border-2 border-gray-100 bg-gray-50 font-bold text-sm"></div>
                 <div class="text-right"><label class="text-[9px] font-bold text-gray-400 uppercase block">Total HT</label><span id="lt-${l.id}" class="font-black text-base">${fmt(totalLigne(l))}</span></div>
               </div>
+              ${l.heuresUnit != null ? `
+              <div class="flex items-center gap-2 mt-3 pt-3 border-t border-gray-50 text-[11px] text-gray-500 flex-wrap">
+                <span class="font-black uppercase text-[9px] text-gray-400 tracking-widest">Main d'œuvre</span>
+                <input type="number" step="any" value="${l.heuresUnit}" onchange="window.majLigneDevis('${l.id}','heuresUnit',this.value)" class="w-16 h-8 px-2 rounded-lg border border-gray-200 bg-gray-50 font-bold text-right" title="Heures par ${esc(l.unite)}">
+                <span>h/${esc(l.unite)}</span>
+                <span class="text-gray-300">×</span>
+                <input type="number" step="any" value="${l.tauxLigne}" onchange="window.majLigneDevis('${l.id}','tauxLigne',this.value)" class="w-16 h-8 px-2 rounded-lg border border-gray-200 bg-gray-50 font-bold text-right" title="Taux horaire de cette ligne">
+                <span>€/h</span>
+                <span class="text-gray-300 ml-auto">≈ ${fmt((l.heuresUnit || 0) * (l.qte || 0))} h · ${fmt((l.heuresUnit || 0) * (l.tauxLigne || 0))} €/${esc(l.unite)} de MO</span>
+              </div>` : ''}
             </div>`).join('')}
           </div>
 
