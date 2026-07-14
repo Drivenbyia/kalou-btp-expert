@@ -29,13 +29,20 @@
 
 ## Prochaine étape immédiate
 
-> À définir — audit initial terminé.
+> **V2 — Passage de « métreur de matériaux » à « chiffrage + devis ».**
+> Plan complet et chiffré (prix Dordogne 2026, TVA, taux horaire, ouvrages métier,
+> architecture) : voir **`.vibe_brain/4_plan_chiffrage_devis.md`**.
 
-Pistes identifiées lors de l'audit :
-- Ajouter d'autres types Second Œuvre (peinture, isolation…)
-- Migrer de localStorage vers IndexedDB pour des projets plus riches
-- Ajouter un calcul de coût estimatif (prix matériaux configurables)
-- Export PDF de la liste de courses d'un chantier
+Décisions cadrées avec le porteur (2026-07-14) :
+- Régime fiscal non arrêté → **TVA en interrupteur** (Franchise 293 B / 10 % rénovation / 20 % neuf), taux surchargeable par ligne.
+- Ouvrages prioritaires : **ouvertures & piscines**, **terrasses & dallages**, **murs pierre & chaux**.
+- Taux horaire : **méthode du déboursé** (à remplir avec ses vrais chiffres).
+- Ordre de build : **1) moteur de prix + module Devis**, 2) ouvrages métier, 3) sauvegarde JSON / IndexedDB.
+
+Prochain jalon technique = Phase 0 + 1 du plan :
+- `data/prices.default.js` + `pricing/tarifs.js` (catalogue éditable)
+- Écrans Réglages (profil entreprise + décennale + régime TVA) et « Mon taux »
+- `pricing/devis.js` + `ui/devis_view.js` + `ui/print_devis.js` (PDF via window.print, mentions légales auto)
 
 ## Bugs en cours
 
