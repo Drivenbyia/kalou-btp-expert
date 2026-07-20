@@ -283,6 +283,86 @@ export function computeGros(activeGros, get, getRaw) {
     return results;
 }
 
+// ─── Mesure de vente + temps de pose (pour l'ajout au devis) ───────────────────
+
+/**
+ * Mesure « façon ouvrage type » d'un calcul : quantité de vente, unité, temps de
+ * main d'œuvre par unité (ratio indicatif éditable) et désignation. Fonction pure,
+ * mêmes entrées que computeGros. Sert à créer UNE ligne de devis (désignation +
+ * MO calculée + matériaux en commentaire) au lieu d'éclater les matériaux en vrac.
+ * @returns {{ type:string, qte:number, unite:string, tempsMO:number, designation:string }}
+ */
+export function mesureGros(activeGros, get, getRaw) {
+    const r2  = x => Math.round(x * 100) / 100;
+    const cfg = GROS_CONFIG[activeGros];
+    const nom = cfg ? cfg.name : 'Gros œuvre';
+    let qte = 1, unite = 'forfait', tempsMO = 0, designation = nom;
+
+    if (activeGros === 'dalle') {
+        const l = get('l'), w = get('w'), e = get('e');
+        qte = r2(l * w); unite = 'm²'; tempsMO = 0.9;
+        designation = `Dalle béton ${l}×${w} m — ép. ${e} cm`;
+    }
+    else if (activeGros === 'fondation') {
+        const l = get('l'), w = get('w'), p = get('p');
+        qte = r2(l * w * p); unite = 'm³'; tempsMO = 3.5;
+        designation = `Fondations ${l} ml — section ${w}×${p} m`;
+    }
+    else if (activeGros === 'mur') {
+        const l = get('l'), h = get('h'), o = get('o', true);
+        qte = r2(Math.max(0, l * h - o)); unite = 'm²'; tempsMO = 1.2;
+        designation = `Mur parpaings ${l}×${h} m`;
+    }
+    else if (activeGros === 'enduit') {
+        const l = get('l'), h = get('h');
+        qte = r2(l * h); unite = 'm²'; tempsMO = 0.5;
+        designation = `Enduit façade ${l}×${h} m`;
+    }
+    else if (activeGros === 'chape') {
+        const l = get('l'), w = get('w'), e = get('e');
+        qte = r2(l * w); unite = 'm²'; tempsMO = 0.35;
+        designation = `Chape ${l}×${w} m — ép. ${e} cm`;
+    }
+    else if (activeGros === 'escalier') {
+        const n = get('n');
+        qte = n; unite = 'marche'; tempsMO = 1.5;
+        designation = `Escalier béton — ${n} marches`;
+    }
+    else if (activeGros === 'poteau') {
+        const sl = get('l'), sw = get('w'), n = get('n');
+        qte = n; unite = 'u'; tempsMO = 2;
+        designation = `Poteaux béton ${n}×(${sl}×${sw} cm)`;
+    }
+    else if (activeGros === 'terrasse') {
+        const l = get('l'), w = get('w');
+        qte = r2(l * w); unite = 'm²'; tempsMO = 1.1;
+        designation = `Terrasse / dallage ${l}×${w} m`;
+    }
+    else if (activeGros === 'pierre') {
+        const l = get('l'), h = get('h'), o = get('o', true);
+        qte = r2(Math.max(0, l * h - o)); unite = 'm²'; tempsMO = 3;
+        designation = `Mur en pierre ${l}×${h} m`;
+    }
+    else if (activeGros === 'chaux') {
+        const l = get('l'), h = get('h'), o = get('o', true);
+        qte = r2(Math.max(0, l * h - o)); unite = 'm²'; tempsMO = 1.5;
+        designation = getRaw('t') === 'joint' ? `Rejointoiement chaux ${l}×${h} m` : `Enduit chaux ${l}×${h} m`;
+    }
+    else if (activeGros === 'ouverture') {
+        const larg = get('larg'), haut = get('haut');
+        qte = 1; unite = 'forfait'; tempsMO = 12;
+        designation = `Création d'ouverture ${larg}×${haut} m`;
+    }
+    else if (activeGros === 'piscine') {
+        const l = get('l'), w = get('w'), p = get('p');
+        qte = r2(l * w); unite = 'm²'; tempsMO = 6;
+        designation = `Piscine maçonnée ${l}×${w} m — prof. ${p} m`;
+    }
+
+    if (!(qte > 0)) { qte = 1; unite = 'forfait'; }
+    return { type: activeGros, qte, unite, tempsMO, designation };
+}
+
 // ─── Handler écran ─────────────────────────────────────────────────────────────
 
 export function handleGrosCalculate() {
@@ -296,5 +376,6 @@ export function handleGrosCalculate() {
     const results = computeGros(activeGros, get, getRaw);
     if (!isValidRef.v) return showToast('Remplis tous les champs requis', true);
 
-    renderResults('gros-results', results, nom, `Maçonnerie (${GROS_CONFIG[activeGros].name})`);
+    const meta = mesureGros(activeGros, get, getRaw);
+    renderResults('gros-results', results, nom, `Maçonnerie (${GROS_CONFIG[activeGros].name})`, meta);
 }

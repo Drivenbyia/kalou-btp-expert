@@ -55,5 +55,15 @@ export function calculatePlaco() {
     results.push({ l: 'Bandes (150m)',   v: Math.ceil(surfPlates * 1.5 / 150), u: 'rouleaux'});
     results.push({ l: 'Enduit à joint',  v: Math.ceil(surfPlates * 0.6),       u: 'kg'      });
 
-    renderResults('second-results', results, 'Chantier Placo', 'Second Œuvre');
+    // Mesure « façon ouvrage type » pour l'ajout au devis (1 ligne + MO estimée)
+    const libelle = type === 'cloison' ? 'Cloison BA13' : type === 'plafond' ? 'Plafond BA13' : 'Doublage BA13';
+    const meta = {
+        type: 'placo',
+        qte: Math.round(surf * 100) / 100,
+        unite: 'm²',
+        tempsMO: type === 'plafond' ? 0.6 : 0.5,
+        designation: `${libelle} ${l}×${h} m`
+    };
+
+    renderResults('second-results', results, 'Chantier Placo', 'Second Œuvre', meta);
 }
