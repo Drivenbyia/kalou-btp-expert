@@ -2,10 +2,10 @@ import { showToast } from './toast.js';
 import { getMateriaux, getOuvrages, getProfil } from '../pricing/tarifs.js';
 import { TVA_OPTIONS } from '../data/prices.default.js';
 import { imprimerDevis } from './print_devis.js';
-import { estimerMateriaux, resumeMateriaux, listeCoursesDevis } from '../pricing/chiffrage.js';
+import { estimerMateriaux, resumeMateriaux, listeCoursesDevis, ligneDepuisCalcul } from '../pricing/chiffrage.js';
 import {
     listDevis, getDevisById, creerDevis, creerLigne, calculerTotaux, totalLigne,
-    sauvegarderDevis, supprimerDevis, dupliquerDevis, changerType, lignesDepuisResultats
+    sauvegarderDevis, supprimerDevis, dupliquerDevis, changerType
 } from '../pricing/devis.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -90,15 +90,16 @@ export function ouvrirDevis(id) {
 }
 
 /** Crée une estimation à partir d'un calcul de métré (bouton "+ Devis" des résultats). */
-export function ajouterAuDevis(nom, categorie, data) {
+export function ajouterAuDevis(nom, categorie, data, meta = null) {
     _devis = creerDevis('estimation');
     _devis.chantier.description = nom;
-    _devis.lignes = lignesDepuisResultats(data, getMateriaux());
+    const taux = getProfil().tauxHoraire || 0;
+    _devis.lignes = [creerLigne(ligneDepuisCalcul({ nom, categorie, data, meta }, getMateriaux(), taux))];
     sauvegarderDevis(_devis);
     _picker = null;
     window.switchTab('devis');
     openEditor();
-    showToast('Chiffrage ajouté — complète les prix manquants');
+    showToast('Chiffrage ajouté — vérifie le temps de pose et les prix');
 }
 
 function openEditor() {
@@ -289,12 +290,13 @@ export function importerCalcul(entryId) {
     const historique = JSON.parse(localStorage.getItem('kalou_btp_v3') || '[]');
     const entry = historique.find(h => h.id === entryId);
     if (!entry) return;
-    const nouvelles = lignesDepuisResultats(entry.data, getMateriaux());
-    _devis.lignes.push(...nouvelles);
+    const taux = getProfil().tauxHoraire || 0;
+    _devis.lignes.push(creerLigne(ligneDepuisCalcul(
+        { nom: entry.name, categorie: entry.cat, data: entry.data, meta: entry.meta }, getMateriaux(), taux)));
     if (!_devis.chantier.description) _devis.chantier.description = entry.name;
     _picker = null;
     persist(true);
-    showToast('Calcul importé — vérifie les prix');
+    showToast('Calcul importé — vérifie le temps de pose');
 }
 
 export function changerTypeDevis(type) {

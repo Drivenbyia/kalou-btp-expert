@@ -2,11 +2,11 @@ import { showToast } from './ui/toast.js';
 
 const STORAGE_KEY = 'kalou_btp_v3';
 
-export function saveHistory(name, cat, data) {
+export function saveHistory(name, cat, data, meta = null) {
     const h = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
     h.unshift({
         id:   Date.now(),
-        name, cat, data,
+        name, cat, data, meta,
         date: new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
     });
     localStorage.setItem(STORAGE_KEY, JSON.stringify(h.slice(0, 50)));

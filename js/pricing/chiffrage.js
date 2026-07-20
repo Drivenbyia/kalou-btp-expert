@@ -147,6 +147,46 @@ export function resumeMateriaux(resultats) {
         .join(' · ');
 }
 
+// Marge indicative appliquée au coût matériaux d'un calcul importé (manutention +
+// cotisations en micro). Repère éditable ligne par ligne dans le devis.
+export const MARGE_MATERIAUX = 1.10;
+
+/**
+ * Construit UNE ligne de devis « façon ouvrage type » à partir d'un calcul de métré,
+ * au lieu d'éclater les matériaux en lignes séparées (« liste de course en vrac »).
+ * Le type devient la désignation, les matériaux passent en commentaire (`detail`) et
+ * en métré interne (`materiaux` → alimente la liste de courses), le temps de pose est
+ * chiffré (heures × taux). `meta` vient de mesureGros/placo/sols ; s'il manque
+ * (historique ancien), on regroupe quand même en une ligne forfait (MO à compléter).
+ * @returns objet prêt pour `creerLigne()`
+ */
+export function ligneDepuisCalcul({ nom, categorie, data, meta }, catalogue, taux = 0) {
+    const coutMat = coutMateriaux(data, catalogue) * MARGE_MATERIAUX;
+    const resume  = resumeMateriaux(data);
+
+    let designation, qte, unite, heuresUnit;
+    if (meta && meta.qte > 0) {
+        designation = meta.designation || nom;
+        qte         = meta.qte;
+        unite       = meta.unite || 'u';
+        heuresUnit  = meta.tempsMO || 0;
+    } else {
+        designation = nom || categorie || 'Ouvrage';
+        qte         = 1;
+        unite       = 'ensemble';
+        heuresUnit  = 0;        // pas de dimensions connues → à saisir dans la ligne
+    }
+
+    const coutMatUnit = Math.round((coutMat / qte) * 100) / 100;
+    const puHT        = Math.round((coutMatUnit + heuresUnit * taux) * 100) / 100;
+    const detail      = resume ? `Matériaux estimés : ${resume}` : '';
+
+    return {
+        designation, detail, qte, unite, puHT,
+        materiaux: data, heuresUnit, tauxLigne: taux, coutMatUnit
+    };
+}
+
 /**
  * Liste de courses consolidée d'un devis : additionne les métrés internes
  * (`ligne.materiaux`) de toutes les lignes, regroupés par matériau + unité de base.

@@ -46,5 +46,14 @@ export function calculateSols() {
         results.push({ l: 'Sous-couche', v: Math.ceil(surf * 1.05), u: 'm²' });
     }
 
-    renderResults('second-results', results, 'Chantier Sols', 'Second Œuvre');
+    // Mesure « façon ouvrage type » pour l'ajout au devis (1 ligne + MO estimée)
+    const meta = {
+        type: 'sols',
+        qte: Math.round(surf * 100) / 100,
+        unite: 'm²',
+        tempsMO: type === 'carrelage' ? 0.6 : 0.4,
+        designation: `${type === 'carrelage' ? 'Carrelage' : 'Parquet / lames'} — pose ${pose} (${surf} m²)`
+    };
+
+    renderResults('second-results', results, 'Chantier Sols', 'Second Œuvre', meta);
 }

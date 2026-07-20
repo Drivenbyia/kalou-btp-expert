@@ -42,7 +42,7 @@ export function shareResults(name, data) {
 
 // ─── Rendu des résultats ──────────────────────────────────────────────────────
 
-export function renderResults(containerId, data, name, category) {
+export function renderResults(containerId, data, name, category, meta = null) {
     const container = document.getElementById(containerId);
 
     container.innerHTML = `
@@ -90,8 +90,8 @@ export function renderResults(containerId, data, name, category) {
 
     // Attacher les listeners (évite les inline onclick avec JSON)
     container.querySelector('.btn-share').addEventListener('click', () => shareResults(name, data));
-    container.querySelector('.btn-save').addEventListener('click', () => window.saveHistory(name, category, data));
-    container.querySelector('.btn-devis').addEventListener('click', () => window.ajouterAuDevis(name, category, data));
+    container.querySelector('.btn-save').addEventListener('click', () => window.saveHistory(name, category, data, meta));
+    container.querySelector('.btn-devis').addEventListener('click', () => window.ajouterAuDevis(name, category, data, meta));
 
     container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
