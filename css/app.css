@@ -347,10 +347,10 @@ details.more[open] summary::before { transform: rotate(90deg); }
 .f.men { border: 2px solid var(--edge); border-radius: 14px; padding: 10px; }
 .men-haut { display: flex; gap: 6px; align-items: flex-start; }
 .men-haut .seg { flex: 1; gap: 6px; }
-.men-haut .seg button { min-height: 40px; padding: 4px 10px; font-size: 14px; border-radius: 10px; }
-.men-suppr { flex: none; width: 36px; height: 40px; color: var(--danger); font-weight: 900; font-size: 18px; }
+.men-haut .seg button { min-height: 52px; padding: 4px 10px; font-size: 15px; border-radius: 12px; }
+.men-suppr { flex: none; width: 44px; height: 52px; color: var(--danger); font-weight: 900; font-size: 18px; }
 .men-dims { display: grid; grid-template-columns: 0.8fr 1fr 1fr; gap: 8px; margin-top: 10px; }
 .men-dims > div { min-width: 0; }
 .men-lab { display: block; font-size: 13px; font-weight: 700; color: var(--muted); margin: 0 2px 4px; }
-.men .inp input { height: 50px; font-size: 19px; padding: 0 34px 0 10px; }
+.men .inp input { height: 54px; font-size: 19px; padding: 0 34px 0 10px; }
 .men .inp .u { right: 9px; font-size: 14px; }
