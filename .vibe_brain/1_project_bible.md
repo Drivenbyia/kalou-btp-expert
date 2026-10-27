@@ -1,3 +1,5 @@
+> **À jour : voir `CLAUDE.md` à la racine (v4.4.2, refonte sans prix).** Ce fichier décrit les versions 1 à 3 (historique).
+
 # Project Bible — Kalou BTP Expert
 
 ## Vision
