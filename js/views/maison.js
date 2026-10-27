@@ -8,7 +8,7 @@ import { getSaisie, setSaisie, getChantier, ajouterItem, remplacerItem, ctxCalcu
 import { ICONES, toast, partager } from '../ui/dom.js';
 import { htmlChamps, brancherForm, afficherErreurs } from '../ui/form.js';
 import { htmlKpis, htmlLignes, htmlInfos, htmlCout, texteListe, consolider, parCategorie, htmlLigne } from '../ui/resultats.js';
-import { aller, entete } from '../app.js';
+import { aller, entete, retourVers, garderSortie, armerGarde } from '../app.js';
 import { choisirChantier, barreActions, BTN_PARTAGER } from './commun.js';
 import { versSaisie } from './calculs.js';
 
@@ -69,7 +69,7 @@ export function vueMaison(root, params) {
     const dessinerResultat = () => {
         const r = calculerMaison(valeurs, ctx);
         dernier = r;
-        afficherErreurs(etapes, r.erreurs);
+        afficherErreurs(etapes, r.erreurs, r.alertes);
         majResumes();
         if (Object.keys(r.erreurs).length) {
             res.innerHTML = `<div class="card"><p class="empty-res">✏️ Complète ou corrige les cases en rouge.</p></div>`;
@@ -90,10 +90,10 @@ export function vueMaison(root, params) {
                     <summary><span class="ic">${lt.ic}</span><b>${esc(lt.titre)}</b><small>${lt.lignes.length} article${lt.lignes.length > 1 ? 's' : ''}</small><span class="chev">${ICONES.down}</span></summary>
                     <div class="body">${htmlLignes(lt.lignes, ctx)}${htmlInfos(lt.infos, 'Détail du calcul')}</div>
                 </details>`).join('')}
-            <p class="section-title">Liste de courses complète</p>
-            <div class="card">
-                ${parCategorie(total).map(g => `<p class="cat-title">${esc(g.l)}</p><ul class="lines">${g.lignes.map(li => htmlLigne(li, ctx)).join('')}</ul>`).join('')}
-            </div>`;
+            <details class="card lot">
+                <summary><span class="ic">🛒</span><b>Liste de courses complète</b><small>${total.length} articles</small><span class="chev">${ICONES.down}</span></summary>
+                <div class="body">${parCategorie(total).map(g => `<p class="cat-title">${esc(g.l)}</p><ul class="lines">${g.lignes.map(li => htmlLigne(li, ctx)).join('')}</ul>`).join('')}</div>
+            </details>`;
         majBarre(true);
         if (!item) { clearTimeout(tSave); tSave = setTimeout(() => setSaisie('maison', r.v), 400); }
     };
@@ -101,8 +101,17 @@ export function vueMaison(root, params) {
     const planifier = () => { clearTimeout(tRes); tRes = setTimeout(dessinerResultat, 180); };
 
     const libBouton = item ? 'Enregistrer' : ch ? 'Ajouter au chantier' : 'Enregistrer en chantier';
-    const bar = barreActions(`${BTN_PARTAGER}<button class="btn btn-primary" data-act="ajouter">${ICONES.plus}<span>${esc(libBouton)}</span></button>`);
-    const majBarre = ok => bar.querySelectorAll('button').forEach(b => { b.disabled = !ok; b.style.opacity = ok ? 1 : 0.45; });
+    const bar = barreActions(`<button class="apercu" data-act="voir-res"><span id="apercu-txt">…</span><small>Résultat ↓</small></button>
+        <div class="in">${BTN_PARTAGER}<button class="btn btn-primary" data-act="ajouter">${ICONES.plus}<span>${esc(libBouton)}</span></button></div>`);
+    const majBarre = ok => {
+        bar.querySelectorAll('.in button').forEach(b => { b.disabled = !ok; });
+        const r = dernier;
+        bar.querySelector('#apercu-txt').textContent = ok && r
+            ? r.resume.filter(k => /Murs|Toiture|toupie/i.test(k.l)).map(k => `${k.l.replace('Béton toupie', 'Béton').replace('Toiture', 'Toit')} ${k.v}`).join(' · ')
+            : 'Complète les cases en rouge';
+    };
+    const depart = JSON.stringify(valeurs);
+    if (item) garderSortie(() => JSON.stringify(valeurs) !== depart);
 
     const enregistrer = cible => {
         const r = dernier;
@@ -110,15 +119,18 @@ export function vueMaison(root, params) {
         if (item) {
             remplacerItem(cible.id, item.id, donnees);
             toast('Modifications enregistrées');
+            retourVers(`#/chantier/${cible.id}`, 1);
         } else {
             ajouterItem(cible.id, donnees);
             toast(`Enregistré dans « ${cible.nom} »`);
+            if (ch) retourVers(`#/chantier/${cible.id}`, params.via === 'liste' ? 2 : 1);
+            else aller(`#/chantier/${cible.id}`);
         }
-        aller(`#/chantier/${cible.id}`, { remplacer: !!ch });
     };
 
     bar.addEventListener('click', e => {
         const b = e.target.closest('[data-act]');
+        if (b && b.dataset.act === 'voir-res') { root.querySelector('#ancre-res').scrollIntoView({ behavior: 'smooth' }); return; }
         if (!b || !dernier || Object.keys(dernier.erreurs).length) return;
         if (b.dataset.act === 'partager') {
             const r = dernier;
@@ -152,7 +164,7 @@ export function vueMaison(root, params) {
     });
 
     brancherForm(etapes, valeurs, {
-        onInput: planifier,
+        onInput: () => { planifier(); if (item) armerGarde(); },
         onStruct: () => {
             // Couverture changée : on propose la pente conseillée si l'ancienne était celle par défaut
             if (valeurs.couverture !== couvPrec) {
@@ -160,6 +172,7 @@ export function vueMaison(root, params) {
                 if (anc && nouv && String(valeurs.pente).replace(',', '.') === String(anc.pente)) valeurs.pente = String(nouv.pente);
                 couvPrec = valeurs.couverture;
             }
+            if (item) armerGarde();
             const y = window.scrollY;
             dessinerEtapes(); dessinerResultat();
             window.scrollTo(0, y);

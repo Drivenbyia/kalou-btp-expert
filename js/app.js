@@ -2,7 +2,7 @@
 // Navigation par adresse (#/...) : le bouton « retour » du téléphone fonctionne.
 
 import { migrer } from './core/store.js';
-import { ICONES, fermerFeuille, feuilleOuverte, toast } from './ui/dom.js';
+import { ICONES, toast, cacherToast, oublierFeuille, apresFeuille, gererPopFeuille, confirmer } from './ui/dom.js';
 import { esc } from './core/format.js';
 import { vueListe, vueCalcul } from './views/calculs.js';
 import { vueMaison } from './views/maison.js';
@@ -10,23 +10,63 @@ import { vueChantiers, vueChantier } from './views/chantiers.js';
 import { vueReglages } from './views/reglages.js';
 import { barreActions } from './views/commun.js';
 
-export const APP_VERSION = '4.0.0';
+export const APP_VERSION = '4.1.0';
 
 const main = () => document.getElementById('vue');
 let _profondeur = 0;          // pages ouvertes depuis le lancement (pour « retour »)
+let _saut = 0;
+let _navInterne = false;                // nombre de pages remontées par le prochain retour
 
 /** Va à une adresse (#/...). */
 export function aller(hash, { remplacer = false } = {}) {
-    if (remplacer) { history.replaceState(null, '', hash); rendre(); return; }
-    if (location.hash === hash) { rendre(); return; }
-    _profondeur++;
-    location.hash = hash;
+    apresFeuille(() => {
+        if (remplacer) { history.replaceState(null, '', hash); rendre(); return; }
+        if (location.hash === hash) { rendre(); return; }
+        _profondeur++;
+        _navInterne = true;              // Chrome émet aussi « popstate » sur un changement d'ancre
+        location.hash = hash;
+    });
 }
 
 /** Retour : historique si possible, sinon page parente. */
 export function retour(parent = '#/') {
-    if (_profondeur > 0) { _profondeur--; history.back(); }
-    else aller(parent, { remplacer: true });
+    apresFeuille(() => {
+        if (_garde.active || _profondeur > 0) history.back();
+        else aller(parent, { remplacer: true });
+    });
+}
+
+/**
+ * Revient n pages en arrière (ex. chantier ← liste ← calcul) si c'est le chemin suivi,
+ * sinon remplace la page par `hash`. Évite les allers-retours dans l'historique.
+ */
+export function retourVers(hash, n = 1) {
+    apresFeuille(() => {
+        const extra = libererGarde();
+        if (_profondeur >= n) { _saut = n; if (extra) _garde.sortieOk = false; history.go(-(n + extra)); }
+        else if (extra) { history.go(-extra); setTimeout(() => aller(hash, { remplacer: true }), 60); }
+        else aller(hash, { remplacer: true });
+    });
+}
+
+// ─── Garde « Quitter sans enregistrer ? » ───────────────────────────────────
+const _garde = { active: false, estModifie: null, sortieOk: false };
+
+/** Protège l'écran : si estModifie() est vrai, le retour demande confirmation. */
+export function garderSortie(estModifie) {
+    _garde.estModifie = estModifie;
+}
+/** À appeler dès la première modification. */
+export function armerGarde() {
+    if (_garde.active || !_garde.estModifie) return;
+    _garde.active = true;
+    history.pushState({ garde: 1 }, '');
+}
+function libererGarde() {
+    const extra = _garde.active ? 1 : 0;
+    _garde.active = false; _garde.estModifie = null;
+    if (extra) _garde.sortieOk = true;
+    return extra;
 }
 
 /**
@@ -61,7 +101,9 @@ function ongletActif(nom) {
 }
 
 function rendre() {
-    fermerFeuille();
+    oublierFeuille();
+    cacherToast();
+    _garde.active = false; _garde.estModifie = null;
     barreActions(null);
     const { parts, params } = lireAdresse();
     // Nouveau conteneur à chaque écran : aucun écouteur ne reste d'une page à l'autre
@@ -99,10 +141,26 @@ function demarrer() {
         });
     });
 
-    window.addEventListener('hashchange', () => {
-        if (feuilleOuverte()) fermerFeuille();
-        rendre();
+    window.addEventListener('popstate', async () => {
+        if (_navInterne) { _navInterne = false; return; }
+        if (gererPopFeuille()) return;
+        if (_garde.sortieOk) { _garde.sortieOk = false; return; }
+        if (!_garde.active) { _profondeur = Math.max(0, _profondeur - (_saut || 1)); _saut = 0; }
+        // On a quitté l'étape « garde » : modifications non enregistrées ?
+        if (_garde.active && history.state?.garde !== 1) {
+            if (_garde.estModifie && _garde.estModifie()) {
+                history.pushState({ garde: 1 }, '');
+                if (await confirmer('Quitter sans enregistrer ?', 'Tes modifications de cet ouvrage seront perdues.', 'Quitter', true)) {
+                    apresFeuille(() => { _garde.active = false; _garde.sortieOk = true; if (_profondeur > 0) _profondeur--; history.go(-2); });
+                }
+            } else {
+                _garde.active = false;
+                if (_profondeur > 0) _profondeur--;
+                history.back();
+            }
+        }
     });
+    window.addEventListener('hashchange', () => { _navInterne = false; rendre(); });
 
     try {
         const nb = migrer();

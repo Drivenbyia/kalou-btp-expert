@@ -3,7 +3,7 @@
 // l'assistant « Maison neuve ». Tout est centralisé ici pour rester cohérent.
 //
 // Béton (pour 1 m³ de béton en place) :
-//   ciment = dosage choisi (kg) · sable 0/4 ≈ 400 L ≈ 0,65 T · gravier 5/20 ≈ 800 L ≈ 1,15 T · eau ≈ 175 L
+//   ciment = dosage choisi (kg) · sable 0/4 ≈ 400 L ≈ 0,65 T · gravillon 4/20 ≈ 800 L ≈ 1,15 T · eau ≈ 175 L
 // Mortier (pour 1 m³ de mortier) :
 //   liant = dosage (kg) · sable 0/4 ≈ 1 m³ ≈ 1,5 T
 // Pertes : béton +5 %, mortier/enduit +10 %, blocs +5 %, plaques +10 %.
@@ -34,40 +34,61 @@ export function fusion(lignes) {
 
 // ─── Béton ─────────────────────────────────────────────────────────────────
 
-/** Matériaux pour un volume de béton (pertes déjà incluses dans vol). */
-export function lignesBeton(vol, dosage = 350, mode = 'betonniere') {
+// Classe de résistance demandée à la centrale (toupie) selon le dosage équivalent
+export const CLASSE_BPE = { 150: 'C8/10 (propreté)', 250: 'C16/20', 300: 'C20/25', 350: 'C25/30', 400: 'C30/37' };
+
+/**
+ * Matériaux pour un volume de béton (pertes déjà incluses dans vol).
+ * fin = béton de remplissage (blocs à bancher, chaînages) : gravillon 4/10, béton fluide.
+ */
+export function lignesBeton(vol, dosage = 350, mode = 'betonniere', { fin = false } = {}) {
     if (!(vol > 0)) return [];
-    if (mode === 'bpe') return [L('bpe', vol, { d: `dosé ${dosage} kg/m³` })];
+    if (mode === 'bpe') {
+        const classe = CLASSE_BPE[dosage] || `≈ ${dosage} kg`;
+        return [L('bpe', vol, { d: `${classe}${fin ? ' S4, gravillon D10 (remplissage)' : ' S3'}` })];
+    }
     return [
         L('ciment', vol * dosage),
         L('sable04', vol * BETON.sableT),
-        L('gravier', vol * BETON.gravierT)
+        L(fin ? 'gravillon_fin' : 'gravier', vol * BETON.gravierT)
     ];
 }
 
 const demi = x => Math.max(0.5, Math.round(x * 2) / 2);
 
-/** Recette d'une gâchée (bétonnière) avec 1 sac de ciment. */
+/**
+ * Recette d'une gâchée pour une bétonnière courante (cuve 160 L ≈ 100-110 L de béton).
+ * Aux faibles dosages, 1 sac ferait déborder la cuve : on passe à ½ sac.
+ */
 export function recetteBeton(dosage = 350, sac = 35) {
-    const part = sac / dosage;                          // m³ de béton par sac
+    let part = sac / dosage;                             // m³ de béton pour 1 sac
+    const moitie = part > 0.13;
+    if (moitie) part /= 2;
+    const lib = moitie ? `½ sac de ${sac} kg` : `1 sac de ${sac} kg`;
     return {
-        titre: `Gâchée : 1 sac de ${sac} kg (béton dosé ${dosage} kg/m³)`,
+        titre: `Gâchée : ${lib} de ciment (béton dosé ${dosage} kg/m³)`,
         lignes: [
             `Sable 0/4 : ${fmtSmart(demi(BETON.sableL * part / 10), 1)} seaux de 10 L`,
-            `Gravier 5/20 : ${fmtSmart(demi(BETON.gravierL * part / 10), 1)} seaux de 10 L`,
-            `Eau : environ ${fmt(Math.round(sac * 0.5))} L (à ajuster selon l'humidité du sable)`,
-            `Donne environ ${fmtSmart(part * 1000, 0)} L de béton`
+            `Gravillon : ${fmtSmart(demi(BETON.gravierL * part / 10), 1)} seaux de 10 L`,
+            `Eau : environ ${fmt(Math.round(sac * (moitie ? 0.5 : 1) * 0.5))} L, à ajuster (sable mouillé = moins d'eau)`,
+            `Donne environ ${fmtSmart(part * 1000, 0)} L de béton`,
+            'Sable humide : compter ≈ 20 % de seaux en plus (il gonfle).'
         ]
     };
 }
 
+const NOM_LIANT = { ciment: 'ciment', chaux: 'chaux', batard: 'ciment + chaux (bâtard)' };
+
 /** Recette d'une gâchée de mortier avec 1 sac de liant. */
 export function recetteMortier(dosage = 350, sac = 35, liant = 'ciment') {
     const sableL = MORTIER.sableL * sac / dosage;
+    const titre = liant === 'batard'
+        ? `Gâchée bâtarde : ½ sac de ciment + ½ sac de chaux (mortier dosé ${dosage} kg/m³)`
+        : `Gâchée : 1 sac de ${NOM_LIANT[liant] || 'ciment'} ${sac} kg (mortier dosé ${dosage} kg/m³)`;
     return {
-        titre: `Gâchée : 1 sac de ${liant === 'chaux' ? 'chaux' : 'ciment'} ${sac} kg (mortier dosé ${dosage} kg/m³)`,
+        titre,
         lignes: [
-            `Sable : ${fmtSmart(demi(sableL / 10), 1)} seaux de 10 L (≈ ${fmtSmart(sableL / 60, 1)} brouettes de 60 L)`,
+            `Sable : ${fmtSmart(demi(sableL / 10), 1)} seaux de 10 L (≈ ${fmtSmart(sableL / 60, 1)} brouettes à ras)`,
             `Eau : environ ${fmt(Math.round(sac * 0.5))} L, à ajuster`,
             `Donne environ ${fmtSmart(sableL, 0)} L de mortier`
         ]
@@ -76,10 +97,17 @@ export function recetteMortier(dosage = 350, sac = 35, liant = 'ciment') {
 
 // ─── Mortier ───────────────────────────────────────────────────────────────
 
-/** Matériaux pour un volume de mortier (pertes déjà incluses). */
-export function lignesMortier(vol, { liant = 'ciment', dosage = 350, sable = 'sable04' } = {}) {
+/**
+ * Matériaux pour un volume de mortier (pertes déjà incluses).
+ * liant : 'ciment' | 'chaux' | 'batard' (moitié ciment, moitié chaux).
+ */
+export function lignesMortier(vol, { liant = 'ciment', dosage = 350, sable = 'sable04', sableM3 = 1 } = {}) {
     if (!(vol > 0)) return [];
-    return [L(liant === 'chaux' ? 'chaux' : 'ciment', vol * dosage), L(sable, vol * MORTIER.sableT)];
+    const out = [];
+    if (liant === 'batard') out.push(L('ciment', vol * dosage / 2), L('chaux', vol * dosage / 2));
+    else out.push(L(liant === 'chaux' ? 'chaux' : 'ciment', vol * dosage));
+    out.push(L(sable, vol * MORTIER.sableT * sableM3));
+    return out;
 }
 
 // ─── Murs en blocs ─────────────────────────────────────────────────────────
@@ -87,12 +115,12 @@ export function lignesMortier(vol, { liant = 'ciment', dosage = 350, sable = 'sa
 // parM2 : nombre de blocs au m² · mortierL : litres de mortier par m² (pertes comprises)
 // colleKg : mortier-colle (joint mince) en kg/m² · remplissage : béton m³/m² (blocs à bancher)
 export const BLOCS = {
-    p20:      { l: 'Parpaing 20',          k: 'parpaing20', angle: 'angle20', parM2: 10,   mortierL: 20, ep: 20, h: 0.20 },
-    p15:      { l: 'Parpaing 15',          k: 'parpaing15', angle: 'angle15', parM2: 10,   mortierL: 15, ep: 15, h: 0.20 },
-    p10:      { l: 'Parpaing 10 (cloison)', k: 'parpaing10',                  parM2: 10,   mortierL: 10, ep: 10, h: 0.20 },
-    bancher:  { l: 'Bloc à bancher 20',    k: 'bancher20',                    parM2: 10,   remplissage: 0.14, ep: 20, h: 0.20 },
-    brique20: { l: 'Brique R20',           k: 'brique20',                     parM2: 6.4,  colleKg: 2.5, ep: 20, h: 0.314 },
-    monomur30:{ l: 'Monomur 30',           k: 'monomur30',                    parM2: 16.2, colleKg: 4,   ep: 30, h: 0.249 }
+    p20:      { l: 'Agglo (parpaing) de 20',   k: 'parpaing20', angle: 'angle20', parM2: 10,   mortierL: 20, ep: 20, h: 0.20, linteau: 'linteau' },
+    p15:      { l: 'Agglo (parpaing) de 15',   k: 'parpaing15', angle: 'angle15', parM2: 10,   mortierL: 15, ep: 15, h: 0.20, linteau: 'linteau' },
+    p10:      { l: 'Agglo de 10 (cloison)',     k: 'parpaing10',                  parM2: 10,   mortierL: 10, ep: 10, h: 0.20, linteau: 'linteau' },
+    bancher:  { l: 'Bloc à bancher 20',         k: 'bancher20',                    parM2: 10,   remplissage: 0.14, ep: 20, h: 0.20, linteau: 'linteau' },
+    brique20: { l: 'Brique rectifiée de 20',    k: 'brique20',                     parM2: 6.4,  colleKg: 2.5, ep: 20, h: 0.314, linteau: 'linteau_tc' },
+    monomur30:{ l: 'Monomur de 30',             k: 'monomur30',                    parM2: 16.2, colleKg: 4,   ep: 30, h: 0.249, linteau: 'linteau_tc' }
 };
 
 /**
@@ -114,7 +142,7 @@ export function lignesMurBlocs(surf, type = 'p20', angles = 0, haut = 0, mode = 
     out.push(L(b.k, Math.max(0, Math.ceil(surf * b.parM2 * PERTE_BLOCS) - nbAngle)));
     if (b.mortierL) out.push(...lignesMortier(surf * b.mortierL / 1000));
     if (b.colleKg)  out.push(L('colle_bloc', surf * b.colleKg * PERTE_BLOCS));
-    if (b.remplissage) out.push(...lignesBeton(surf * b.remplissage * PERTE_BETON, 350, mode));
+    if (b.remplissage) out.push(...lignesBeton(surf * b.remplissage * PERTE_BETON, 350, mode, { fin: true }));
     return out;
 }
 
@@ -124,20 +152,36 @@ export function lignesMurBlocs(surf, type = 'p20', angles = 0, haut = 0, mode = 
 export const nbBarres6m = ml => (ml > 0 ? Math.ceil(ml / 5.5 - 1e-9) : 0);
 
 /**
- * Chaînage béton armé.
- * horizontal : en blocs U (2 par mètre) · vertical : coulé dans les blocs d'angle.
- * Béton ≈ 25 L par mètre (section intérieure ≈ 15×15 cm), dosé 350.
+ * Chaînage horizontal béton armé, en blocs U (2 par mètre).
+ * Béton ≈ 25 L par mètre, dosé 350, gravillon fin. Armatures de 6 m recouvertes de 50 cm.
  */
-export function lignesChainage(ml, { vertical = false, blocsU = true, mode = 'betonniere' } = {}) {
+export function lignesChainage(ml, { blocsU = true, mode = 'betonniere', angles = 0 } = {}) {
     if (!(ml > 0)) return [];
     const out = [];
-    if (!vertical && blocsU) out.push(L('bloc_u', Math.ceil(ml * 2 * PERTE_BLOCS)));
-    out.push(L('arm_chainage', nbBarres6m(ml) + (vertical ? 0 : 1)));
-    out.push(...lignesBeton(ml * 0.025 * PERTE_BETON, 350, mode));
+    if (blocsU) out.push(L('bloc_u', Math.ceil(ml * 2 * PERTE_BLOCS)));
+    out.push(L('arm_chainage', nbBarres6m(ml) + 1));
+    if (angles > 0) out.push(L('equerre_ch', angles));
+    out.push(...lignesBeton(ml * 0.025 * PERTE_BETON, 350, mode, { fin: true }));
+    return out;
+}
+
+/**
+ * Chaînages verticaux : chacun est d'un seul tenant, de la semelle (attentes) au chaînage haut.
+ * 1 armature par chaînage (+ 1 par tranche de 5,5 m au-delà), 1 attente en L par chaînage.
+ */
+export function lignesChainageVertical(nb, hauteur, { mode = 'betonniere', attentes = true } = {}) {
+    if (!(nb > 0) || !(hauteur > 0)) return [];
+    const parChainage = Math.ceil((hauteur + 0.5) / 6 - 1e-9);
+    const out = [L('arm_chainage', nb * parChainage)];
+    if (attentes) out.push(L('attente', nb));
+    out.push(...lignesBeton(nb * hauteur * 0.025 * PERTE_BETON, 350, mode, { fin: true }));
     return out;
 }
 
 // ─── Plancher poutrelles + entrevous ────────────────────────────────────────
+
+// Surface couverte par un panneau de treillis, recouvrement de 2 mailles (maille 15 cm) déduit
+export const TREILLIS_UTILE = { '36': 6.9, '6': 11.5 };
 
 const COMPRESSION = { 12: 0.065, 16: 0.075, 20: 0.085 };   // m³ de béton par m² (dalle de 4 cm + remplissage)
 
@@ -146,7 +190,7 @@ const COMPRESSION = { 12: 0.065, 16: 0.075, 20: 0.085 };   // m³ de béton par 
  * @param {number} longueur côté perpendiculaire aux poutrelles (m)
  * @param {number} portee   distance entre murs porteurs (m)
  */
-export function calcPlancher(longueur, portee, { haut = 16, rives = true, mode = 'betonniere' } = {}) {
+export function calcPlancher(longueur, portee, { haut = 16, rives = true, mode = 'betonniere', pse = false } = {}) {
     const S = longueur * portee;
     const nbP = Math.max(1, Math.ceil(longueur / 0.6 - 1e-9));
     const lgP = Math.ceil((portee + 0.10) * 10 - 1e-9) / 10;             // + 5 cm d'appui de chaque côté
@@ -156,8 +200,8 @@ export function calcPlancher(longueur, portee, { haut = 16, rives = true, mode =
     const perim = 2 * (longueur + portee);
     const lignes = [
         L('poutrelle', nbP * lgP, { d: `${nbP} poutrelles de ${fmtSmart(lgP, 2)} m` }),
-        L('entrevous', Math.ceil(S / (0.6 * 0.2) * 1.03)),
-        L('treillis36', Math.ceil(S / 7.3 - 1e-9)),
+        L(pse ? 'entrevous_pse' : 'entrevous', Math.ceil(S / (0.6 * 0.2) * 1.03)),
+        L('treillis36', Math.ceil(S / TREILLIS_UTILE['36'] - 1e-9)),
         ...lignesBeton(vol, 350, mode),
         L('etai', etais)
     ];
@@ -169,10 +213,11 @@ export function calcPlancher(longueur, portee, { haut = 16, rives = true, mode =
 
 // parM2 : éléments au m² · liteaux : mètres de liteau par m² · penteMin : pente conseillée (%)
 export const COUVERTURES = {
-    meca:    { l: 'Tuile à emboîtement (romane, grand moule)', k: 'tuile_meca',  parM2: 12, liteaux: 2.9, pente: 35 },
-    canal:   { l: 'Tuile canal',                               k: 'tuile_canal', parM2: 28, liteaux: 0,   pente: 30 },
-    plate:   { l: 'Tuile plate',                               k: 'tuile_plate', parM2: 65, liteaux: 10,  pente: 100 },
-    ardoise: { l: 'Ardoise',                                   k: 'ardoise',     parM2: 38, liteaux: 8.7, pente: 80 }
+    meca:    { l: 'Tuile romane (emboîtement)',     k: 'tuile_meca',  parM2: 12, liteaux: 2.9, pente: 35 },
+    gm:      { l: 'Tuile mécanique grand moule',    k: 'tuile_gm',    parM2: 10, liteaux: 2.7, pente: 35 },
+    canal:   { l: 'Tuile canal',                    k: 'tuile_canal', parM2: 28, liteaux: 0,   pente: 30 },
+    plate:   { l: 'Tuile plate (du Périgord)',      k: 'tuile_plate', parM2: 65, liteaux: 10,  pente: 100 },
+    ardoise: { l: 'Ardoise',                        k: 'ardoise',     parM2: 38, liteaux: 8.7, pente: 80 }
 };
 
 /**
@@ -239,10 +284,15 @@ export function calcToiture(p) {
     const lgFaitage = faitage + aretiers;
     if (lgFaitage > 0) {
         lignes.push(L('faitiere', Math.ceil(lgFaitage * (couverture === 'canal' ? 3 : 2.5))));
-        lignes.push(L('closoir', lgFaitage));
+        if (couverture !== 'canal') lignes.push(L('closoir', lgFaitage));       // canal : faîtage scellé au mortier
     }
+    if (couverture === 'ardoise') lignes.push(L('crochet_ardoise', Math.ceil(surf * cv.parM2 * 1.05)));
     if (rives > 0 && couverture !== 'canal') lignes.push(L('tuile_rive', Math.ceil(rives * 3)));
-    if (couverture === 'canal' && lgFaitage > 0) lignes.push(...lignesMortier(lgFaitage * 0.010 * PERTE_MORTIER, { liant: 'chaux' }));
+    if (couverture === 'canal' && lgFaitage > 0) {
+        lignes.push(...lignesMortier(lgFaitage * 0.010 * PERTE_MORTIER, { liant: 'batard' }));
+        infos.push('Tuile canal : faîtage et rives scellés au mortier bâtard. Tuiles de courant fixées (crochets ou mousse) selon la zone de vent.');
+    }
+    infos.push('Sécurité : échafaudage avec garde-corps ou harnais. Fermettes contreventées avant de monter les tuiles.');
     heures += surf * (couverture === 'plate' || couverture === 'ardoise' ? 1.1 : 0.7);
 
     if (gouttieres) {
@@ -267,9 +317,10 @@ const LONGUEURS_MONTANT = [2.5, 2.6, 2.7, 2.8, 3.0];
  * @param {number} a    longueur (m)
  * @param {number} b    hauteur (mur) ou largeur (plafond) (m)
  */
-export function calcPlaco(type, a, b, { double = false, isolant = true, ouv = 0 } = {}) {
+export function calcPlaco(type, a, b, { cloison = '72', isolant = true, ouv = 0 } = {}) {
     const S = Math.max(0, a * b - (ouv || 0));
-    const faces = type === 'cloison' ? 2 : 1;
+    // Cloison 72/48 : 1 plaque par face · 98/48 : 2 plaques par face (même ossature)
+    const faces = type === 'cloison' ? (cloison === '98' ? 4 : 2) : 1;
     const Sp = S * faces;
     const lignes = [L('ba13', Math.ceil(Sp * 1.10 / 3 - 1e-9))];
     let detail = '';
@@ -279,18 +330,19 @@ export function calcPlaco(type, a, b, { double = false, isolant = true, ouv = 0 
         lignes.push(L('fourrure', Math.ceil(rangs * a * 1.10 / 3 - 1e-9)));
         lignes.push(L('suspente', rangs * (Math.ceil(a / 1.2 - 1e-9) + 1)));
         lignes.push(L('corniere', Math.ceil(2 * (a + b) / 3 - 1e-9)));
-        if (isolant) lignes.push(L('laine_combles', S * 1.05));
+        if (isolant) lignes.push(L('laine_combles', S * 1.05), L('pare_vapeur', S * 1.10));
     } else {
         const lgM = LONGUEURS_MONTANT.find(x => x >= b - 1e-9) || 3.0;
         const parFile = b > 3 ? Math.ceil(b / 3 - 1e-9) : 1;
-        const nbM = (Math.ceil(a / 0.6 - 1e-9) + 1) * (double ? 2 : 1) * parFile;
-        lignes.push(L('rail', Math.ceil(2 * a * (double ? 2 : 1) * 1.05 / 3 - 1e-9)));
+        const nbM = (Math.ceil(a / 0.6 - 1e-9) + 1) * parFile;
+        lignes.push(L('rail', Math.ceil(2 * a * 1.05 / 3 - 1e-9)));
         lignes.push(L('montant', nbM, { d: `longueur ${fmtSmart(lgM, 2)} m` }));
         if (isolant) lignes.push(L(type === 'cloison' ? 'laine_cloison' : 'laine_mur', S * 1.05));
         detail = `montants ${fmtSmart(lgM, 2)} m`;
     }
+    const Svue = S * (type === 'cloison' ? 2 : 1);           // faces visibles (bandes et enduit)
     lignes.push(L('vis_placo', Sp * (type === 'plafond' ? 20 : 15)));
-    lignes.push(L('bande', Sp * 1.5));
-    lignes.push(L('enduit_joint', Sp * 0.5));
+    lignes.push(L('bande', Svue * 1.5));
+    lignes.push(L('enduit_joint', Svue * 0.5));
     return { S, Sp, lignes, detail };
 }

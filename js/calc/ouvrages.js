@@ -10,8 +10,8 @@
 
 import {
     L, fusion, lignesBeton, lignesMortier, recetteBeton, recetteMortier, lignesMurBlocs,
-    lignesChainage, nbBarres6m, calcPlancher, calcToiture, calcPlaco, BLOCS, COUVERTURES,
-    PERTE_BETON, PERTE_MORTIER
+    lignesChainage, lignesChainageVertical, nbBarres6m, calcPlancher, calcToiture, calcPlaco, BLOCS, COUVERTURES,
+    PERTE_BETON, PERTE_MORTIER, TREILLIS_UTILE
 } from './base.js';
 import { fmtSmart } from '../core/format.js';
 
@@ -36,9 +36,20 @@ const MODE = c('mode', 'Le béton', [
 
 const DOSAGE = c('dosage', 'Dosage du béton', [
     { v: '300', l: '300 kg' }, { v: '350', l: '350 kg' }, { v: '400', l: '400 kg' }
-], '350', { aide: '350 kg/m³ = dalles, poteaux, chaînages. 300 = fondations courantes.' });
+], '350', { aide: '350 kg/m³ conseillé à la bétonnière (dalles, poteaux, chaînages, fondations armées). 300 minimum pour du béton armé.' });
 
 const fm = x => fmtSmart(x, 2);
+
+// Conseils de mise en œuvre réutilisés
+export const CONSEILS = {
+    cure: 'Cure du béton : arroser ou bâcher 3 à 7 jours. Pas de coulage sous 5 °C ni sur sol gelé (sinon antigel et bâches).',
+    decoffrage: 'Décoffrage : semelles 1 à 2 jours, poteaux et voiles 2 à 3 jours, dalles portées : étais 21 à 28 jours.',
+    dict: 'Avant de creuser : déclaration DICT (réseaux enterrés : gaz, électricité, eau). Tranchée de plus de 1,30 m : blindage obligatoire.',
+    argile: 'Sol argileux (fréquent en Dordogne) : 80 cm minimum sous le terrain, 1,20 m en aléa fort. En zone argile, étude de sol G1/G2 obligatoire pour une maison (loi ELAN).',
+    structure: 'Ordre de grandeur pour commander : sections, armatures et profondeurs viennent du plan, de l\'étude de sol ou du bureau d\'études.',
+    pierreCiment: 'Sur mur en pierre ancienne : jamais de ciment ni de monocouche (l\'humidité reste piégée, la pierre s\'abîme). Utiliser la chaux.',
+    chaux: 'Chaux : travailler entre 5 et 30 °C, pas en plein soleil ni sous la pluie, support humidifié. Attendre 2-3 jours entre gobetis et corps, 7 jours avant la finition.'
+};
 
 /** Conseils communs béton : recette ou toupie. */
 function aideBeton(vol, dosage, mode, ctx, infos) {
@@ -48,6 +59,8 @@ function aideBeton(vol, dosage, mode, ctx, infos) {
 }
 
 const surfNette = (Lg, h, o) => Math.max(0, Lg * h - (o || 0));
+/** Contrôle : les ouvertures ne peuvent pas dépasser la surface du mur. */
+const verifOuv = (a = 'L', b = 'h') => v => (v.ouv > 0 && v.ouv >= v[a] * v[b] ? { ouv: `Plus grand que le mur (${fm(v[a] * v[b])} m²) : vérifie` } : {});
 
 // ─── Définitions ─────────────────────────────────────────────────────────────
 
@@ -58,15 +71,17 @@ export const OUVRAGES = [
         desc: 'Semelles filantes sous les murs',
         champs: [
             n('ml', 'Longueur de semelles', 'm', 30, { aide: 'Tour de la construction + murs de refend.' }),
-            n('larg', 'Largeur', 'cm', 50, { demi: true, max: 150 }),
-            n('haut', 'Hauteur de béton', 'cm', 35, { demi: true, max: 150 }),
-            n('prof', 'Profondeur de fouille', 'cm', 80, { aide: 'Hors gel : 50 à 80 cm en Dordogne.', max: 300 }),
+            n('larg', 'Largeur', 'cm', 50, { demi: true, max: 150, bas: 25 }),
+            n('haut', 'Épaisseur de semelle', 'cm', 35, { demi: true, max: 150, bas: 15 }),
+            n('prof', 'Profondeur de fouille', 'cm', 80, { aide: 'Hors gel : 50 cm mini. Sol argileux : 80 cm mini (1,20 m en aléa fort).', max: 300, bas: 40 }),
+            n('angles', 'Angles et jonctions en T', 'u', 4, { zero: true, max: 60, aide: 'Une équerre préfa à chaque angle ou croisement.' }),
             c('dosage', 'Dosage du béton', [{ v: '300', l: '300 kg' }, { v: '350', l: '350 kg' }], '350'),
             MODE,
             oui('proprete', 'Béton de propreté (5 cm, dosé 150)'),
-            oui('armature', 'Armatures préfabriquées')
+            oui('armature', 'Semelle armée préfa (3 ou 4 HA10, 6 m)')
         ],
-        titre: v => `Fondations ${fm(v.ml)} m — ${v.larg}×${v.haut} cm`,
+        mots: 'semelle filante fouille rigole terrassement propreté armature hors gel',
+        titre: v => `Fondations ${fm(v.ml)} m — ${fm(v.larg)}×${fm(v.haut)} cm`,
         calcul(v, ctx) {
             const net = v.ml * v.larg / 100 * v.haut / 100;
             const vol = net * PERTE_BETON;
@@ -77,11 +92,15 @@ export const OUVRAGES = [
             const lignes = [
                 ...lignesBeton(vol, dos, v.mode),
                 ...lignesBeton(volP, 150, v.mode),
-                v.armature ? L('arm_semelle', nbBarres6m(v.ml) + 1) : null
+                v.armature ? L('arm_semelle', nbBarres6m(v.ml)) : null,
+                v.armature && v.angles > 0 ? L('equerre_sem', v.angles) : null,
+                v.armature ? L('cales', Math.ceil(v.ml * 1.5)) : null
             ];
-            if (v.haut > v.prof) infos.push('La hauteur de béton dépasse la profondeur de fouille : vérifie les cotes.');
+            if (v.haut > v.prof) infos.push('L\'épaisseur de semelle dépasse la profondeur de fouille : vérifie les cotes.');
+            if (v.prof < 80) infos.push(CONSEILS.argile);
             infos.push(`Terre à sortir : ${fm(terre)} m³ en place, soit ≈ ${fm(terre * 1.25)} m³ foisonnés (≈ ${Math.max(1, Math.ceil(terre / 40))} jour(s) de mini-pelle).`);
-            if (v.armature) infos.push('Armatures de 6 m posées avec 50 cm de recouvrement, + 1 pour les angles.');
+            if (v.armature) infos.push('Armatures de 6 m avec 50 cm de recouvrement, équerres préfa aux angles et aux T, cales pour 3-4 cm d\'enrobage. Prévoir les attentes des chaînages verticaux.');
+            infos.push(CONSEILS.dict, CONSEILS.cure, CONSEILS.structure);
             return {
                 resume: [
                     { l: 'Béton semelles', v: `${fm(vol)} m³` },
@@ -100,24 +119,25 @@ export const OUVRAGES = [
         champs: [
             n('L', 'Longueur', 'm', 5, { demi: true }),
             n('l', 'Largeur', 'm', 4, { demi: true }),
-            n('ep', 'Épaisseur du béton', 'cm', 12, { max: 50, aide: 'Terrasse/allée : 10-12 cm. Garage : 12-15 cm.' }),
+            n('ep', 'Épaisseur du béton', 'cm', 12, { max: 50, bas: 6, aide: 'Terrasse/allée : 10-12 cm. Garage : 12-15 cm.' }),
             DOSAGE,
             MODE,
-            n('he', 'Hérisson (cailloux)', 'cm', 15, { zero: true, max: 60, aide: '0 = pas de hérisson.' }),
-            c('treillis', 'Treillis soudé', [{ v: '36', l: '2,40×3,60' }, { v: '6', l: '2,40×6,00' }, { v: 'non', l: 'Sans' }], '36'),
+            n('he', 'Hérisson compacté (20/40)', 'cm', 15, { zero: true, max: 60, aide: '0 = pas de hérisson.' }),
+            c('treillis', 'Treillis soudé ST 25 C', [{ v: '36', l: '2,40×3,60' }, { v: '6', l: '2,40×6,00' }, { v: 'non', l: 'Sans (béton fibré)' }], '36'),
             oui('polyane', 'Film polyane sous la dalle'),
             oui('isolant', 'Isolant sous dalle (maison)', false),
             oui('desactive', 'Finition béton désactivé', false)
         ],
-        titre: v => `Dalle béton ${fm(v.L)}×${fm(v.l)} m — ép. ${v.ep} cm`,
+        mots: 'dallage terrasse allée garage hérisson treillis polyane désactivé radier',
+        titre: v => `Dalle béton ${fm(v.L)}×${fm(v.l)} m — ép. ${fm(v.ep)} cm`,
         calcul(v, ctx) {
             const S = v.L * v.l;
             const vol = S * v.ep / 100 * PERTE_BETON;
             const dos = +v.dosage;
             const infos = [];
             const lignes = [...lignesBeton(vol, dos, v.mode)];
-            if (v.treillis === '36') lignes.push(L('treillis36', Math.ceil(S / 7.3 - 1e-9)));
-            if (v.treillis === '6')  lignes.push(L('treillis6', Math.ceil(S / 12.2 - 1e-9)));
+            if (v.treillis === '36') lignes.push(L('treillis36', Math.ceil(S / TREILLIS_UTILE['36'] - 1e-9)));
+            if (v.treillis === '6')  lignes.push(L('treillis6', Math.ceil(S / TREILLIS_UTILE['6'] - 1e-9)));
             if (v.treillis !== 'non') lignes.push(L('cales', Math.ceil(S * 4)));
             if (v.he > 0) lignes.push(L('herisson', S * v.he / 100 * 1.8));
             if (v.polyane) lignes.push(L('polyane', S * 1.15));
@@ -127,7 +147,8 @@ export const OUVRAGES = [
             const deblai = S * (v.ep + (v.he || 0)) / 100;
             infos.push(`Décaissement : ${fm(deblai)} m³ de terre en place (≈ ${fm(deblai * 1.25)} m³ foisonnés).`);
             if (v.treillis !== 'non') infos.push('Treillis : recouvrement de 2 mailles compris. Cales : 4 par m².');
-            if (S > 40) infos.push('Au-delà de 40 m², prévoir des joints de fractionnement (carrés de 25 m² max environ).');
+            if (S > 20) infos.push('Joints de fractionnement : un tous les 3 à 4 m (cases de 15-20 m² maxi). Joint de dilatation contre la maison. Pente extérieure 1,5 à 2 %.');
+            infos.push(CONSEILS.cure);
             return {
                 resume: [{ l: 'Surface', v: `${fm(S)} m²` }, { l: 'Volume béton', v: `${fm(vol)} m³` }],
                 lignes: fusion(lignes), infos,
@@ -144,17 +165,19 @@ export const OUVRAGES = [
             n('vol', 'Volume voulu', 'm³', 1, { max: 200 }),
             c('dosage', 'Dosage', [
                 { v: '150', l: '150' }, { v: '250', l: '250' }, { v: '300', l: '300' }, { v: '350', l: '350' }, { v: '400', l: '400' }
-            ], '350', { aide: 'kg par m³. Béton : 150 propreté · 250 gros béton · 300 fondations · 350 dalles/poteaux. Mortier : 300-350.' }),
-            c('liant', 'Liant', [{ v: 'ciment', l: 'Ciment' }, { v: 'chaux', l: 'Chaux NHL' }], 'ciment', { si: v => v.type === 'mortier' }),
+            ], '350', { aide: 'kg par m³. Béton : 150 propreté · 250 gros béton · 300 mini en béton armé · 350 dalles, poteaux, chaînages. Mortier : 300-350.' }),
+            c('liant', 'Liant', [{ v: 'ciment', l: 'Ciment' }, { v: 'batard', l: 'Bâtard (ciment + chaux)' }, { v: 'chaux', l: 'Chaux NHL' }], 'ciment', { si: v => v.type === 'mortier' }),
             { ...MODE, si: v => v.type === 'beton' }
         ],
+        mots: 'gâchée bétonnière dosage ciment sable gravillon toupie bpe mortier bâtard chaux recette',
         titre: v => `${v.type === 'beton' ? 'Béton' : 'Mortier'} ${fm(v.vol)} m³ dosé ${v.dosage}`,
         calcul(v, ctx) {
             const dos = +v.dosage;
             const infos = [];
             if (v.type === 'beton') {
                 const vol = v.vol * PERTE_BETON;
-                infos.push('Pour 1 m³ de béton : ' + (dos / 35).toFixed(0) + ' sacs de 35 kg, ≈ 400 L de sable et ≈ 800 L de gravier, ≈ 175 L d\'eau. Pertes 5 % comprises.');
+                const sac = ctx.sacCiment || 35;
+                infos.push(`Pour 1 m³ de béton : ${fmtSmart(dos / sac, 1)} sacs de ${sac} kg, ≈ 400 L de sable et ≈ 800 L de gravillon, ≈ 175 L d'eau. Pertes 5 % comprises.`, CONSEILS.cure);
                 return {
                     resume: [{ l: 'Béton (pertes comprises)', v: `${fm(vol)} m³` }],
                     lignes: fusion(lignesBeton(vol, dos, v.mode)), infos,
@@ -167,7 +190,7 @@ export const OUVRAGES = [
             return {
                 resume: [{ l: 'Mortier (pertes comprises)', v: `${fm(vol)} m³` }],
                 lignes: fusion(lignesMortier(vol, { liant: v.liant, dosage: dos })), infos,
-                recette: recetteMortier(dos, v.liant === 'chaux' ? 35 : (ctx.sacCiment || 35), v.liant),
+                recette: recetteMortier(dos, v.liant === 'ciment' ? (ctx.sacCiment || 35) : 35, v.liant),
                 mesure: { q: v.vol, u: 'm³', h: v.vol * 2 }
             };
         }
@@ -182,11 +205,12 @@ export const OUVRAGES = [
             n('nb', 'Nombre', 'u', 4, { demi: true, max: 200 }),
             DOSAGE, MODE
         ],
-        titre: v => `${v.nb} poteau(x) ${v.a}×${v.b} cm, h ${fm(v.h)} m`,
+        mots: 'poteau coffrage cage armature pilier',
+        titre: v => `${fm(v.nb)} poteau(x) ${fm(v.a)}×${fm(v.b)} cm, h ${fm(v.h)} m`,
         calcul(v, ctx) {
             const vol = v.a / 100 * v.b / 100 * v.h * v.nb * PERTE_BETON;
             const dos = +v.dosage;
-            const infos = ['Armature : 1 cage préfabriquée par poteau (+ 50 cm d\'attente pour le chaînage).', 'Coffrage : blocs poteaux ou planches/contreplaqué.'];
+            const infos = ['Armature : 1 cage préfabriquée par poteau (+ 50 cm d\'attente pour le chaînage).', 'Coffrage : blocs poteaux ou planches/contreplaqué.', CONSEILS.decoffrage, CONSEILS.structure];
             return {
                 resume: [{ l: 'Volume béton', v: `${fm(vol)} m³` }],
                 lignes: fusion([...lignesBeton(vol, dos, v.mode), L('arm_chainage', v.nb * Math.ceil((v.h + 0.5) / 6 - 1e-9))]),
@@ -199,20 +223,30 @@ export const OUVRAGES = [
         id: 'chainage', cat: 'beton', ic: '⛓️', nom: 'Chaînages',
         desc: 'Chaînage horizontal (blocs U) ou vertical',
         champs: [
-            n('ml', 'Longueur totale', 'm', 20),
             c('sens', 'Type', [{ v: 'h', l: 'Horizontal' }, { v: 'v', l: 'Vertical (angles)' }], 'h'),
-            oui('blocsU', 'En blocs U', true, { si: v => v.sens === 'h' }),
+            n('ml', 'Longueur totale', 'm', 20, { si: v => v.sens !== 'v' }),
+            n('angles', 'Angles', 'u', 4, { zero: true, max: 40, si: v => v.sens !== 'v', aide: 'Une équerre de chaînage à chaque angle.' }),
+            oui('blocsU', 'En blocs U', true, { si: v => v.sens !== 'v' }),
+            n('nbV', 'Nombre de chaînages', 'u', 4, { demi: true, max: 60, si: v => v.sens === 'v' }),
+            n('hV', 'Hauteur de chacun', 'm', 3, { demi: true, max: 15, si: v => v.sens === 'v', aide: 'De la semelle jusqu\'au chaînage haut, d\'un seul tenant.' }),
             MODE
         ],
-        titre: v => `Chaînage ${v.sens === 'v' ? 'vertical' : 'horizontal'} ${fm(v.ml)} m`,
+        mots: 'chaînage bloc u raidisseur armature attente équerre',
+        titre: v => v.sens === 'v' ? `${fm(v.nbV)} chaînage(s) vertical(aux) de ${fm(v.hV)} m` : `Chaînage horizontal ${fm(v.ml)} m`,
         calcul(v, ctx) {
-            const lignes = lignesChainage(v.ml, { vertical: v.sens === 'v', blocsU: v.blocsU, mode: v.mode });
-            const vol = v.ml * 0.025 * PERTE_BETON;
-            const infos = ['Béton ≈ 25 L par mètre (section 15×15 cm environ), dosé 350. Armatures de 6 m avec 50 cm de recouvrement.'];
+            const vert = v.sens === 'v';
+            const lignes = vert
+                ? lignesChainageVertical(v.nbV, v.hV, { mode: v.mode })
+                : lignesChainage(v.ml, { blocsU: v.blocsU, mode: v.mode, angles: v.angles });
+            const vol = (vert ? v.nbV * v.hV : v.ml) * 0.025 * PERTE_BETON;
+            const infos = [
+                'Béton ≈ 25 L par mètre, dosé 350, gravillon 4/10 pour bien remplir. Armatures de 6 m avec 50 cm de recouvrement, enrobage 3 cm.',
+                vert ? 'Chaque chaînage vertical est d\'un seul tenant : attente en L dans la semelle, armature jusqu\'au chaînage haut.' : 'Continuité obligatoire aux angles : équerres de chaînage.'
+            ];
             return {
                 resume: [{ l: 'Volume béton', v: `${fm(vol)} m³` }],
                 lignes: fusion(lignes), infos, recette: aideBeton(vol, 350, v.mode, ctx, infos),
-                mesure: { q: v.ml, u: 'm', h: v.ml * 0.5 }
+                mesure: { q: vert ? v.nbV * v.hV : v.ml, u: 'm', h: (vert ? v.nbV * v.hV : v.ml) * 0.5 }
             };
         }
     },
@@ -223,16 +257,19 @@ export const OUVRAGES = [
             n('long', 'Longueur du plancher', 'm', 8, { aide: 'Dans le sens où l\'on aligne les poutrelles (perpendiculaire à leur portée).' }),
             n('portee', 'Portée des poutrelles', 'm', 4, { aide: 'Distance entre les 2 murs porteurs. Au-delà de 5-6 m, voir le fabricant.', max: 8 }),
             c('haut', 'Hauteur des entrevous', [{ v: '12', l: '12 cm' }, { v: '16', l: '16 cm' }, { v: '20', l: '20 cm' }], '16'),
+            c('entrevous', 'Entrevous', [{ v: 'beton', l: 'Béton' }, { v: 'pse', l: 'Isolant PSE' }], 'beton', { aide: 'Sur vide sanitaire : entrevous isolants PSE (RE2020).' }),
             oui('rives', 'Planelles de rive'),
             MODE
         ],
+        mots: 'plancher hourdis poutrelle entrevous dalle de compression étage vide sanitaire étai',
         titre: v => `Plancher ${fm(v.long)}×${fm(v.portee)} m (${v.haut}+4)`,
         calcul(v, ctx) {
-            const r = calcPlancher(v.long, v.portee, { haut: +v.haut, rives: v.rives, mode: v.mode });
+            const r = calcPlancher(v.long, v.portee, { haut: +v.haut, rives: v.rives, mode: v.mode, pse: v.entrevous === 'pse' });
             const infos = [
                 `Poutrelles tous les 60 cm. Dalle de compression de 4 cm avec treillis : ≈ ${fm(r.vol)} m³ de béton dosé 350.`,
                 `Étaiement : ${r.etais} étais à laisser en place 21 jours environ.`,
-                'Le plan de pose du fabricant reste la référence (portée et charges).'
+                'Le plan de pose du fabricant reste la référence (portée, étaiement, charges). Pas d\'étais seulement si le plan dit « sans étai ».',
+                CONSEILS.cure
             ];
             if (v.portee > 6) infos.unshift('Portée de plus de 6 m : poutrelles spéciales, à vérifier avec le fabricant.');
             return {
@@ -253,18 +290,22 @@ export const OUVRAGES = [
             n('ep', 'Épaisseur de paillasse', 'cm', 15, { max: 30 }),
             MODE
         ],
-        titre: v => `Escalier béton ${v.nb} marches, larg. ${v.w} cm`,
+        mots: 'escalier marche contremarche giron paillasse blondel',
+        titre: v => `Escalier béton ${fm(v.nb)} marches, larg. ${fm(v.w)} cm`,
         calcul(v, ctx) {
             const h = v.hm / 100, g = v.g / 100, w = v.w / 100, e = v.ep / 100;
-            const volMarches = v.nb * (g * h / 2) * w;
-            const pail = Math.sqrt(Math.pow(v.nb * g, 2) + Math.pow(v.nb * h, 2));
+            const girons = Math.max(1, v.nb - 1);                   // la dernière marche est le palier
+            const volMarches = girons * (g * h / 2) * w;
+            const pail = Math.sqrt(Math.pow(girons * g, 2) + Math.pow(v.nb * h, 2));
             const vol = (volMarches + pail * w * e) * PERTE_BETON;
             const mlFer = (Math.ceil(w / 0.15) + 1) * (pail + 0.6) + (Math.ceil(pail / 0.25) + 1) * w;
             const blondel = 2 * v.hm + v.g;
             const infos = [
                 `Paillasse de ${fm(pail)} m de long. Ferraillage : HA10 tous les 15 cm + répartition tous les 25 cm.`,
                 `Confort (Blondel) : 2 × hauteur + giron = ${fmtSmart(blondel, 1)} cm ${blondel >= 59 && blondel <= 65 ? '✔ (idéal 60 à 64)' : '⚠ idéal entre 60 et 64 cm'}.`,
-                `Hauteur totale montée : ${fmtSmart(v.nb * v.hm, 0)} cm.`
+                `Hauteur totale montée : ${fmtSmart(v.nb * v.hm, 0)} cm, reculement ${fm(girons * g)} m.`,
+                'Aciers en chapeau en haut et en bas de la paillasse, étaiement du coffrage. Garde-corps 1 m, échappée 1,90 à 2 m.',
+                CONSEILS.decoffrage
             ];
             return {
                 resume: [{ l: 'Volume béton', v: `${fm(vol)} m³` }, { l: 'Longueur paillasse', v: `${fm(pail)} m` }],
@@ -288,10 +329,12 @@ export const OUVRAGES = [
             n('h', 'Hauteur', 'm', 2.5, { demi: true, max: 15 }),
             c('bloc', 'Type de bloc', Object.entries(BLOCS).map(([v, b]) => ({ v, l: b.l })), 'p20'),
             n('ouv', 'Ouvertures à déduire', 'm²', 0, { zero: true, aide: 'Porte ≈ 2 m², fenêtre ≈ 1,5 m².' }),
-            n('angles', 'Angles / bouts de mur', 'u', 2, { zero: true, max: 50, si: v => v.bloc === 'p20' || v.bloc === 'p15' }),
+            n('angles', 'Angles, abouts et tableaux', 'u', 2, { zero: true, max: 50, si: v => v.bloc === 'p20' || v.bloc === 'p15', aide: 'Blocs d\'angle sur toute la hauteur.' }),
             oui('chainage', 'Chaînage en haut du mur', false),
             { ...MODE, si: v => v.bloc === 'bancher' || v.chainage }
         ],
+        mots: 'agglo parpaing brique monomur bloc à bancher hourdage maçonnerie élévation cloison',
+        verifier: verifOuv(),
         titre: v => `Mur ${BLOCS[v.bloc]?.l || ''} ${fm(v.L)}×${fm(v.h)} m`,
         calcul(v, ctx) {
             const S = surfNette(v.L, v.h, v.ouv);
@@ -306,7 +349,8 @@ export const OUVRAGES = [
                 recette = recetteMortier(350, ctx.sacCiment || 35);
             }
             if (b.colleKg) infos.push(`Joint mince : environ ${b.colleKg} kg de mortier-colle par m².`);
-            if (b.remplissage) infos.push(`Remplissage : ≈ ${b.remplissage * 1000} L de béton par m² de mur. Fers verticaux selon plan.`);
+            if (b.remplissage) infos.push(`Remplissage : ≈ ${b.remplissage * 1000} L de béton fluide par m² (gravillon 4/10, pas de 4/20 : nids de cailloux). Premier rang posé au mortier. Fers verticaux selon plan.`);
+            if (S > 0 && v.ouv > 0) infos.push('Linteaux : longueur = ouverture + 20 cm d\'appui de chaque côté (voir « Création d\'ouverture » pour un mur existant).');
             infos.push(`${fmtSmart(b.parM2, 1)} blocs au m² + 5 % de casse.`);
             return {
                 resume: [{ l: 'Surface nette', v: `${fm(S)} m²` }, { l: 'Rangs', v: `${Math.ceil(v.h / b.h - 1e-9)}` }],
@@ -321,22 +365,27 @@ export const OUVRAGES = [
         champs: [
             n('L', 'Longueur', 'm', 5, { demi: true }),
             n('h', 'Hauteur', 'm', 1.5, { demi: true, max: 10 }),
-            n('ep', 'Épaisseur du mur', 'cm', 40, { max: 120 }),
-            n('ouv', 'Ouvertures à déduire', 'm²', 0, { zero: true })
+            n('ep', 'Épaisseur du mur', 'cm', 40, { max: 120, bas: 15 }),
+            n('ouv', 'Ouvertures à déduire', 'm²', 0, { zero: true }),
+            c('nhl', 'Chaux', [{ v: '2', l: 'NHL 2 (pierre tendre)' }, { v: '3.5', l: 'NHL 3,5' }], '3.5')
         ],
-        titre: v => `Mur en pierre ${fm(v.L)}×${fm(v.h)} m, ép. ${v.ep} cm`,
+        mots: 'moellon pierre calcaire chaux hourdage bâti ancien parement',
+        verifier: verifOuv(),
+        titre: v => `Mur en pierre ${fm(v.L)}×${fm(v.h)} m, ép. ${fm(v.ep)} cm`,
         calcul(v, ctx) {
             const S = surfNette(v.L, v.h, v.ouv);
             const vol = S * v.ep / 100;
             const volM = vol * 0.30;
             return {
                 resume: [{ l: 'Surface', v: `${fm(S)} m²` }, { l: 'Volume de mur', v: `${fm(vol)} m³` }],
-                lignes: fusion([L('moellon', vol * 1.9), ...lignesMortier(volM, { liant: 'chaux', dosage: 350 })]),
+                lignes: fusion([L('moellon', vol * 1.9), ...lignesMortier(volM, { liant: 'chaux', dosage: 300 })]),
                 infos: [
-                    'Environ 1,9 T de pierre par m³ de mur (chutes de taille comprises).',
-                    `Mortier de chaux : ≈ 300 L par m³ de mur, soit ${fm(volM)} m³.`
+                    'Environ 1,9 T de pierre par m³ de mur (chutes de taille comprises). Prévoir des boutisses (pierres traversantes) tous les mètres environ.',
+                    `Mortier de chaux dosé 300 kg/m³ (≈ 1 sac pour 2,5 à 3 volumes de sable) : ≈ 300 L par m³ de mur, soit ${fm(volM)} m³. Le mortier ne doit jamais être plus dur que la pierre.`,
+                    `Chaux conseillée : NHL ${v.nhl === '2' ? '2' : '3,5'}.`,
+                    CONSEILS.chaux
                 ],
-                recette: recetteMortier(350, 35, 'chaux'),
+                recette: recetteMortier(300, 35, 'chaux'),
                 mesure: { q: S, u: 'm²', h: S * 5 * Math.max(1, v.ep / 50) }
             };
         }
@@ -347,14 +396,15 @@ export const OUVRAGES = [
         champs: [
             n('L', 'Longueur', 'm', 10, { demi: true }),
             n('h', 'Hauteur hors sol', 'm', 1.2, { demi: true, max: 4 }),
-            c('bloc', 'Bloc', [{ v: 'p20', l: 'Parpaing 20' }, { v: 'p15', l: 'Parpaing 15' }], 'p20'),
-            n('larg', 'Largeur semelle', 'cm', 40, { demi: true, max: 100 }),
-            n('hb', 'Hauteur béton', 'cm', 25, { demi: true, max: 100 }),
+            c('bloc', 'Bloc', [{ v: 'p20', l: 'Agglo de 20' }, { v: 'p15', l: 'Agglo de 15' }], 'p20'),
+            n('larg', 'Largeur semelle', 'cm', 40, { demi: true, max: 100, bas: 20 }),
+            n('hb', 'Épaisseur semelle', 'cm', 25, { demi: true, max: 100, bas: 10 }),
             n('prof', 'Profondeur de fouille', 'cm', 50, { max: 150 }),
             oui('chaperon', 'Chaperons'),
             c('enduit', 'Enduit monocouche', [{ v: '0', l: 'Aucun' }, { v: '1', l: '1 face' }, { v: '2', l: '2 faces' }], '2'),
             MODE
         ],
+        mots: 'muret clôture mur de clôture chaperon raidisseur agglo parpaing',
         titre: v => `Muret ${fm(v.L)} m × ${fm(v.h)} m`,
         calcul(v, ctx) {
             const volS = v.L * v.larg / 100 * v.hb / 100 * PERTE_BETON;
@@ -366,7 +416,7 @@ export const OUVRAGES = [
                 ...lignesBeton(volS, 300, v.mode),
                 L('arm_semelle', nbBarres6m(v.L)),
                 ...lignesMurBlocs(S, v.bloc, raid, hBlocs, v.mode),
-                ...lignesChainage(raid * hBlocs, { vertical: true, mode: v.mode }),
+                ...lignesChainageVertical(raid, hBlocs, { mode: v.mode }),
                 ...lignesChainage(v.L, { mode: v.mode })
             ];
             if (v.chaperon) lignes.push(L('chaperon', Math.ceil(v.L * 2 * 1.03)));
@@ -374,7 +424,8 @@ export const OUVRAGES = [
             const infos = [
                 `Hauteur maçonnée : ${fm(hBlocs)} m (dont ${fm(hBlocs - v.h)} m enterrés), soit ${Math.ceil(hBlocs / 0.2 - 1e-9)} rangs.`,
                 `${raid} raidisseurs (chaînages verticaux) : tous les 4 m environ et aux extrémités.`,
-                'Chaînage horizontal en haut du mur sous les chaperons.'
+                'Chaînage horizontal en haut du mur sous les chaperons. Joint de dilatation tous les 10 à 15 m.',
+                'Un muret de clôture ne doit pas retenir de terre (au-delà de 50 cm de terre : mur de soutènement calculé, avec drain et barbacanes).'
             ];
             return {
                 resume: [{ l: 'Béton semelle', v: `${fm(volS)} m³` }, { l: 'Surface de mur', v: `${fm(S)} m²` }],
@@ -384,39 +435,46 @@ export const OUVRAGES = [
         }
     },
     {
-        id: 'ouverture', cat: 'murs', ic: '🚪', nom: 'Création d\'ouverture',
-        desc: 'Porte ou fenêtre dans un mur porteur',
+        id: 'ouverture', cat: 'murs', ic: '🚪', nom: 'Ouverture dans mur porteur',
+        desc: 'Porte ou fenêtre dans un mur en agglo ou en pierre',
         champs: [
+            c('mur', 'Le mur', [{ v: 'agglo', l: 'Agglo / brique' }, { v: 'pierre', l: 'Pierre' }], 'agglo'),
             n('larg', 'Largeur', 'm', 1.2, { demi: true, max: 6 }),
             n('haut', 'Hauteur', 'm', 2.15, { demi: true, max: 4 }),
-            n('ep', 'Épaisseur du mur', 'cm', 20, { max: 120 }),
-            c('linteau', 'Linteau', [{ v: 'ipn', l: 'IPN / HEA acier' }, { v: 'beton', l: 'Linteau béton' }], 'ipn')
+            n('ep', 'Épaisseur du mur', 'cm', 20, { max: 120, bas: 8 }),
+            c('linteau', 'Linteau', [{ v: 'ipn', l: 'IPN / HEA' }, { v: 'beton', l: 'Linteau préfa' }], 'ipn')
         ],
-        titre: v => `Ouverture ${fm(v.larg)}×${fm(v.haut)} m (mur ${v.ep} cm)`,
+        mots: 'ouverture percement baie porte fenêtre ipn hea linteau étai aiguille chevalement mur porteur',
+        titre: v => `Ouverture ${fm(v.larg)}×${fm(v.haut)} m (mur ${v.mur === 'pierre' ? 'pierre ' : ''}${fm(v.ep)} cm)`,
         calcul(v, ctx) {
-            const nb = v.ep > 25 ? 2 : 1;
-            const lg = Math.round((v.larg + 0.4) * 100) / 100;
+            const pierre = v.mur === 'pierre';
+            const nb = v.ep <= 25 ? 1 : v.ep <= 45 ? 2 : 3;
+            const appui = v.larg > 2 ? 0.3 : 0.2;
+            const lg = Math.round((v.larg + 2 * appui) * 100) / 100;
             const demol = v.larg * v.haut * v.ep / 100;
             const gravats = demol * 1.5;
             const volMort = (2 * v.haut + v.larg) * v.ep / 100 * 0.05 * PERTE_MORTIER;
             const volSommier = 2 * 0.3 * 0.2 * v.ep / 100 * PERTE_BETON;
             const lignes = [
-                L(v.linteau === 'ipn' ? 'ipn' : 'linteau', nb * lg, { d: `${nb} × ${fm(lg)} m (20 cm d'appui de chaque côté)` }),
+                L(v.linteau === 'ipn' ? 'ipn' : 'linteau', nb * lg, { d: `${nb} × ${fm(lg)} m (${Math.round(appui * 100)} cm d'appui de chaque côté)` }),
                 L('etai', 2 * (Math.ceil(v.larg / 0.8 - 1e-9) + 1)),
-                ...lignesMortier(volMort),
-                ...lignesBeton(volSommier, 350)
+                ...lignesMortier(volMort, pierre ? { liant: 'chaux', dosage: 300 } : {}),
+                ...lignesBeton(volSommier, 350),
+                L('mortier_sr', 25 * nb, { d: 'calage des profilés sur les sommiers' })
             ];
-            if (gravats > 1.5) lignes.push(L('benne', Math.ceil(gravats / 8 - 1e-9)));
+            if (gravats > 0.8) lignes.push(L('benne6', Math.ceil(gravats / 6 - 1e-9)));
             return {
-                resume: [{ l: 'Maçonnerie à démolir', v: `${fm(demol)} m³` }, { l: 'Gravats', v: `${fm(gravats)} m³` }],
+                resume: [{ l: 'Maçonnerie à démolir', v: `${fm(demol)} m³` }, { l: 'Gravats (≈ ' + fmtSmart(gravats * 1.5, 1) + ' T)', v: `${fm(gravats)} m³` }],
                 lignes: fusion(lignes),
                 infos: [
-                    nb > 1 ? 'Mur épais : 2 profilés côte à côte (ou linteau coulé sur place).' : '1 profilé pour un mur de 20 cm.',
-                    'La section de l\'IPN / HEA se calcule selon les charges (étage, toiture) : à faire valider.',
-                    'Étaiement des deux côtés avant d\'ouvrir. Sommiers béton sous les appuis.'
-                ],
+                    nb > 1 ? `Mur de ${fm(v.ep)} cm : ${nb} profilés côte à côte, solidarisés (plats + tiges filetées ou boulons).` : '1 profilé pour un mur de 20 cm.',
+                    'Étaiement par aiguilles et chevalement (étais des deux côtés), pas seulement des étais contre le mur. Sommiers béton sous les appuis, calage au mortier sans retrait.',
+                    pierre ? 'Mur en pierre : sonder le mur avant (fourrure, vides), ouvrir par saignées d\'un côté puis de l\'autre, reprises des tableaux à la chaux.' : null,
+                    'Note de calcul d\'un bureau d\'études dès qu\'il y a un étage ou une charpente au-dessus. Mur mitoyen : accord du voisin. Façade : déclaration préalable en mairie.',
+                    'Gravats de maçonnerie : benne de 6 m³ maxi (trop lourd au-delà).'
+                ].filter(Boolean),
                 recette: null,
-                mesure: { q: 1, u: 'forfait', h: v.ep > 30 ? 32 : 24 }
+                mesure: { q: 1, u: 'forfait', h: (pierre ? 32 : 24) * Math.max(1, v.ep / 30) }
             };
         }
     },
@@ -424,15 +482,19 @@ export const OUVRAGES = [
     // ════════════════ ENDUITS & JOINTS ════════════════
     {
         id: 'enduit', cat: 'enduits', ic: '🖌️', nom: 'Enduit de façade',
-        desc: 'Monocouche ou traditionnel au ciment',
+        desc: 'Monocouche ou traditionnel 3 couches (agglo, brique)',
         champs: [
             n('L', 'Longueur', 'm', 10, { demi: true }),
             n('h', 'Hauteur', 'm', 3, { demi: true, max: 20 }),
             n('ouv', 'Ouvertures à déduire', 'm²', 0, { zero: true }),
-            c('type', 'Type d\'enduit', [{ v: 'mono', l: 'Monocouche' }, { v: 'trad', l: 'Traditionnel' }], 'mono'),
-            n('ep', 'Épaisseur', 'cm', 1.5, { max: 5 }),
+            c('type', 'Type d\'enduit', [{ v: 'mono', l: 'Monocouche' }, { v: 'trad', l: 'Traditionnel 3 couches' }], 'mono'),
+            c('liant', 'Mortier', [{ v: 'batard', l: 'Bâtard (ciment + chaux)' }, { v: 'ciment', l: 'Ciment' }], 'batard', { si: v => v.type === 'trad' }),
+            n('epMono', 'Épaisseur', 'cm', 1.5, { max: 5, bas: 1, si: v => v.type === 'mono', aide: '10 mm minimum en tout point.' }),
+            n('epTrad', 'Épaisseur totale', 'cm', 2.2, { max: 6, bas: 1.5, si: v => v.type === 'trad', aide: 'Gobetis 3-5 mm + corps 15-20 mm + finition 5-7 mm.' }),
             n('angles', 'Angles de façade', 'u', 0, { zero: true, aide: 'Pour les baguettes d\'angle.' })
         ],
+        mots: 'crépi façade monocouche gobetis bâtard enduit ciment',
+        verifier: verifOuv(),
         titre: v => `Enduit ${v.type === 'mono' ? 'monocouche' : 'traditionnel'} ${fm(surfNette(v.L, v.h, v.ouv))} m²`,
         calcul(v, ctx) {
             const S = surfNette(v.L, v.h, v.ouv);
@@ -440,19 +502,28 @@ export const OUVRAGES = [
             const infos = [];
             let recette = null;
             if (v.type === 'mono') {
-                lignes.push(L('enduit_mono', S * v.ep * 17 * PERTE_MORTIER));
-                infos.push('Monocouche : ≈ 17 kg par m² et par cm (≈ 25 kg/m² en 15 mm). Pertes 10 % comprises.');
+                lignes.push(L('enduit_mono', S * v.epMono * 17 * PERTE_MORTIER));
+                infos.push('Monocouche : ≈ 17 kg par m² et par cm (≈ 25 kg/m² en 15 mm), en 2 passes frais dans frais. Pertes 10 % comprises.');
             } else {
-                const vol = S * v.ep / 100 * PERTE_MORTIER;
-                lignes.push(...lignesMortier(vol, { dosage: 400 }));
-                infos.push('Traditionnel en 3 couches : gobetis (≈ 500 kg/m³), corps d\'enduit (≈ 400), finition (≈ 300, sable fin). Moyenne 400.');
-                recette = recetteMortier(400, ctx.sacCiment || 35);
+                // Dosages dégressifs : chaque couche moins dosée que celle du dessous
+                const ep = v.epTrad / 100;
+                const gob = 0.004, fin = 0.006, corps = Math.max(0.005, ep - gob - fin);
+                const l = v.liant;
+                lignes.push(
+                    ...lignesMortier(S * gob * PERTE_MORTIER, { liant: 'ciment', dosage: 500 }),
+                    ...lignesMortier(S * corps * PERTE_MORTIER, { liant: l, dosage: 400 }),
+                    ...lignesMortier(S * fin * PERTE_MORTIER, { liant: l, dosage: 300, sable: 'sable02' })
+                );
+                infos.push(`3 couches : gobetis au ciment (≈ 500 kg/m³, 4 mm), corps d'enduit ${l === 'batard' ? 'bâtard' : 'ciment'} (≈ 400, ${fmtSmart(corps * 1000, 0)} mm), finition (≈ 300, sable fin, 6 mm).`);
+                if (l === 'ciment') infos.push('Le bâtard (moitié ciment, moitié chaux) fissure moins que le ciment pur.');
+                recette = recetteMortier(400, ctx.sacCiment || 35, l);
             }
+            infos.push(CONSEILS.pierreCiment);
             if (v.angles > 0) lignes.push(L('baguette', Math.ceil(v.angles * v.h / 3 - 1e-9)));
             return {
                 resume: [{ l: 'Surface', v: `${fm(S)} m²` }],
                 lignes: fusion(lignes), infos, recette,
-                mesure: { q: S, u: 'm²', h: S * (v.type === 'mono' ? 0.5 : 0.9) }
+                mesure: { q: S, u: 'm²', h: S * (v.type === 'mono' ? 0.5 : 1.0) }
             };
         }
     },
@@ -463,19 +534,30 @@ export const OUVRAGES = [
             n('L', 'Longueur', 'm', 8, { demi: true }),
             n('h', 'Hauteur', 'm', 2.5, { demi: true, max: 20 }),
             n('ouv', 'Ouvertures à déduire', 'm²', 0, { zero: true }),
-            n('ep', 'Épaisseur totale', 'cm', 2, { max: 6, aide: '3 couches : 1,5 à 2,5 cm au total.' })
+            n('ep', 'Épaisseur totale', 'cm', 2.5, { max: 6, bas: 1, aide: 'Gobetis 5 mm + corps 15 mm + finition 5 mm.' })
         ],
+        mots: 'enduit chaux nhl gobetis corps finition bâti ancien pierre talochée grattée',
+        verifier: verifOuv(),
         titre: v => `Enduit chaux ${fm(surfNette(v.L, v.h, v.ouv))} m²`,
         calcul(v, ctx) {
             const S = surfNette(v.L, v.h, v.ouv);
-            const vol = S * v.ep / 100 * PERTE_MORTIER;
-            const volFin = Math.min(vol, S * 0.005 * PERTE_MORTIER);        // 5 mm de finition au sable fin
-            const lignes = [...lignesMortier(vol - volFin, { liant: 'chaux' }), ...lignesMortier(volFin, { liant: 'chaux', sable: 'sable02' })];
+            const ep = v.ep / 100;
+            const gob = Math.min(0.005, ep / 3), fin = Math.min(0.005, ep / 3), corps = Math.max(0, ep - gob - fin);
+            const lignes = [
+                ...lignesMortier(S * gob * PERTE_MORTIER, { liant: 'chaux', dosage: 450 }),
+                ...lignesMortier(S * corps * PERTE_MORTIER, { liant: 'chaux', dosage: 325 }),
+                ...lignesMortier(S * fin * PERTE_MORTIER, { liant: 'chaux', dosage: 275, sable: 'sable02' })
+            ];
+            const vol = S * ep * PERTE_MORTIER;
             return {
                 resume: [{ l: 'Surface', v: `${fm(S)} m²` }, { l: 'Mortier', v: `${fm(vol)} m³` }],
                 lignes: fusion(lignes),
-                infos: ['Chaux NHL 3,5 dosée 350 kg par m³ de sable (≈ 1 volume de chaux pour 2,5 de sable). Finition 5 mm au sable fin. Pertes 10 % comprises.'],
-                recette: recetteMortier(350, 35, 'chaux'),
+                infos: [
+                    'Dosages dégressifs : gobetis ≈ 450 kg/m³ (NHL 3,5 ou 5), corps ≈ 325 kg (NHL 3,5), finition ≈ 275 kg (NHL 2 ou chaux aérienne, sable fin 0/2). Pertes 10 % comprises.',
+                    'Repère : 1 sac de 35 kg ≈ 55 L de chaux. Corps d\'enduit ≈ 1 volume de chaux pour 2 à 2,5 de sable.',
+                    CONSEILS.chaux
+                ],
+                recette: recetteMortier(325, 35, 'chaux'),
                 mesure: { q: S, u: 'm²', h: S * 1.5 }
             };
         }
@@ -490,15 +572,20 @@ export const OUVRAGES = [
             c('joint', 'Joints', [{ v: '8', l: 'Fins' }, { v: '15', l: 'Moyens' }, { v: '25', l: 'Larges / profonds' }], '15',
                 { aide: 'Fins ≈ 8 L/m² · moyens ≈ 15 L/m² · larges ≈ 25 L/m².' })
         ],
+        mots: 'joint rejointoiement dégarnissage pierre apparente chaux bâti ancien',
+        verifier: verifOuv(),
         titre: v => `Rejointoiement chaux ${fm(surfNette(v.L, v.h, v.ouv))} m²`,
         calcul(v, ctx) {
             const S = surfNette(v.L, v.h, v.ouv);
             const vol = S * (+v.joint) / 1000 * PERTE_MORTIER;
             return {
                 resume: [{ l: 'Surface', v: `${fm(S)} m²` }, { l: 'Mortier', v: `${fmtSmart(vol * 1000, 0)} L` }],
-                lignes: fusion(lignesMortier(vol, { liant: 'chaux', dosage: 400 })),
-                infos: ['Mortier de joint un peu plus riche : chaux NHL dosée 400 kg/m³. Pertes 10 % comprises.'],
-                recette: recetteMortier(400, 35, 'chaux'),
+                lignes: fusion(lignesMortier(vol, { liant: 'chaux', dosage: 325 })),
+                infos: [
+                    'Dégarnir les joints sur 2 à 3 cm, brosser, humidifier. Mortier NHL 3,5 dosé ≈ 325 kg/m³ (1 pour 2 à 2,5) : jamais plus dur que la pierre. Pertes 10 % comprises.',
+                    CONSEILS.chaux
+                ],
+                recette: recetteMortier(325, 35, 'chaux'),
                 mesure: { q: S, u: 'm²', h: S * (v.joint === '25' ? 2 : 1.5) }
             };
         }
@@ -515,10 +602,16 @@ export const OUVRAGES = [
             n('pente', 'Pente', '%', 35, { demi: true, max: 200, aide: 'Canal ≈ 30 % · romane ≈ 35 % · ardoise ≈ 80 % · tuile plate ≈ 100 % (45°).' }),
             n('debord', 'Débord de toit', 'cm', 40, { demi: true, zero: true, max: 150 }),
             c('charpente', 'Charpente', [{ v: 'fermettes', l: 'Fermettes' }, { v: 'trad', l: 'Traditionnelle' }], 'fermettes'),
-            c('couverture', 'Couverture', Object.entries(COUVERTURES).map(([v, x]) => ({ v, l: x.l.replace(' (romane, grand moule)', ' romane') })), 'meca'),
+            c('couverture', 'Couverture', Object.entries(COUVERTURES).map(([v, x]) => ({ v, l: x.l })), 'meca'),
             oui('gouttieres', 'Gouttières et descentes')
         ],
-        titre: v => `Toiture ${v.pans} pans ${fm(v.L)}×${fm(v.l)} m, pente ${v.pente} %`,
+        mots: 'toit toiture charpente fermette chevron panne tuile canal romane ardoise liteau écran gouttière faîtage',
+        // Changement de couverture : on propose sa pente conseillée si la pente n'avait pas été retouchée
+        surChoix(v, avant) {
+            const a = COUVERTURES[avant.couverture], b = COUVERTURES[v.couverture];
+            if (a && b && a !== b && String(v.pente).replace(',', '.') === String(a.pente)) v.pente = String(b.pente);
+        },
+        titre: v => `Toiture ${v.pans} pans ${fm(v.L)}×${fm(v.l)} m, pente ${fm(v.pente)} %`,
         calcul(v, ctx) {
             const r = calcToiture({ ...v, pans: +v.pans, debord: v.debord / 100 });
             return {
@@ -542,18 +635,23 @@ export const OUVRAGES = [
         champs: [
             n('L', 'Longueur', 'm', 5, { demi: true }),
             n('l', 'Largeur', 'm', 4, { demi: true }),
-            n('ep', 'Épaisseur', 'cm', 5, { max: 15, aide: 'Adhérente : 3-5 cm. Flottante (sur isolant) : 5-6 cm.' }),
+            n('ep', 'Épaisseur', 'cm', 5, { max: 15, bas: 2, aide: 'Adhérente : 3-5 cm. Flottante (sur isolant) : 5-6 cm.' }),
             c('dosage', 'Dosage', [{ v: '300', l: '300 kg' }, { v: '350', l: '350 kg' }], '350'),
+            oui('flottante', 'Chape flottante (sur isolant)', false),
             oui('bande', 'Bande périphérique')
         ],
-        titre: v => `Chape ${fm(v.L)}×${fm(v.l)} m, ép. ${v.ep} cm`,
+        mots: 'chape mortier sol isolant flottante règle',
+        titre: v => `Chape ${fm(v.L)}×${fm(v.l)} m, ép. ${fm(v.ep)} cm`,
         calcul(v, ctx) {
             const S = v.L * v.l;
             const vol = S * v.ep / 100 * PERTE_BETON;
-            const lignes = [...lignesMortier(vol, { dosage: +v.dosage })];
+            const lignes = [...lignesMortier(vol, { dosage: +v.dosage, sableM3: 1.15 })];
             if (v.bande) lignes.push(L('bande_peri', 2 * (v.L + v.l) * 1.05));
-            const infos = ['Chape dosée ' + v.dosage + ' kg de ciment par m³ de sable. Pertes 5 % comprises.'];
+            if (v.flottante) lignes.push(L('isolant_sol', S * 1.05), L('polyane', S * 1.15), L('treillis36', Math.ceil(S / 6.9 - 1e-9), { d: 'ou fibres dans le mortier' }));
+            const infos = ['Chape dosée ' + v.dosage + ' kg de ciment par m³, ≈ 1,15 m³ de sable par m³ de chape (tirée à la règle). Pertes 5 % comprises.',
+                'Séchage : ≈ 1 semaine par cm avant parquet, 15 jours mini avant carrelage collé.'];
             if (v.ep < 3) infos.push('Moins de 3 cm : préférer un ragréage.');
+            if (v.flottante) infos.push('Chape flottante : armée (treillis ou fibres), sur film, désolidarisée des murs. 5 cm minimum.');
             return {
                 resume: [{ l: 'Surface', v: `${fm(S)} m²` }, { l: 'Volume', v: `${fm(vol)} m³` }],
                 lignes: fusion(lignes), infos, recette: recetteMortier(+v.dosage, ctx.sacCiment || 35),
@@ -569,7 +667,8 @@ export const OUVRAGES = [
             n('l', 'Largeur', 'm', 4, { demi: true }),
             n('ep', 'Épaisseur moyenne', 'mm', 5, { max: 50 })
         ],
-        titre: v => `Ragréage ${fm(v.L * v.l)} m², ${v.ep} mm`,
+        mots: 'ragréage autolissant niveau sol primaire',
+        titre: v => `Ragréage ${fm(v.L * v.l)} m², ${fm(v.ep)} mm`,
         calcul(v) {
             const S = v.L * v.l;
             return {
@@ -588,14 +687,17 @@ export const OUVRAGES = [
             n('a', 'Longueur', 'm', 4, { demi: true }),
             n('b', 'Hauteur', 'm', 2.5, { demi: true, max: 12, labelSi: v => v.type === 'plafond' ? 'Largeur' : 'Hauteur' }),
             n('ouv', 'Ouvertures à déduire', 'm²', 0, { zero: true, si: v => v.type !== 'plafond' }),
-            oui('double', 'Ossature double (cloison 98)', false, { si: v => v.type === 'cloison' }),
+            c('cloison', 'Cloison', [{ v: '72', l: '72/48 (1 plaque par face)' }, { v: '98', l: '98/48 (2 plaques par face)' }], '72', { si: v => v.type === 'cloison' }),
             oui('isolant', 'Avec isolant')
         ],
+        mots: 'placo plaque de plâtre ba13 doublage cloison plafond rail montant fourrure suspente',
+        verifier: v => (v.type !== 'plafond' ? verifOuv('a', 'b')(v) : {}),
         titre: v => `${{ doublage: 'Doublage', cloison: 'Cloison', plafond: 'Plafond' }[v.type]} BA13 ${fm(v.a)}×${fm(v.b)} m`,
         calcul(v) {
-            const r = calcPlaco(v.type, v.a, v.b, { double: v.double, isolant: v.isolant, ouv: v.type === 'plafond' ? 0 : v.ouv });
+            const r = calcPlaco(v.type, v.a, v.b, { cloison: v.cloison, isolant: v.isolant, ouv: v.type === 'plafond' ? 0 : v.ouv });
             const infos = ['Plaques 1,20 × 2,50 m (+10 % de coupes). Ossature tous les 60 cm.',
-                v.type === 'plafond' ? 'Suspentes tous les 1,20 m maxi.' : 'Montants à la hauteur du mur, éclissés au-delà de 3 m.'];
+                v.type === 'plafond' ? 'Suspentes tous les 1,20 m maxi. Pare-vapeur côté chaud, sous l\'isolant.' : 'Montants à la hauteur du mur, éclissés au-delà de 3 m.',
+                'Salle de bain, cuisine : plaques hydrofuges (H1, vertes).'];
             return {
                 resume: [{ l: 'Surface', v: `${fm(r.S)} m²` }],
                 lignes: fusion(r.lignes), infos, recette: null,
@@ -609,14 +711,16 @@ export const OUVRAGES = [
         champs: [
             n('L', 'Longueur', 'm', 10, { demi: true }),
             n('l', 'Largeur', 'm', 8, { demi: true }),
-            c('ep', 'Épaisseur', [{ v: '200', l: '200 mm' }, { v: '300', l: '300 mm' }, { v: '400', l: '400 mm' }], '300', { aide: '300 mm ≈ R 7 : bon niveau pour des combles perdus.' })
+            c('ep', 'Épaisseur', [{ v: '200', l: '200 mm' }, { v: '300', l: '300 mm' }, { v: '400', l: '400 mm' }], '300', { aide: '300 mm ≈ R 7. Neuf (RE2020) : viser R 8 à 10 (≈ 350-400 mm).' }),
+            oui('pv', 'Pare-vapeur')
         ],
+        mots: 'isolation laine combles grenier pare-vapeur',
         titre: v => `Isolation combles ${fm(v.L * v.l)} m², ${v.ep} mm`,
         calcul(v) {
             const S = v.L * v.l;
             return {
                 resume: [{ l: 'Surface', v: `${fm(S)} m²` }],
-                lignes: [L('laine_combles', S * 1.05, { d: `épaisseur ${v.ep} mm` })],
+                lignes: [L('laine_combles', S * 1.05, { d: `épaisseur ${v.ep} mm` }), v.pv ? L('pare_vapeur', S * 1.10) : null].filter(Boolean),
                 infos: ['+5 % de coupes. En 2 couches croisées si possible.'],
                 recette: null, mesure: { q: S, u: 'm²', h: S * 0.15 }
             };
@@ -629,22 +733,28 @@ export const OUVRAGES = [
             c('support', 'Où', [{ v: 'sol', l: 'Sol' }, { v: 'mur', l: 'Mur (faïence)' }], 'sol'),
             n('L', 'Longueur', 'm', 4, { demi: true }),
             n('l', 'Largeur', 'm', 3, { demi: true, labelSi: v => v.support === 'mur' ? 'Hauteur' : 'Largeur' }),
-            c('format', 'Format des carreaux', [{ v: 'petit', l: 'Jusqu\'à 30 cm' }, { v: 'moyen', l: '30 à 60 cm' }, { v: 'grand', l: 'Plus de 60 cm' }], 'moyen'),
+            c('format', 'Format des carreaux', [{ v: 'petit', l: 'Jusqu\'à 30 cm' }, { v: 'moyen', l: '30 à 45 cm' }, { v: 'grand', l: '45 à 60 cm' }, { v: 'tgf', l: 'Plus de 60 cm' }], 'moyen'),
             c('pose', 'Pose', [{ v: 'droite', l: 'Droite' }, { v: 'diag', l: 'Diagonale' }], 'droite'),
             oui('plinthes', 'Plinthes', true, { si: v => v.support === 'sol' })
         ],
+        mots: 'carrelage faïence carreau colle joint plinthe double encollage',
         titre: v => `${v.support === 'mur' ? 'Faïence' : 'Carrelage'} ${fm(v.L * v.l)} m²`,
         calcul(v) {
             const S = v.L * v.l;
             const marge = v.pose === 'diag' ? 1.15 : 1.10;
-            const colle = { sol: { petit: 3.5, moyen: 5, grand: 7 }, mur: { petit: 3, moyen: 4, grand: 5 } }[v.support][v.format];
-            const joint = { petit: 0.8, moyen: 0.4, grand: 0.3 }[v.format];
+            const colle = { sol: { petit: 3.5, moyen: 5, grand: 7, tgf: 8 }, mur: { petit: 3, moyen: 4, grand: 5, tgf: 6 } }[v.support][v.format];
+            const joint = { petit: 0.8, moyen: 0.5, grand: 0.4, tgf: 0.3 }[v.format];
+            const double = v.format === 'grand' || v.format === 'tgf';
             const lignes = [L('carrelage', S * marge), L('colle_carrelage', S * colle), L('joint_carrelage', S * joint)];
             if (v.support === 'sol' && v.plinthes) lignes.push(L('plinthe', 2 * (v.L + v.l) * 1.10));
             return {
                 resume: [{ l: 'Surface', v: `${fm(S)} m²` }],
                 lignes, recette: null,
-                infos: [`Coupes : +${Math.round((marge - 1) * 100)} %. Colle ≈ ${colle} kg/m²${v.format === 'grand' ? ' (double encollage)' : ''}, joint ≈ ${joint} kg/m².`],
+                infos: [
+                    `Coupes : +${Math.round((marge - 1) * 100)} %. Colle ≈ ${fmtSmart(colle, 1)} kg/m²${double ? ' (double encollage)' : ''}, joint ≈ ${fmtSmart(joint, 1)} kg/m².`,
+                    v.format === 'tgf' ? 'Plus de 60 cm : hors DTU courant, suivre la notice du fabricant de colle (colle C2, support très plan).' : null,
+                    'Support : dalle d\'1 mois mini, chape de 15 jours mini. Douche : protection à l\'eau (SPEC) sous le carrelage.'
+                ].filter(Boolean),
                 mesure: { q: S, u: 'm²', h: S * (v.support === 'mur' ? 1 : 0.8) * (v.pose === 'diag' ? 1.25 : 1) }
             };
         }
@@ -658,6 +768,7 @@ export const OUVRAGES = [
             c('pose', 'Pose', [{ v: 'droite', l: 'Droite' }, { v: 'diag', l: 'Diagonale' }], 'droite'),
             oui('plinthes', 'Plinthes')
         ],
+        mots: 'parquet stratifié lame sous-couche plinthe',
         titre: v => `Parquet ${fm(v.L * v.l)} m²`,
         calcul(v) {
             const S = v.L * v.l;
@@ -684,6 +795,7 @@ export const OUVRAGES = [
             c('couches', 'Couches', [{ v: '1', l: '1' }, { v: '2', l: '2' }, { v: '3', l: '3' }], '2'),
             oui('impression', 'Sous-couche d\'impression')
         ],
+        mots: 'peinture impression sous-couche mur plafond pot',
         titre: v => `Peinture pièce ${fm(v.L)}×${fm(v.l)} m`,
         calcul(v) {
             const Sm = v.murs ? Math.max(0, 2 * (v.L + v.l) * v.h - (v.ouv || 0)) : 0;
@@ -711,17 +823,23 @@ export const OUVRAGES = [
             c('sol', 'Terrain', [{ v: '1.25', l: 'Terre' }, { v: '1.35', l: 'Argile' }, { v: '1.5', l: 'Roche / gravats' }], '1.25'),
             oui('evac', 'Évacuer les déblais')
         ],
+        mots: 'terrassement déblai décaissement fouille mini-pelle benne évacuation terre gravats foisonnement',
         titre: v => `Terrassement ${fm(v.L * v.l * v.p)} m³`,
         calcul(v) {
             const vol = v.L * v.l * v.p;
             const volF = vol * (+v.sol);
             const jours = Math.max(1, Math.ceil(vol / 40 - 1e-9));
             const lignes = [L('mini_pelle', jours)];
-            if (v.evac) lignes.push(L('benne', Math.ceil(volF / 8 - 1e-9)));
+            const lourd = v.sol === '1.5';
+            if (v.evac) lignes.push(lourd ? L('benne6', Math.ceil(volF / 6 - 1e-9)) : L('benne', Math.ceil(volF / 8 - 1e-9)));
+            const infos = [`Foisonnement ×${String(v.sol).replace('.', ',')} : la terre sortie prend plus de place.`,
+                `Mini-pelle 2,5 T : environ 40 m³ par jour. ${lourd ? 'Roche / gravats : bennes de 6 m³ maxi (poids).' : 'Bennes de 8 m³ pour la terre.'}`,
+                CONSEILS.dict, 'Conduite de mini-pelle : CACES R482 ou autorisation de conduite.'];
+            if (v.p > 1.3) infos.unshift('Plus de 1,30 m de profondeur : blindage des parois obligatoire, personne dans la fouille sans protection.');
             return {
                 resume: [{ l: 'Volume en place', v: `${fm(vol)} m³` }, { l: 'Volume foisonné', v: `${fm(volF)} m³` }],
                 lignes, recette: null,
-                infos: [`Foisonnement ×${String(v.sol).replace('.', ',')} : la terre sortie prend plus de place.`, 'Mini-pelle 2,5 T : environ 40 m³ par jour. Bennes / camions de 8 m³.'],
+                infos,
                 mesure: { q: vol, u: 'm³', h: jours * 8 }
             };
         }
@@ -736,6 +854,7 @@ export const OUVRAGES = [
             oui('dalles', 'Compter les dalles'),
             oui('geotextile', 'Géotextile')
         ],
+        mots: 'terrasse plot dalle sur plot géotextile',
         titre: v => `Terrasse sur plots ${fm(v.L * v.l)} m²`,
         calcul(v) {
             const S = v.L * v.l, a = +v.format;
@@ -763,6 +882,7 @@ export const OUVRAGES = [
             oui('enduit', 'Enduit d\'étanchéité', false),
             MODE
         ],
+        mots: 'piscine bassin radier bloc à bancher',
         titre: v => `Piscine ${fm(v.L)}×${fm(v.l)} m, prof. ${fm(v.p)} m`,
         calcul(v, ctx) {
             const perim = 2 * (v.L + v.l);
@@ -773,7 +893,7 @@ export const OUVRAGES = [
             const terre = (v.L + 1) * (v.l + 1) * (v.p + v.ep / 100 + (v.herisson ? 0.15 : 0));
             const lignes = [
                 ...lignesBeton(volRad, 350, v.mode),
-                L('treillis36', Math.ceil(Srad / 7.3 - 1e-9) * 2, { d: '2 nappes' }),
+                L('treillis36', Math.ceil(Srad / TREILLIS_UTILE['36'] - 1e-9) * 2, { d: '2 nappes' }),
                 ...lignesMurBlocs(surfMurs, 'bancher', 0, 0, v.mode),
                 L('fer10', Math.ceil(ferML * 1.1 / 6)),
                 ...lignesChainage(perim, { mode: v.mode }),
@@ -787,7 +907,9 @@ export const OUVRAGES = [
             const infos = [
                 `Terrassement : ${fm(terre)} m³ en place (≈ ${fm(terre * 1.25)} m³ foisonnés).`,
                 `Murs : ${fm(surfMurs)} m² de blocs à bancher remplis (≈ ${fm(volMurs)} m³ de béton).`,
-                'Hors étanchéité / liner, filtration, margelles et plage.'
+                'Hors étanchéité / liner, filtration, margelles et plage.',
+                'Prévoir drainage et puits de décompression (le bassin vide peut remonter). Clôture ou alarme obligatoire.',
+                CONSEILS.dict, CONSEILS.structure
             ];
             return {
                 resume: [{ l: 'Béton total', v: `${fm(volRad + volMurs + perim * 0.025 * PERTE_BETON)} m³` }, { l: 'Plan d\'eau', v: `${fm(v.L * v.l)} m²` }],
@@ -817,18 +939,30 @@ export const champVisible = (ch, v) => !ch.si || !!ch.si(v);
  * Normalise et valide les valeurs saisies.
  * @returns {{ v: object, erreurs: Object<string,string> }}
  */
+/** Lit un nombre saisi : accepte la virgule, les espaces et une unité collée (« 6m », « 12 cm »). */
+export function lireNombre(val) {
+    if (typeof val === 'number') return val;
+    const s = String(val ?? '').trim().toLowerCase().replace(/\s/g, '').replace(',', '.').replace(/(m²|m2|m³|m3|cm|mm|m|%|u|kg)$/, '');
+    if (s === '' || !/^-?\d*\.?\d+$/.test(s)) return s === '' ? NaN : NaN;
+    return Number(s);
+}
+
 export function valider(def, brut) {
     const v = { ...valeursDefaut(def), ...brut };
     const erreurs = {};
+    const alertes = {};
     def.champs.forEach(ch => {
         if (ch.type === 'num') {
-            const s = String(v[ch.id] ?? '').trim().replace(/\s/g, '').replace(',', '.');
-            const x = s === '' ? NaN : Number(s);
+            const brutTxt = String(v[ch.id] ?? '').trim();
+            const x = lireNombre(v[ch.id]);
             if (!champVisible(ch, v)) { v[ch.id] = isNaN(x) ? (ch.def || 0) : x; return; }
-            if (isNaN(x)) { erreurs[ch.id] = ch.zero ? 'Mets 0 si aucun' : 'À remplir'; return; }
+            if (isNaN(x)) { erreurs[ch.id] = brutTxt === '' ? (ch.zero ? 'Mets 0 si aucun' : 'À remplir') : 'Chiffres seulement (ex : 6,5)'; return; }
             if (x < 0 || (!ch.zero && x <= 0)) { erreurs[ch.id] = 'Doit être plus grand que 0'; return; }
             const max = ch.max ?? (ch.u === 'm' ? 200 : ch.u === 'cm' ? 500 : ch.u === 'm²' ? 5000 : 100000);
             if (x > max) { erreurs[ch.id] = `Trop grand ? (max ${fmtSmart(max)} ${ch.u || ''})`; return; }
+            // Alerte douce : probablement des mètres tapés dans un champ en centimètres
+            if (ch.u === 'cm' && x > 0 && x < 1) alertes[ch.id] = `Tu as mis des mètres ? Ici c'est en cm (${fmtSmart(x, 2)} m = ${fmtSmart(x * 100, 0)} cm).`;
+            else if (ch.bas && x > 0 && x < ch.bas) alertes[ch.id] = `Valeur faible (souvent ${fmtSmart(ch.bas)} ${ch.u} ou plus) : vérifie.`;
             v[ch.id] = x;
         } else if (ch.type === 'oui') {
             v[ch.id] = v[ch.id] === true || v[ch.id] === 'true';
@@ -837,20 +971,22 @@ export function valider(def, brut) {
             else v[ch.id] = String(v[ch.id]);
         }
     });
-    return { v, erreurs };
+    if (!Object.keys(erreurs).length && def.verifier) Object.assign(erreurs, def.verifier(v) || {});
+    return { v, erreurs, alertes };
 }
 
 /** Calcul complet d'un ouvrage (null si saisie invalide). */
 export function calculer(defOrId, brut, ctx = {}) {
     const def = typeof defOrId === 'string' ? OUVRAGES_PAR_ID[defOrId] : defOrId;
     if (!def) return null;
-    const { v, erreurs } = valider(def, brut);
-    if (Object.keys(erreurs).length) return { erreurs, v };
+    const { v, erreurs, alertes } = valider(def, brut);
+    if (Object.keys(erreurs).length) return { erreurs, alertes, v };
     const r = def.calcul(v, ctx);
     r.resume = (r.resume || []).filter(Boolean);
     r.lignes = (r.lignes || []).filter(li => li && li.q > 0);
     r.titre = def.titre(v);
     r.v = v;
     r.erreurs = {};
+    r.alertes = alertes;
     return r;
 }

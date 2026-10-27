@@ -67,3 +67,65 @@ test('estimation entreprise : matériaux + main d\'œuvre + TVA', () => {
     assert.equal(c.mo, 450);
     assert.equal(c.ttc, 605);
 });
+
+// ─── Corrections issues de la relecture « maçon » ────────────────────────────
+import { lignesChainageVertical, calcPlaco, lignesMortier } from '../js/calc/base.js';
+import { lireNombre } from '../js/calc/ouvrages.js';
+
+test('chaînage vertical : 1 armature par chaînage (d\'un seul tenant) + 1 attente', () => {
+    const l = lignesChainageVertical(8, 3.35);
+    assert.equal(q(l, 'arm_chainage'), 8);
+    assert.equal(q(l, 'attente'), 8);
+    assert.equal(q(lignesChainageVertical(2, 6.45), 'arm_chainage'), 4);   // 6,95 m → 2 barres chacun
+});
+
+test('maison plain-pied : armatures de chaînages verticaux comptées une par chaînage', () => {
+    const r = calculerMaison(valeursDefaut(MAISON_DEF), ctx);
+    const lot = r.lots.find(l => l.id === 'chainages');
+    assert.equal(q(lot.lignes, 'attente'), 8);
+    assert.ok(q(lot.lignes, 'seuil') === 3);
+});
+
+test('vide sanitaire : étais conservés et entrevous isolants', () => {
+    const r = calculerMaison({ ...valeursDefaut(MAISON_DEF), bas: 'vs' }, ctx);
+    const lot = r.lots.find(l => l.id === 'plancherbas');
+    assert.ok(q(lot.lignes, 'etai') > 0);
+    assert.ok(q(lot.lignes, 'entrevous_pse') > 0);
+});
+
+test('mortier bâtard : moitié ciment, moitié chaux', () => {
+    const l = lignesMortier(1, { liant: 'batard', dosage: 400 });
+    assert.equal(q(l, 'ciment'), 200);
+    assert.equal(q(l, 'chaux'), 200);
+});
+
+test('cloison 98/48 : deux fois plus de plaques que la 72/48', () => {
+    const a = calcPlaco('cloison', 4, 2.5, { cloison: '72' });
+    const b = calcPlaco('cloison', 4, 2.5, { cloison: '98' });
+    assert.ok(Math.abs(q(b.lignes, 'ba13') - 2 * q(a.lignes, 'ba13')) <= 1);
+    assert.equal(q(b.lignes, 'montant'), q(a.lignes, 'montant'));
+});
+
+test('carrelage 45-60 : double encollage 7 kg/m²', () => {
+    const r = calculer('carrelage', { L: 4, l: 3, format: 'grand' }, ctx);
+    assert.equal(q(r.lignes, 'colle_carrelage'), 84);
+});
+
+test('mur en pierre : chaux dosée 300 kg/m³', () => {
+    const r = calculer('pierre', { L: 5, h: 1, ep: 40 }, ctx);
+    assert.ok(Math.abs(q(r.lignes, 'chaux') - 2 * 0.3 * 300) < 1e-9);
+});
+
+test('saisie : unités collées acceptées, alerte si des mètres dans un champ en cm', () => {
+    assert.equal(lireNombre('6m'), 6);
+    assert.equal(lireNombre('12 cm'), 12);
+    assert.ok(Number.isNaN(lireNombre('abc')));
+    const r = calculer('dalle', { L: 5, l: 4, ep: '0,12' }, ctx);
+    assert.ok(r.alertes.ep);
+    assert.deepEqual(r.erreurs, {});
+});
+
+test('ouvertures plus grandes que le mur : erreur claire', () => {
+    const r = calculer('mur', { L: 2, h: 2, ouv: 10 }, ctx);
+    assert.ok(r.erreurs.ouv);
+});

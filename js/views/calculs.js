@@ -6,7 +6,7 @@ import { getSaisie, setSaisie, getChantier, ajouterItem, remplacerItem, ctxCalcu
 import { ICONES, toast, partager } from '../ui/dom.js';
 import { htmlChamps, brancherForm, afficherErreurs } from '../ui/form.js';
 import { htmlKpis, htmlLignes, htmlRecette, htmlInfos, htmlCout, texteListe } from '../ui/resultats.js';
-import { aller, entete } from '../app.js';
+import { aller, entete, retourVers, garderSortie, armerGarde } from '../app.js';
 import { choisirChantier, barreActions, BTN_PARTAGER } from './commun.js';
 
 const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -24,7 +24,7 @@ export function vueListe(root, params) {
         <div class="search">${ICONES.search}<input id="q" type="search" placeholder="Chercher : dalle, mur, enduit…" autocomplete="off"></div>
         <div id="liste">
             <p class="section-title">Projet complet</p>
-            <button class="hero" data-go="#/maison${suffixe}">
+            <button class="hero" data-go="#/maison${suffixe}${ch ? '&via=liste' : ''}">
                 <span class="ic">🏡</span>
                 <span><b>Maison neuve</b><small>Fondations, murs, charpente, toiture, intérieur : tout d'un coup</small></span>
                 <span class="go">${ICONES.chev}</span>
@@ -34,7 +34,7 @@ export function vueListe(root, params) {
                     <p class="section-title">${esc(cat.l)}</p>
                     <div class="tiles">
                         ${OUVRAGES.filter(o => o.cat === cat.id).map(o => `
-                            <button class="tile" data-go="#/calc/${o.id}${suffixe}" data-txt="${esc(norm(o.nom + ' ' + o.desc))}">
+                            <button class="tile" data-go="#/calc/${o.id}${suffixe}" data-txt="${esc(norm(o.nom + ' ' + o.desc + ' ' + (o.mots || '')))}">
                                 <span class="ic">${o.ic}</span><b>${esc(o.nom)}</b><small>${esc(o.desc)}</small>
                             </button>`).join('')}
                     </div>
@@ -60,7 +60,7 @@ export function vueListe(root, params) {
             sec.classList.toggle('hidden', n === 0);
             total += n;
         });
-        root.querySelector('.hero').classList.toggle('hidden', !!t && !'maison neuve construction'.includes(t));
+        root.querySelector('.hero').classList.toggle('hidden', !!t && !'maison neuve construction pavillon complete'.includes(t));
         root.querySelectorAll('#liste > .section-title').forEach(s => s.classList.toggle('hidden', !!t));
         root.querySelector('#rien').classList.toggle('hidden', total > 0 || !root.querySelector('.hero').classList.contains('hidden'));
     });
@@ -107,7 +107,7 @@ export function vueCalcul(root, id, params) {
     const calculerEtAfficher = () => {
         const r = calculer(def, valeurs, ctx);
         dernier = r;
-        afficherErreurs(form, r.erreurs);
+        afficherErreurs(form, r.erreurs, r.alertes);
         if (Object.keys(r.erreurs).length) {
             res.innerHTML = `<p class="empty-res">✏️ Complète ou corrige les cases en rouge.</p>`;
             majBarre(false);
@@ -115,6 +115,7 @@ export function vueCalcul(root, id, params) {
         }
         res.innerHTML = `
             <div class="res-head"><h2>${esc(r.titre)}</h2></div>
+            ${Object.keys(r.alertes || {}).length ? '<p class="banner" style="margin:6px 0 10px">⚠️ <span>Vérifie les valeurs signalées en orange.</span></p>' : ''}
             ${htmlKpis(r.resume)}
             <p class="section-title" style="margin:14px 2px 2px">À acheter</p>
             ${htmlLignes(r.lignes, ctx)}
@@ -125,9 +126,28 @@ export function vueCalcul(root, id, params) {
         if (!item) { clearTimeout(tSave); tSave = setTimeout(() => setSaisie(id, r.v), 400); }
     };
 
-    const libBouton = item ? 'Enregistrer' : ch ? `Ajouter au chantier` : 'Ajouter à un chantier';
-    const bar = barreActions(`${BTN_PARTAGER}<button class="btn btn-primary" data-act="ajouter">${ICONES.plus}<span>${esc(libBouton)}</span></button>`);
-    const majBarre = ok => bar.querySelectorAll('button').forEach(b => { b.disabled = !ok; b.style.opacity = ok ? 1 : 0.45; });
+    const libBouton = item ? 'Enregistrer' : ch ? 'Ajouter au chantier' : 'Ajouter à un chantier';
+    const bar = barreActions(`<button class="apercu" data-act="voir-res"><span id="apercu-txt">…</span><small>Voir ↓</small></button>
+        <div class="in">${BTN_PARTAGER}<button class="btn btn-primary" data-act="ajouter">${ICONES.plus}<span>${esc(libBouton)}</span></button></div>`);
+    bar.classList.add('avec-apercu');
+    const btnAjout = bar.querySelector('[data-act="ajouter"]');
+    let ajouteA = null;                       // chantier où le calcul actuel vient d'être ajouté
+    const majBarre = ok => {
+        bar.querySelectorAll('.in button').forEach(b => { b.disabled = !ok; });
+        if (ok && dernier) {
+            const r = dernier;
+            const premier = r.lignes[0];
+            const resume = r.resume.slice(0, 2).map(k => k.v);
+            bar.querySelector('#apercu-txt').textContent = resume.join(' · ') || (premier ? premier.q : '');
+        } else bar.querySelector('#apercu-txt').textContent = 'Complète les cases en rouge';
+    };
+    const remettreBouton = () => {
+        if (!ajouteA) return;
+        ajouteA = null;
+        btnAjout.classList.remove('fait');
+        btnAjout.dataset.act = 'ajouter';
+        btnAjout.innerHTML = `${ICONES.plus}<span>${esc(libBouton)}</span>`;
+    };
 
     const enregistrer = cible => {
         const r = dernier;
@@ -135,17 +155,27 @@ export function vueCalcul(root, id, params) {
         if (item) {
             remplacerItem(cible.id, item.id, donnees);
             toast('Modifications enregistrées');
-            aller(`#/chantier/${cible.id}`, { remplacer: true });
+            retourVers(`#/chantier/${cible.id}`, 1);
+        } else if (ch) {
+            ajouterItem(cible.id, donnees);
+            toast(`Ajouté à « ${cible.nom} »`);
+            retourVers(`#/chantier/${cible.id}`, 2);
         } else {
             ajouterItem(cible.id, donnees);
             toast(`Ajouté à « ${cible.nom} »`);
-            if (ch) aller(`#/chantier/${cible.id}`, { remplacer: true });
+            ajouteA = cible;
+            btnAjout.classList.add('fait');
+            btnAjout.dataset.act = 'voir-ch';
+            btnAjout.innerHTML = `${ICONES.check}<span>Ajouté · voir le chantier</span>`;
         }
     };
 
     bar.addEventListener('click', e => {
         const b = e.target.closest('[data-act]');
-        if (!b || !dernier || Object.keys(dernier.erreurs).length) return;
+        if (!b) return;
+        if (b.dataset.act === 'voir-res') { res.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+        if (b.dataset.act === 'voir-ch' && ajouteA) { aller(`#/chantier/${ajouteA.id}`); return; }
+        if (!dernier || Object.keys(dernier.erreurs).length) return;
         if (b.dataset.act === 'partager') {
             const r = dernier;
             partager(r.titre, texteListe(r.titre, r.lignes, ctx, { cats: false, sousTitre: r.resume.map(k => `${k.l} : ${k.v}`).join(' · ') }));
@@ -155,15 +185,25 @@ export function vueCalcul(root, id, params) {
         }
     });
 
+    // Modification d'un ouvrage enregistré : on prévient avant de perdre les changements
+    const depart = JSON.stringify(valeurs);
+    if (item) garderSortie(() => JSON.stringify(valeurs) !== depart);
+    const apresChangement = () => { remettreBouton(); if (item) armerGarde(); };
+
     root.querySelector('#reset').addEventListener('click', () => {
         Object.assign(valeurs, versSaisie(def, valeursDefaut(def)));
         dessinerForm(); calculerEtAfficher();
         toast('Valeurs par défaut remises');
     });
 
+    let avant = { ...valeurs };
     brancherForm(form, valeurs, {
-        onInput: calculerEtAfficher,
-        onStruct: () => { dessinerForm(); calculerEtAfficher(); }
+        onInput: () => { calculerEtAfficher(); apresChangement(); },
+        onStruct: () => {
+            if (def.surChoix) def.surChoix(valeurs, avant);
+            avant = { ...valeurs };
+            dessinerForm(); calculerEtAfficher(); apresChangement();
+        }
     });
     dessinerForm();
     calculerEtAfficher();

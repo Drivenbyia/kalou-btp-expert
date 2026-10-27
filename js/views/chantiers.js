@@ -4,9 +4,11 @@ import { esc } from '../core/format.js';
 import { OUVRAGES_PAR_ID, calculer } from '../calc/ouvrages.js';
 import { calculerMaison } from '../calc/maison.js';
 import {
-    listeChantiers, getChantier, creerChantier, majChantier, supprimerChantier, supprimerItem, ctxCalcul
+    listeChantiers, getChantier, creerChantier, majChantier, supprimerChantier, supprimerItem, ctxCalcul,
+    restaurerItem, restaurerChantier
 } from '../core/store.js';
-import { ICONES, toast, partager, confirmer, demanderTexte, ouvrirFeuille, fermerFeuille, dateCourte } from '../ui/dom.js';
+import { quantiteAchat, affichage, MATERIAUX } from '../calc/materiaux.js';
+import { ICONES, toast, partager, confirmer, demanderTexte, ouvrirFeuille, fermerFeuille, apresFeuille, dateCourte } from '../ui/dom.js';
 import { htmlKpis, htmlLignes, htmlCout, consolider, parCategorie, htmlLigne, texteListe } from '../ui/resultats.js';
 import { aller, entete } from '../app.js';
 import { barreActions } from './commun.js';
@@ -126,12 +128,15 @@ export function vueChantier(root, id, params) {
             aller(it.ouvrage === 'maison' ? `#/maison?ch=${ch.id}&item=${it.id}` : `#/calc/${it.ouvrage}?ch=${ch.id}&item=${it.id}`);
         }));
         contenu.querySelectorAll('[data-suppr]').forEach(b => b.addEventListener('click', async () => {
-            const it = ch.items.find(x => x.id === b.dataset.suppr);
-            if (!it) return;
-            if (!await confirmer('Retirer cet ouvrage ?', it.titre || '', 'Retirer', true)) return;
+            const idx = ch.items.findIndex(x => x.id === b.dataset.suppr);
+            if (idx < 0) return;
+            const it = ch.items[idx];
             supprimerItem(ch.id, it.id);
-            toast('Ouvrage retiré');
             aller(`#/chantier/${ch.id}`, { remplacer: true });
+            toast('Ouvrage retiré', { action: 'Annuler', onAction: () => {
+                restaurerItem(ch.id, it, idx);
+                aller(`#/chantier/${ch.id}`, { remplacer: true });
+            } });
         }));
         contenu.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => aller(b.dataset.go)));
         let tNotes;
@@ -147,15 +152,32 @@ export function vueChantier(root, id, params) {
     }
 
     // ── Liste de courses ──
+    // achete[cle] = quantité achetée (en unités d'achat). Si la quantité nécessaire
+    // augmente ensuite (nouvel ouvrage), la ligne se décoche et affiche le reste à prendre.
     const achete = ch.achete || {};
+    const qAchat = li => (li.k && MATERIAUX[li.k]) ? quantiteAchat(li.k, li.q, ctx) : Math.round(li.q * 100) / 100;
+    const estFait = li => {
+        const a = achete[li.cle];
+        if (a === true) return true;
+        return typeof a === 'number' && qAchat(li) <= a + 1e-9;
+    };
+    const resteTxt = li => {
+        const a = achete[li.cle];
+        if (typeof a !== 'number' || estFait(li)) return '';
+        if (li.k && MATERIAUX[li.k]) {
+            const unite = affichage(li.k, li.q, ctx).u;
+            return `Déjà pris ${String(a).replace('.', ',')} ${unite}, reste ${String(Math.round((qAchat(li) - a) * 100) / 100).replace('.', ',')} à prendre`;
+        }
+        return `Déjà pris ${String(a).replace('.', ',')}, reste ${String(Math.round((qAchat(li) - a) * 100) / 100).replace('.', ',')}`;
+    };
     const dessiner = () => {
-        const fait = toutes.filter(li => achete[li.cle]).length;
+        const fait = toutes.filter(estFait).length;
         contenu.innerHTML = toutes.length ? `
             <div class="card">
                 <div class="res-head"><h2>À commander</h2><small style="color:var(--muted);font-weight:700">${fait} / ${toutes.length} ✔</small></div>
                 <div class="progress"><i style="width:${Math.round(fait / toutes.length * 100)}%"></i></div>
                 <p class="hint" style="margin:6px 0 4px;font-size:13.5px;color:var(--muted)">Touche une ligne pour la cocher quand c'est acheté.</p>
-                ${parCategorie(toutes).map(g => `<p class="cat-title">${esc(g.l)}</p><ul class="lines">${g.lignes.map(li => htmlLigne(li, ctx, { check: true, cle: li.cle, done: !!achete[li.cle] })).join('')}</ul>`).join('')}
+                ${parCategorie(toutes).map(g => `<p class="cat-title">${esc(g.l)}</p><ul class="lines">${g.lignes.map(li => htmlLigne(li, ctx, { check: true, cle: li.cle, done: estFait(li), reste: resteTxt(li) })).join('')}</ul>`).join('')}
             </div>
             ${fait ? '<button class="btn btn-light btn-block" id="decocher" style="margin-top:12px">Tout décocher</button>' : ''}
             ${htmlCout(toutes, heures, ctx, tva)}` : `
@@ -175,7 +197,8 @@ export function vueChantier(root, id, params) {
         const l = e.target.closest('[data-check]');
         if (!l) return;
         const cle = l.dataset.check;
-        if (achete[cle]) delete achete[cle]; else achete[cle] = true;
+        const li = toutes.find(x => x.cle === cle);
+        if (li && estFait(li)) delete achete[cle]; else if (li) achete[cle] = qAchat(li);
         majChantier(ch.id, c => { c.achete = { ...achete }; });
         dessiner();
     });
@@ -184,10 +207,29 @@ export function vueChantier(root, id, params) {
     const bar = barreActions(`<button class="btn btn-primary" data-act="partager">${ICONES.share}<span>Envoyer la liste</span></button>`);
     bar.addEventListener('click', e => {
         if (!e.target.closest('[data-act]')) return;
-        if (!toutes.length) { toast('La liste est vide', true); return; }
-        const reste = toutes.filter(li => !achete[li.cle]);
-        const liste = reste.length ? reste : toutes;
-        partager(`Commande — ${ch.nom}`, texteListe(`🧱 Commande — ${ch.nom}`, liste, ctx, { sousTitre: reste.length < toutes.length ? '(articles pas encore achetés)' : '' }));
+        envoyerListe(ch, toutes, l => !estFait(l), ctx);
+    });
+}
+
+// ─── Envoi de la liste : tout, ou seulement ce qui reste ─────────────────────
+
+function envoyerListe(ch, toutes, pasFait, ctx) {
+    if (!toutes.length) { toast('La liste est vide', true); return; }
+    const titre = `🧱 Commande — ${ch.nom}`;
+    const reste = toutes.filter(pasFait);
+    const tout = () => partager(`Commande — ${ch.nom}`, texteListe(titre, toutes, ctx));
+    if (reste.length === toutes.length || reste.length === 0) { tout(); return; }
+    ouvrirFeuille(`
+        <h2>Envoyer la liste</h2>
+        <p style="color:var(--muted);font-size:15px">${toutes.length - reste.length} article(s) déjà coché(s).</p>
+        <button class="opt" data-e="reste"><span style="font-size:22px">🛒</span><span><b>Seulement ce qui reste (${reste.length})</b><small>Pour la prochaine commande</small></span></button>
+        <button class="opt" data-e="tout"><span style="font-size:22px">📋</span><span><b>Toute la liste (${toutes.length})</b><small>Commande complète du chantier</small></span></button>
+    `, root => {
+        root.querySelector('[data-e="reste"]').addEventListener('click', () => {
+            fermerFeuille();
+            apresFeuille(() => partager(`Commande — ${ch.nom}`, texteListe(titre, reste, ctx, { sousTitre: '(articles pas encore achetés)' })));
+        });
+        root.querySelector('[data-e="tout"]').addEventListener('click', () => { fermerFeuille(); apresFeuille(tout); });
     });
 }
 
@@ -208,19 +250,24 @@ function menu(ch) {
                 const nom = await demanderTexte('Renommer le chantier', ch.nom, '', 'Renommer');
                 if (nom) { majChantier(ch.id, c => { c.nom = nom; }); aller(location.hash, { remplacer: true }); }
             } else if (m === 'partager') {
-                aller(`#/chantier/${ch.id}?vue=courses`, { remplacer: true });
                 const ctx = ctxCalcul();
                 const toutes = consolider(ch.items.flatMap(it => calculerItem(it, ctx).lignes));
-                if (!toutes.length) { toast('La liste est vide', true); return; }
-                partager(`Commande — ${ch.nom}`, texteListe(`🧱 Commande — ${ch.nom}`, toutes, ctx));
+                const a = ch.achete || {};
+                apresFeuille(() => envoyerListe(ch, toutes, li => {
+                    const x = a[li.cle];
+                    if (x === true) return false;
+                    const q = li.k && MATERIAUX[li.k] ? quantiteAchat(li.k, li.q, ctx) : li.q;
+                    return !(typeof x === 'number' && q <= x + 1e-9);
+                }, ctx));
             } else if (m === 'imprimer') {
                 aller(`#/chantier/${ch.id}?vue=courses`, { remplacer: true });
                 setTimeout(() => window.print(), 300);
             } else if (m === 'supprimer') {
                 if (await confirmer('Supprimer ce chantier ?', `« ${ch.nom} » et ses ${ch.items.length} ouvrage(s) seront effacés.`, 'Supprimer', true)) {
+                    const copie = getChantier(ch.id);
                     supprimerChantier(ch.id);
-                    toast('Chantier supprimé');
                     aller('#/chantiers', { remplacer: true });
+                    toast('Chantier supprimé', { action: 'Annuler', onAction: () => { restaurerChantier(copie); aller('#/chantiers', { remplacer: true }); } });
                 }
             }
         }));

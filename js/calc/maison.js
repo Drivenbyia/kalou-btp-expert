@@ -6,7 +6,8 @@
 
 import {
     L, fusion, lignesBeton, lignesMortier, lignesMurBlocs, lignesChainage, nbBarres6m,
-    calcPlancher, calcToiture, calcPlaco, BLOCS, COUVERTURES, PERTE_BETON, PERTE_MORTIER
+    calcPlancher, calcToiture, calcPlaco, BLOCS, COUVERTURES, PERTE_BETON, PERTE_MORTIER,
+    lignesChainageVertical, TREILLIS_UTILE
 } from './base.js';
 import { valider as validerOuvrage } from './ouvrages.js';
 import { fmtSmart } from '../core/format.js';
@@ -29,10 +30,10 @@ export const ETAPES = [
     {
         id: 'maison', titre: 'La maison', ic: '🏠',
         champs: [
-            n('L', 'Longueur extérieure', 'm', 12, { demi: true, max: 40 }),
-            n('l', 'Largeur extérieure', 'm', 9, { demi: true, max: 20 }),
+            n('L', 'Longueur', 'm', 12, { demi: true, max: 40, aide: 'Côtes extérieures.' }),
+            n('l', 'Largeur', 'm', 9, { demi: true, max: 20, aide: 'Côtes extérieures.' }),
             c('niveaux', 'Niveaux', [{ v: '1', l: 'Plain-pied' }, { v: '2', l: 'Étage (R+1)' }], '1'),
-            n('hMur', 'Hauteur des murs par niveau', 'm', 2.7, { max: 4, aide: '2,50 m sous plafond + plancher/chaînage ≈ 2,70 m.' }),
+            n('hMur', 'Hauteur des murs par niveau', 'm', 2.7, { max: 4, bas: 2.4, aide: 'Plain-pied ≈ 2,70 m. Rez-de-chaussée d\'un R+1 ≈ 2,80 m (plancher + isolant + sol).' }),
             n('refend', 'Murs de refend porteurs', 'm', 0, { zero: true, max: 60, aide: 'Longueur des murs intérieurs porteurs (0 si aucun).' })
         ]
     },
@@ -41,8 +42,8 @@ export const ETAPES = [
         champs: [
             c('bas', 'Plancher bas', [{ v: 'terreplein', l: 'Dalle sur terre-plein' }, { v: 'vs', l: 'Vide sanitaire' }], 'terreplein'),
             n('semL', 'Largeur des semelles', 'cm', 50, { demi: true, max: 120 }),
-            n('semH', 'Hauteur de béton', 'cm', 35, { demi: true, max: 100 }),
-            n('prof', 'Profondeur hors gel', 'cm', 80, { demi: true, max: 200, aide: 'Fond de fouille sous le terrain naturel.' }),
+            n('semH', 'Épaisseur de semelle', 'cm', 35, { demi: true, max: 100, bas: 20 }),
+            n('prof', 'Profondeur de fouille', 'cm', 80, { demi: true, max: 200, bas: 50, aide: 'Hors gel. Sol argileux : 80 cm mini, 1,20 m en aléa fort.' }),
             n('hVS', 'Hauteur du vide sanitaire', 'cm', 60, { demi: true, max: 150, si: v => v.bas === 'vs' }),
             n('dalleEp', 'Épaisseur de dalle', 'cm', 12, { demi: true, max: 30, si: v => v.bas === 'terreplein' }),
             n('he', 'Hérisson', 'cm', 20, { demi: true, zero: true, max: 60, si: v => v.bas === 'terreplein' }),
@@ -53,7 +54,7 @@ export const ETAPES = [
     {
         id: 'murs', titre: 'Murs & ouvertures', ic: '🧱',
         champs: [
-            c('bloc', 'Murs en', [{ v: 'p20', l: 'Parpaing 20' }, { v: 'brique20', l: 'Brique R20' }, { v: 'monomur30', l: 'Monomur 30' }], 'p20'),
+            c('bloc', 'Murs en', [{ v: 'p20', l: 'Agglo de 20' }, { v: 'brique20', l: 'Brique de 20' }, { v: 'monomur30', l: 'Monomur de 30' }], 'p20'),
             n('porte', 'Portes extérieures', 'u', 2, { demi: true, zero: true, max: 20, aide: '0,90 × 2,15 m' }),
             n('fenetre', 'Fenêtres', 'u', 8, { demi: true, zero: true, max: 60, aide: '1,20 × 1,25 m' }),
             n('baie', 'Baies vitrées', 'u', 1, { demi: true, zero: true, max: 20, aide: '2,40 × 2,15 m' }),
@@ -65,9 +66,7 @@ export const ETAPES = [
         champs: [
             c('pans', 'Toit', [{ v: '2', l: '2 pans (pignons)' }, { v: '4', l: '4 pans' }], '2'),
             c('charpente', 'Charpente', [{ v: 'fermettes', l: 'Fermettes' }, { v: 'trad', l: 'Traditionnelle' }], 'fermettes'),
-            c('couverture', 'Couverture', [
-                { v: 'meca', l: 'Tuile romane' }, { v: 'canal', l: 'Tuile canal' }, { v: 'plate', l: 'Tuile plate' }, { v: 'ardoise', l: 'Ardoise' }
-            ], 'meca'),
+            c('couverture', 'Couverture', Object.entries(COUVERTURES).map(([v, x]) => ({ v, l: x.l })), 'meca'),
             n('pente', 'Pente', '%', 35, { demi: true, max: 200, aide: 'Canal ≈ 30 % · romane ≈ 35 % · ardoise ≈ 80 % · plate ≈ 100 %.' }),
             n('debord', 'Débord', 'cm', 40, { demi: true, zero: true, max: 150 }),
             oui('gouttieres', 'Gouttières et descentes')
@@ -144,6 +143,8 @@ export function calculerMaison(brut, ctx = {}) {
         detLinteaux.push(`${nb} × ${fm(lg)} m`);
     });
     const nbOuvTotal = v.porte + v.fenetre + v.baie + v.garage;
+    const nbT = v.refend > 0 ? 2 * Math.max(1, Math.round(v.refend / Math.max(1, lint))) : 0;   // jonctions refend / façade
+    const nbChV = 4 + nbT + Math.floor(perimAxe / 10);               // angles, refends, ~ tous les 10 m
 
     const lots = [];
     const lot = (id, titre, ic, lignes, infos, heures) => lots.push({ id, titre, ic, lignes: fusion(lignes), infos: infos.filter(Boolean), heures });
@@ -167,21 +168,28 @@ export function calculerMaison(brut, ctx = {}) {
     lot('fondations', 'Fondations', '🏗️', [
         ...lignesBeton(volProp, 150, mode),
         ...lignesBeton(volSem, 350, mode),
-        L('arm_semelle', nbBarres6m(mlSemelles) + 4)
+        L('arm_semelle', nbBarres6m(mlSemelles)),
+        L('equerre_sem', 4 + nbT),
+        L('cales', Math.ceil(mlSemelles * 1.5))
     ], [
         `Semelles filantes : ${fm(mlSemelles)} m (tour des murs à l'axe${v.refend ? ' + refends' : ''}).`,
-        `Béton de propreté ${fm(volProp)} m³ (dosé 150) + semelles ${fm(volSem)} m³ (dosé 350).`
+        `Béton de propreté ${fm(volProp)} m³ (dosé 150) + semelles ${fm(volSem)} m³ (béton C25/30).`,
+        `Équerres préfa aux 4 angles${nbT ? ` et aux ${nbT} jonctions en T` : ''}, attentes des ${nbChV} chaînages verticaux, cales 3-4 cm.`,
+        v.prof < 80 ? 'Sol argileux (fréquent en Dordogne) : 80 cm minimum, 1,20 m en aléa fort.' : null,
+        'Étude de sol G1/G2 obligatoire en zone argile (loi ELAN). Déclaration DICT avant de creuser.'
     ], volSem * 3);
 
     // 3. Soubassement
     const surfSoub = mlSemelles * hSoub;
     const lSoub = [
         ...lignesMurBlocs(surfSoub, 'p20', 4, hSoub, mode),
-        ...lignesChainage(mlSemelles, { mode })
+        ...lignesChainage(mlSemelles, { mode, angles: 4 + nbT }),
+        L('arase', mlSemelles * 1.05)
     ];
     const infSoub = [
-        `Hauteur de soubassement : ${fm(hSoub)} m (${Math.ceil(hSoub / 0.2 - 1e-9)} rangs de parpaing 20), dont ${fm(hHorsSol)} m hors sol.`,
-        'Chaînage (arase) en tête de soubassement.'
+        `Hauteur de soubassement : ${fm(hSoub)} m (${Math.ceil(hSoub / 0.2 - 1e-9)} rangs d'agglo de 20), dont ${fm(hHorsSol)} m hors sol.`,
+        'Chaînage en tête de soubassement, puis arase étanche (coupure de capillarité) à 15 cm mini au-dessus du sol extérieur.',
+        'Les chaînages verticaux partent des attentes de la semelle : ils sont comptés dans le lot « Chaînages ».'
     ];
     if (vs) {
         lSoub.push(L('grille_vs', Math.max(4, Math.ceil(perimExt / 4 - 1e-9))));
@@ -191,20 +199,21 @@ export function calculerMaison(brut, ctx = {}) {
 
     // 4. Plancher bas
     if (vs) {
-        const p = calcPlancher(Lint, portee, { haut: 16, rives: false, mode });
-        const lignes = v.refend > 0 ? p.lignes.map(li => li.k === 'poutrelle'
-            ? { ...li, q: li.q * 2, d: `${p.nbP * 2} poutrelles de ${fm(p.lgP)} m (2 travées)` }
-            : (li.k === 'etai' ? null : { ...li, q: li.q * 2 })).filter(Boolean)
-            : p.lignes.filter(li => li.k !== 'etai');
-        lot('plancherbas', 'Plancher bas (hourdis)', '🔲', lignes, [
-            `Plancher poutrelles-hourdis 16+4 sur vide sanitaire : ${fm(Sniv)} m², portée ${fm(portee)} m.`,
-            'Pas d\'étais sur vide sanitaire si les poutrelles sont autoportantes (sinon voir le fabricant).'
+        const p = calcPlancher(Lint, portee, { haut: 16, rives: false, mode, pse: true });
+        const mult = v.refend > 0 ? 2 : 1;
+        const lignes = p.lignes.map(li => li.k === 'poutrelle'
+            ? { ...li, q: li.q * mult, d: `${p.nbP * mult} poutrelles de ${fm(p.lgP)} m${mult > 1 ? ' (2 travées)' : ''}` }
+            : { ...li, q: li.q * mult });
+        lot('plancherbas', 'Plancher bas (hourdis isolant)', '🔲', lignes, [
+            `Plancher poutrelles + entrevous isolants PSE 16+4 sur vide sanitaire : ${fm(Sniv)} m², portée ${fm(portee)} m.`,
+            'Étais compris : on ne les supprime que si le plan du fabricant indique « sans étai ». Rupteurs de pont thermique en rive (RE2020).',
+            'Prévoir une trappe de visite du vide sanitaire et les réservations (eaux usées, fourreaux).'
         ], Sniv * 0.8);
     } else {
         const vol = Sniv * v.dalleEp / 100 * PERTE_BETON;
         const lignes = [
             ...lignesBeton(vol, 350, mode),
-            L('treillis36', Math.ceil(Sniv / 7.3 - 1e-9)),
+            L('treillis36', Math.ceil(Sniv / TREILLIS_UTILE['36'] - 1e-9)),
             L('cales', Math.ceil(Sniv * 4)),
             L('polyane', Sniv * 1.15)
         ];
@@ -212,7 +221,9 @@ export function calculerMaison(brut, ctx = {}) {
         if (v.isolSol) lignes.push(L('isolant_sol', Sniv * 1.05));
         lot('plancherbas', 'Dalle sur terre-plein', '⬛', lignes, [
             `Dalle de ${v.dalleEp} cm sur ${fm(Sniv)} m² : ${fm(vol)} m³ de béton dosé 350.`,
-            v.he > 0 ? `Hérisson compacté de ${v.he} cm. Remblai complémentaire selon le terrain.` : null
+            v.he > 0 ? `Hérisson compacté de ${fm(v.he)} cm (cailloux 20/40). Remblai complémentaire selon le terrain.` : null,
+            v.isolSol ? 'Isolant sous dalle + relevé d\'isolant en périphérie (pont thermique).' : null,
+            'Réservations et fourreaux (eaux usées, électricité, eau) à poser avant de couler.'
         ], Sniv * 1.0);
     }
 
@@ -226,25 +237,29 @@ export function calculerMaison(brut, ctx = {}) {
     lot('murs', 'Élévation des murs', '🧱', lMurs, [
         `Murs : ${fm(perimAxe)} m × ${fm(hMurs)} m${pignons ? ` + 2 pignons (${fm(surfPignons)} m²)` : ''} − ${fm(surfOuv)} m² d'ouvertures = ${fm(surfMurs)} m².`,
         surfRefend > 0 ? `Refends en parpaing 20 : ${fm(surfRefend)} m².` : null,
-        b.mortierL ? `Hourdage au mortier dosé 350 : ≈ ${b.mortierL} L par m².` : `Joint mince : ≈ ${b.colleKg} kg de mortier-colle par m².`
+        b.mortierL ? `Hourdage au mortier dosé 350 : ≈ ${b.mortierL} L par m².` : `Joint mince : ≈ ${b.colleKg} kg de mortier-colle par m².`,
+        niv === 2 && v.hMur < 2.8 ? 'R+1 : avec 2,70 m par niveau, le plafond fini du rez-de-chaussée tombe vers 2,40 m. Compter plutôt 2,80 m.' : null
     ], (surfMurs + surfRefend) * 1.0);
 
     // 6. Chaînages & linteaux
     const mlChH = (perimAxe + v.refend) * niv;
     const mlRampants = pignons ? 2 * 2 * Math.sqrt(Math.pow(v.l / 2, 2) + hFaitage * hFaitage) : 0;
-    const nbChV = 4 + 2 * (v.refend > 0 ? Math.ceil(v.refend / 8) : 0) + Math.floor(perimAxe / 10);
-    const mlChV = nbChV * hMurs;
-    lot('chainages', 'Chaînages, linteaux & appuis', '⛓️', [
-        ...lignesChainage(mlChH, { mode }),
+    const hChV = hSoub + hMurs;                                       // de la semelle au chaînage haut, d'un seul tenant
+    const mlChV = nbChV * hChV;
+    const nbSeuils = v.porte + v.baie;
+    lot('chainages', 'Chaînages, linteaux, appuis & seuils', '⛓️', [
+        ...lignesChainage(mlChH, { mode, angles: (4 + nbT) * niv }),
         ...lignesChainage(mlRampants, { mode }),
-        ...lignesChainage(mlChV, { vertical: true, mode }),
-        mlLinteaux > 0 ? L('linteau', mlLinteaux, { d: detLinteaux.join(' + ') }) : null,
-        v.fenetre > 0 ? L('appui', v.fenetre) : null
+        ...lignesChainageVertical(nbChV, hChV, { mode }),
+        mlLinteaux > 0 ? L(b.linteau || 'linteau', mlLinteaux, { d: detLinteaux.join(' + ') }) : null,
+        v.fenetre > 0 ? L('appui', v.fenetre) : null,
+        nbSeuils > 0 ? L('seuil', nbSeuils) : null
     ], [
-        `Chaînage horizontal en haut de chaque niveau : ${fm(mlChH)} m.`,
+        `Chaînage horizontal en haut de chaque niveau : ${fm(mlChH)} m, équerres à chaque angle.`,
         pignons ? `Chaînages rampants des pignons : ${fm(mlRampants)} m.` : null,
-        `${nbChV} chaînages verticaux (angles, refends, environ tous les 10 m).`,
-        `Linteaux : longueur = ouverture + 20 cm d'appui de chaque côté.`
+        `${nbChV} chaînages verticaux de ${fm(hChV)} m (angles, refends, environ tous les 10 m), chacun d'un seul tenant depuis les attentes de la semelle.`,
+        `Linteaux${b.linteau === 'linteau_tc' ? ' terre cuite (ou coffres de volet roulant)' : ''} : longueur = ouverture + 20 cm d'appui de chaque côté.`,
+        'Vérifier la zone sismique de la commune : en zone 2 et plus, chaînages renforcés.'
     ], (mlChH + mlRampants + mlChV) * 0.5 + nbOuvTotal * 1.5);
 
     // 7. Plancher d'étage
@@ -255,7 +270,7 @@ export function calculerMaison(brut, ctx = {}) {
             ? { ...li, q: li.q * mult, d: `${p.nbP * mult} poutrelles de ${fm(p.lgP)} m` }
             : { ...li, q: li.q * mult });
         lot('etage', 'Plancher d\'étage', '🔲', lignes, [
-            `Poutrelles-hourdis 16+4 : ${fm(Sniv)} m², portée ${fm(portee)} m. Prévoir la trémie d'escalier.`,
+            `Poutrelles-hourdis 16+4 : ${fm(Sniv)} m², portée ${fm(portee)} m. Prévoir la trémie d'escalier (chevêtre). Étais 21 à 28 jours.`,
             'Escalier : voir le calculateur « Escalier béton » ou un escalier bois.'
         ], Sniv * 0.8);
     }
@@ -275,11 +290,16 @@ export function calculerMaison(brut, ctx = {}) {
     if (v.enduit !== 'aucun') {
         const lignes = v.enduit === 'mono'
             ? [L('enduit_mono', surfFacade * 1.5 * 17 * PERTE_MORTIER)]
-            : lignesMortier(surfFacade * 0.02 * PERTE_MORTIER, { liant: 'chaux' });
+            : [
+                ...lignesMortier(surfFacade * 0.005 * PERTE_MORTIER, { liant: 'chaux', dosage: 450 }),
+                ...lignesMortier(surfFacade * 0.015 * PERTE_MORTIER, { liant: 'chaux', dosage: 325 }),
+                ...lignesMortier(surfFacade * 0.005 * PERTE_MORTIER, { liant: 'chaux', dosage: 275, sable: 'sable02' })
+            ];
         lignes.push(L('baguette', Math.ceil(4 * (hMurs + hHorsSol) / 3 - 1e-9) + nbOuvTotal * 2));
         lot('facade', 'Façade', '🖌️', lignes, [
             `Surface enduite : ${fm(surfFacade)} m² (ouvertures déduites).`,
-            v.enduit === 'mono' ? 'Monocouche 15 mm : ≈ 25 kg/m².' : 'Enduit chaux 3 couches, 2 cm.'
+            v.enduit === 'mono' ? 'Monocouche 15 mm : ≈ 25 kg/m², en 2 passes.' : 'Enduit chaux 3 couches (2,5 cm), dosages dégressifs 450 / 325 / 275 kg/m³.',
+            'Échafaudage à prévoir (location au m² de façade et à la semaine).'
         ], surfFacade * (v.enduit === 'mono' ? 0.5 : 1.5));
     }
 
@@ -292,7 +312,7 @@ export function calculerMaison(brut, ctx = {}) {
         if (v.doublage && v.bloc !== 'monomur30') {
             const r = calcPlaco('doublage', perimInt * niv, hsp, { isolant: true, ouv: surfOuv });
             lignes.push(...r.lignes); h += r.S * 0.6;
-            infos.push(`Doublage isolé : ${fm(r.S)} m².`);
+            infos.push(`Doublage isolé : ${fm(r.S)} m² (100 mm ≈ R 3,15 ; en RE2020 viser 120-140 mm).`);
         }
         if (v.plafonds) {
             const r = calcPlaco('plafond', Lint, lint, { isolant: false });
@@ -307,15 +327,17 @@ export function calculerMaison(brut, ctx = {}) {
             lignes.push(...r.lignes); h += r.S * 0.9;
             infos.push(`Cloisons : ${fm(mlCloisons)} m${v.cloisons > 0 ? '' : ' (estimation)'} × ${fm(hsp)} m.`);
         }
-        if (v.chape) {
-            lignes.push(...lignesMortier(Shab * 0.05 * PERTE_BETON), L('bande_peri', perimInt * niv * 1.05));
-            h += Shab * 0.35;
-            infos.push(`Chape 5 cm : ${fm(Shab)} m².`);
+        // Chape : partout si demandée ; à l'étage d'office si carrelage (pas de carrelage collé sur la dalle de compression)
+        const sChape = v.chape ? Shab : (v.carrelage && niv === 2 ? Sniv : 0);
+        if (sChape > 0) {
+            lignes.push(...lignesMortier(sChape * 0.05 * PERTE_BETON, { sableM3: 1.15 }), L('bande_peri', perimInt * (sChape / Sniv) * 1.05));
+            h += sChape * 0.35;
+            infos.push(v.chape ? `Chape 5 cm : ${fm(sChape)} m².` : `Chape 5 cm à l'étage (${fm(sChape)} m²) : on ne colle pas le carrelage directement sur la dalle de compression.`);
         }
         if (v.carrelage) {
-            lignes.push(L('carrelage', Shab * 1.10), L('colle_carrelage', Shab * 5), L('joint_carrelage', Shab * 0.4), L('plinthe', (perimInt * niv + mlCloisons * 2) * 1.05));
+            lignes.push(L('carrelage', Shab * 1.10), L('colle_carrelage', Shab * 7), L('joint_carrelage', Shab * 0.4), L('plinthe', (perimInt * niv + mlCloisons * 2) * 1.05));
             h += Shab * 0.8;
-            infos.push(`Carrelage : ${fm(Shab)} m² (format 30 à 60 cm).`);
+            infos.push(`Carrelage : ${fm(Shab)} m², format 60×60 en double encollage (≈ 7 kg de colle/m²).`);
         }
         if (v.peinture) {
             const sMurs = perimInt * niv * hsp - surfOuv + mlCloisons * 2 * hsp;
@@ -330,14 +352,15 @@ export function calculerMaison(brut, ctx = {}) {
     // Résumé
     const toutes = fusion(lots.flatMap(lt => lt.lignes.map(li => ({ k: li.k, q: li.q, d: li.k === 'bpe' ? li.d : undefined }))));
     const heures = lots.reduce((s, lt) => s + (lt.heures || 0), 0);
+    const rd = x => fmtSmart(x, x >= 50 ? 0 : 1);           // grandes valeurs arrondies à l'unité
     const resume = [
-        { l: 'Emprise au sol', v: `${fm(v.L * v.l)} m²` },
-        { l: 'Surface habitable ≈', v: `${fm(Shab)} m²` },
-        { l: 'Murs', v: `${fm(surfMurs)} m²` },
-        { l: 'Toiture', v: `${fm(toit.surf)} m²` }
+        { l: 'Emprise au sol', v: `${rd(v.L * v.l)} m²` },
+        { l: 'Surface habitable ≈', v: `${rd(Shab)} m²` },
+        { l: 'Murs', v: `${rd(surfMurs)} m²` },
+        { l: 'Toiture', v: `${rd(toit.surf)} m²` }
     ];
     const bpe = toutes.filter(li => li.k === 'bpe').reduce((t, li) => t + li.q, 0);
-    if (bpe > 0) resume.push({ l: 'Béton toupie', v: `${fm(bpe)} m³` });
+    if (bpe > 0) resume.push({ l: 'Béton toupie', v: `${rd(bpe)} m³` });
 
     return {
         erreurs: {}, v,
