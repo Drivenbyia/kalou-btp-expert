@@ -226,25 +226,37 @@ export const COUVERTURES = {
  *                     couverture (clé COUVERTURES), gouttieres (bool) }
  */
 export function calcToiture(p) {
-    const { L: Lm, l: lm, pans = 2, pente = 35, debord = 0.4, charpente = 'fermettes', couverture = 'meca', gouttieres = true } = p;
+    const { pans = 2, pente = 35, debord = 0.4, charpente = 'fermettes', couverture = 'meca', gouttieres = true, forme = null } = p;
     const cv = COUVERTURES[couverture] || COUVERTURES.meca;
     const a   = Math.atan(pente / 100);
     const cos = Math.cos(a);
-    const Lr = Lm + 2 * debord, lr = lm + 2 * debord;
-    const surf    = Lr * lr / cos;                           // surface réelle de toiture
+    const d = debord;
+    // Forme libre (L, T, U…) : surface au sol S, périmètre P, angles, largeur (portée) des ailes.
+    // Rectangle : cas particulier (S = L×l, P = 2(L+l), 4 angles, largeur = l).
+    const lm = forme ? forme.largeur : p.l;
+    const S  = forme ? forme.S : p.L * p.l;
+    const P  = forme ? forme.P : 2 * (p.L + p.l);
+    const angles = forme ? Math.max(4, forme.angles) : 4;
+    const rentrants = Math.max(0, Math.round((angles - 4) / 2));
+    const ailes = forme && forme.ailes > 0 ? Math.round(forme.ailes) : rentrants + 1;
+    const Lm = S / lm;                                       // longueur cumulée des ailes
+    const lr = lm + 2 * d;
+    const surf    = (S + P * d + 4 * d * d) / cos;           // emprise débords compris, ramenée à la pente
     const rampant = (lr / 2) / cos;                          // longueur d'un versant (débord compris)
     const hFaitage = (lm / 2) * pente / 100;                 // hauteur du faîtage au-dessus des murs
+    const diag = Math.sqrt(2 * Math.pow(lr / 2, 2) + Math.pow(lr / 2 * pente / 100, 2));   // arêtier ou noue
+    const noues = rentrants * diag;
 
-    let faitage, aretiers = 0, rives = 0, gout;
+    let faitage, aretiers = 0, rives = 0, gout, nbPignons = 0;
     if (pans === 4) {
-        faitage  = Math.max(0, Lm - lm);
-        const demi = lr / 2;
-        aretiers = 4 * Math.sqrt(demi * demi + demi * demi + Math.pow(demi * pente / 100, 2));
-        gout     = 2 * (Lr + lr);
+        faitage  = Math.max(0, Lm - lm - (ailes - 1) * lm / 2);
+        aretiers = (4 + rentrants) * diag;
+        gout     = P + 8 * d;
     } else {
-        faitage = Lr;
-        rives   = 4 * rampant;
-        gout    = 2 * Lr;
+        nbPignons = ailes === 1 ? 2 : ailes;
+        faitage = Math.max(0, Lm + nbPignons * d - (ailes - 1) * lm / 2);
+        rives   = nbPignons * 2 * rampant;
+        gout    = Math.max(0, P + 8 * d - nbPignons * lr);
     }
 
     const lignes = [];
@@ -253,18 +265,19 @@ export function calcToiture(p) {
 
     // Charpente
     if (charpente === 'fermettes') {
-        const n = Math.ceil(Lm / 0.6 - 1e-9) + 1;
+        const n = Math.ceil(Lm / 0.6 - 1e-9) + ailes;
         lignes.push(L('fermette', n, { d: `portée ≈ ${fmtSmart(lm, 2)} m, entraxe 60 cm` }));
         lignes.push(L('fixation_ch', n * 2));
         lignes.push(L('contreliteau', surf / 0.6 * 1.05));
         infos.push('Fermettes : le fabricant fournit le plan, le contreventement et les connecteurs. Les donner : portée, pente, débords, type de tuile.');
         if (pans === 4) infos.push('Toit 4 pans : prévoir le kit de croupe (demi-fermettes et arêtiers) avec le fabricant.');
+        if (rentrants > 0) infos.push(`Maison en ${ailes} ailes : ${rentrants} noue(s), fermettes de noue et empannons à commander avec le plan du fabricant.`);
         heures += surf * 0.35;
     } else {
         const rampantNu = (lm / 2) / cos;
         const interm = Math.max(0, Math.ceil(rampantNu / 2.2 - 1e-9) - 1);   // chevrons : portée ≤ 2,20 m entre pannes
         const nbPannes = 1 + 2 + 2 * interm;                                 // faîtière + 2 sablières + intermédiaires
-        const longPanne = pans === 4 ? Lr * 0.75 : Lr;
+        const longPanne = (pans === 4 ? 0.75 : 1) * (Lm + 2 * d);
         const fermes = Math.max(0, Math.ceil(Lm / 4.5 - 1e-9) - 1);          // pannes : portée ≤ 4,5 m
         const chevronsML = surf / 0.5 * 1.05;
         lignes.push(L('chevron', chevronsML, { d: 'entraxe 50 cm' }));
@@ -288,6 +301,7 @@ export function calcToiture(p) {
     }
     if (couverture === 'ardoise') lignes.push(L('crochet_ardoise', Math.ceil(surf * cv.parM2 * 1.05)));
     if (rives > 0 && couverture !== 'canal') lignes.push(L('tuile_rive', Math.ceil(rives * 3)));
+    if (noues > 0) lignes.push(L('noue', noues * 1.10, { d: `${rentrants} noue(s)` }));
     if (couverture === 'canal' && lgFaitage > 0) {
         lignes.push(...lignesMortier(lgFaitage * 0.010 * PERTE_MORTIER, { liant: 'batard' }));
         infos.push('Tuile canal : faîtage et rives scellés au mortier bâtard. Tuiles de courant fixées (crochets ou mousse) selon la zone de vent.');
@@ -304,7 +318,7 @@ export function calcToiture(p) {
 
     if (pente < cv.pente * 0.8) infos.push(`Attention : pente de ${pente} % un peu faible pour ce type de couverture (conseillé ≈ ${cv.pente} % et plus, voir la notice du fabricant).`);
 
-    return { surf, rampant, hFaitage, faitage, aretiers, rives, gout, lignes, infos, heures };
+    return { surf, rampant, hFaitage, faitage, aretiers, rives, gout, noues, nbPignons, ailes, lignes, infos, heures };
 }
 
 // ─── Plâtrerie (DTU 25.41 / 25.42) ─────────────────────────────────────────

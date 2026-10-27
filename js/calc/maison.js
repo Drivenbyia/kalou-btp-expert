@@ -30,8 +30,14 @@ export const ETAPES = [
     {
         id: 'maison', titre: 'La maison', ic: '🏠',
         champs: [
-            n('L', 'Longueur', 'm', 12, { demi: true, max: 40, aide: 'Côtes extérieures.' }),
-            n('l', 'Largeur', 'm', 9, { demi: true, max: 20, aide: 'Côtes extérieures.' }),
+            c('forme', 'Forme de la maison', [{ v: 'rect', l: 'Rectangle' }, { v: 'autre', l: 'Autre forme (L, T, U…)' }], 'rect'),
+            n('L', 'Longueur', 'm', 12, { demi: true, max: 40, aide: 'Côtes extérieures.', si: v => v.forme !== 'autre' }),
+            n('l', 'Largeur', 'm', 9, { demi: true, max: 20, aide: 'Côtes extérieures.', si: v => v.forme !== 'autre' }),
+            n('P', 'Périmètre extérieur', 'm', 58, { demi: true, max: 300, si: v => v.forme === 'autre', aide: 'Le tour des murs, côtes extérieures.' }),
+            n('S', 'Surface au sol', 'm²', 134, { demi: true, max: 2000, si: v => v.forme === 'autre', aide: 'Emprise, côtes extérieures.' }),
+            n('nAngles', 'Nombre d\'angles', 'u', 8, { demi: true, max: 40, si: v => v.forme === 'autre', aide: 'Rentrants + sortants (L = 6).' }),
+            n('ailes', 'Blocs de toit', 'u', 2, { demi: true, max: 6, si: v => v.forme === 'autre', aide: 'L ou Z = 2, T ou U = 3.' }),
+            n('largeur', 'Largeur des ailes', 'm', 7.5, { demi: true, max: 20, si: v => v.forme === 'autre', aide: 'Profondeur d\'une aile : la portée des fermettes et poutrelles.' }),
             c('niveaux', 'Niveaux', [{ v: '1', l: 'Plain-pied' }, { v: '2', l: 'Étage (R+1)' }], '1'),
             n('hMur', 'Hauteur des murs par niveau', 'm', 2.7, { max: 4, bas: 2.4, aide: 'Plain-pied ≈ 2,70 m. Rez-de-chaussée d\'un R+1 ≈ 2,80 m (plancher + isolant + sol).' }),
             n('refend', 'Murs de refend porteurs', 'm', 0, { zero: true, max: 60, aide: 'Longueur des murs intérieurs porteurs (0 si aucun).' })
@@ -99,7 +105,17 @@ export const MAISON_DEF = {
     id: 'maison',
     nom: 'Maison neuve',
     champs: ETAPES.flatMap(e => e.champs),
-    titre: v => `Maison ${fm(v.L)}×${fm(v.l)} m ${v.niveaux === '2' ? 'R+1' : 'plain-pied'}`
+    titre: v => v.forme === 'autre'
+        ? `Maison ${fmtSmart(v.S, 0)} m² au sol ${v.niveaux === '2' ? 'R+1' : 'plain-pied'}`
+        : `Maison ${fm(v.L)}×${fm(v.l)} m ${v.niveaux === '2' ? 'R+1' : 'plain-pied'}`,
+    // Cohérence d'une forme libre (maison à angles droits)
+    verifier: v => {
+        if (v.forme !== 'autre') return {};
+        if (v.nAngles < 4 || v.nAngles % 2) return { nAngles: 'Toujours un nombre pair, 4 au minimum (L = 6, T = 8, U = 8).' };
+        if (v.P * v.P < 16 * v.S * 0.999) return { P: `Trop petit pour ${fmtSmart(v.S, 0)} m² (minimum ${fmtSmart(4 * Math.sqrt(v.S), 1)} m) : vérifie.` };
+        if (v.largeur * v.largeur > v.S) return { largeur: 'Plus large que la maison : vérifie.' };
+        return {};
+    }
 };
 
 /**
@@ -108,19 +124,28 @@ export const MAISON_DEF = {
  */
 export function calculerMaison(brut, ctx = {}) {
     // Validation avec le même moteur que les calculateurs
-    const { v, erreurs } = validerOuvrage({ champs: MAISON_DEF.champs }, brut);
+    const { v, erreurs } = validerOuvrage({ champs: MAISON_DEF.champs, verifier: MAISON_DEF.verifier }, brut);
     if (Object.keys(erreurs).length) return { erreurs, v };
     if (v.l > v.L) { const t = v.L; v.L = v.l; v.l = t; }       // L = plus grand côté
+    // Géométrie commune : rectangle = cas particulier de la forme libre
+    const libre = v.forme === 'autre';
+    const Sext = libre ? v.S : v.L * v.l;
+    const Pext = libre ? v.P : 2 * (v.L + v.l);
+    const nAngles = libre ? v.nAngles : 4;
+    const largeur = libre ? v.largeur : v.l;
+    const rentrants = Math.max(0, (nAngles - 4) / 2);
+    const ailes = libre ? Math.max(1, Math.round(v.ailes)) : 1;
 
     const niv = +v.niveaux;
     const mode = v.mode;
     const b = BLOCS[v.bloc] || BLOCS.p20;
     const ep = b.ep / 100;
-    const perimExt = 2 * (v.L + v.l);
-    const perimAxe = 2 * (v.L + v.l) - 4 * ep;
-    const perimInt = 2 * (v.L - 2 * ep + v.l - 2 * ep);
-    const Lint = v.L - 2 * ep, lint = v.l - 2 * ep;
-    const Sniv = Lint * lint;                           // surface intérieure d'un niveau
+    const perimExt = Pext;
+    const perimAxe = Pext - 4 * ep;                     // murs à angles droits : sortants − rentrants = 4
+    const perimInt = Pext - 8 * ep;
+    const Sniv = Sext - Pext * ep + 4 * ep * ep;        // surface intérieure d'un niveau
+    const lint = largeur - 2 * ep;
+    const Lint = Sniv / lint;                           // longueur équivalente (ailes mises bout à bout)
     const Shab = Sniv * niv;
     const mlSemelles = perimAxe + v.refend;
     const portee = v.refend > 0 ? lint / 2 : lint;     // poutrelles dans le sens de la largeur
@@ -129,9 +154,10 @@ export function calculerMaison(brut, ctx = {}) {
     const hHorsSol = vs ? v.hVS / 100 : 0.20;                 // arase du plancher bas au-dessus du terrain
     const hSoub = hSousSol + hHorsSol;
     const pente = v.pente;
-    const hFaitage = v.l / 2 * pente / 100;
+    const hFaitage = largeur / 2 * pente / 100;
     const pignons = v.pans === '2';
-    const surfPignons = pignons ? v.l * hFaitage : 0;         // 2 triangles = l × hFaîtage
+    const nbPignons = pignons ? (ailes === 1 ? 2 : ailes) : 0;
+    const surfPignons = nbPignons * largeur * hFaitage / 2;    // triangles de pignon
 
     // Ouvertures
     const nbOuv = { porte: v.porte, fenetre: v.fenetre, baie: v.baie, garage: v.garage };
@@ -147,13 +173,13 @@ export function calculerMaison(brut, ctx = {}) {
     });
     const nbOuvTotal = v.porte + v.fenetre + v.baie + v.garage;
     const nbT = v.refend > 0 ? 2 * Math.max(1, Math.round(v.refend / Math.max(1, lint))) : 0;   // jonctions refend / façade
-    const nbChV = 4 + nbT + Math.floor(perimAxe / 10);               // angles, refends, ~ tous les 10 m
+    const nbChV = nAngles + nbT + Math.floor(perimAxe / 10);               // angles, refends, ~ tous les 10 m
 
     const lots = [];
     const lot = (id, titre, ic, lignes, infos, heures) => lots.push({ id, titre, ic, lignes: fusion(lignes), infos: infos.filter(Boolean), heures });
 
     // 1. Terrassement
-    const decap = (v.L + 2) * (v.l + 2) * 0.20;
+    const decap = (Sext + Pext * 1 + 4) * 0.20;            // 1 m autour de la maison
     const fouilles = mlSemelles * v.semL / 100 * v.prof / 100;
     const deblais = decap + fouilles;
     const joursPelle = Math.max(1, Math.ceil(deblais / 40 - 1e-9));
@@ -172,12 +198,12 @@ export function calculerMaison(brut, ctx = {}) {
         ...lignesBeton(volProp, 150, mode),
         ...lignesBeton(volSem, 350, mode),
         L('arm_semelle', nbBarres6m(mlSemelles)),
-        L('equerre_sem', 4 + nbT),
+        L('equerre_sem', nAngles + nbT),
         L('cales', Math.ceil(mlSemelles * 1.5))
     ], [
         `Semelles filantes : ${fm(mlSemelles)} m (tour des murs à l'axe${v.refend ? ' + refends' : ''}).`,
         `Béton de propreté ${fm(volProp)} m³ (dosé 150) + semelles ${fm(volSem)} m³ (béton C25/30).`,
-        `Équerres préfa aux 4 angles${nbT ? ` et aux ${nbT} jonctions en T` : ''}, attentes des ${nbChV} chaînages verticaux, cales 3-4 cm.`,
+        `Équerres préfa aux ${nAngles} angles${nbT ? ` et aux ${nbT} jonctions en T` : ''}, attentes des ${nbChV} chaînages verticaux, cales 3-4 cm.`,
         v.prof < 80 ? 'Sol argileux (fréquent en Dordogne) : 80 cm minimum, 1,20 m en aléa fort.' : null,
         'Étude de sol G1/G2 obligatoire en zone argile (loi ELAN). Déclaration DICT avant de creuser.'
     ], volSem * 3);
@@ -185,8 +211,8 @@ export function calculerMaison(brut, ctx = {}) {
     // 3. Soubassement
     const surfSoub = mlSemelles * hSoub;
     const lSoub = [
-        ...lignesMurBlocs(surfSoub, 'p20', 4, hSoub, mode),
-        ...lignesChainage(mlSemelles, { mode, angles: 4 + nbT }),
+        ...lignesMurBlocs(surfSoub, 'p20', nAngles, hSoub, mode),
+        ...lignesChainage(mlSemelles, { mode, angles: nAngles + nbT }),
         L('arase', mlSemelles * 1.05)
     ];
     const infSoub = [
@@ -244,10 +270,10 @@ export function calculerMaison(brut, ctx = {}) {
     const surfMursBrute = perimAxe * hMurs + surfPignons;
     const surfMurs = Math.max(0, surfMursBrute - surfOuv);
     const surfRefend = v.refend * hMurs;
-    const lMurs = [...lignesMurBlocs(surfMurs, v.bloc, 4, hMurs, mode)];
+    const lMurs = [...lignesMurBlocs(surfMurs, v.bloc, nAngles, hMurs, mode)];
     if (surfRefend > 0) lMurs.push(...lignesMurBlocs(surfRefend, 'p20', 0, 0, mode));
     lot('murs', 'Élévation des murs', '🧱', lMurs, [
-        `Murs : ${fm(perimAxe)} m × ${fm(hMurs)} m${pignons ? ` + 2 pignons (${fm(surfPignons)} m²)` : ''} − ${fm(surfOuv)} m² d'ouvertures = ${fm(surfMurs)} m².`,
+        `Murs : ${fm(perimAxe)} m × ${fm(hMurs)} m${pignons ? ` + ${nbPignons} pignons (${fm(surfPignons)} m²)` : ''} − ${fm(surfOuv)} m² d'ouvertures = ${fm(surfMurs)} m².`,
         surfRefend > 0 ? `Refends en parpaing 20 : ${fm(surfRefend)} m².` : null,
         b.mortierL ? `Hourdage au mortier dosé 350 : ≈ ${b.mortierL} L par m².` : `Joint mince : ≈ ${b.colleKg} kg de mortier-colle par m².`,
         niv === 2 && v.hMur < 2.8 ? 'R+1 : avec 2,70 m par niveau, le plafond fini du rez-de-chaussée tombe vers 2,40 m. Compter plutôt 2,80 m.' : null
@@ -255,12 +281,12 @@ export function calculerMaison(brut, ctx = {}) {
 
     // 6. Chaînages & linteaux
     const mlChH = (perimAxe + v.refend) * niv;
-    const mlRampants = pignons ? 2 * 2 * Math.sqrt(Math.pow(v.l / 2, 2) + hFaitage * hFaitage) : 0;
+    const mlRampants = nbPignons * 2 * Math.sqrt(Math.pow(largeur / 2, 2) + hFaitage * hFaitage);
     const hChV = hSoub + hMurs;                                       // de la semelle au chaînage haut, d'un seul tenant
     const mlChV = nbChV * hChV;
     const nbSeuils = v.porte + v.baie;
     lot('chainages', 'Chaînages, linteaux, appuis & seuils', '⛓️', [
-        ...lignesChainage(mlChH, { mode, angles: (4 + nbT) * niv }),
+        ...lignesChainage(mlChH, { mode, angles: (nAngles + nbT) * niv }),
         ...lignesChainage(mlRampants, { mode }),
         ...lignesChainageVertical(nbChV, hChV, { mode }),
         mlLinteaux > 0 ? L(b.linteau || 'linteau', mlLinteaux, { d: detLinteaux.join(' + ') }) : null,
@@ -290,6 +316,7 @@ export function calculerMaison(brut, ctx = {}) {
     // 8. Charpente & couverture
     const toit = calcToiture({
         L: v.L, l: v.l, pans: +v.pans, pente, debord: v.debord / 100,
+        forme: libre ? { S: Sext, P: Pext, angles: nAngles, largeur, ailes } : null,
         charpente: v.charpente, couverture: v.couverture, gouttieres: v.gouttieres
     });
     lot('toiture', 'Charpente & couverture', '🏠', toit.lignes, [
@@ -384,7 +411,7 @@ export function calculerMaison(brut, ctx = {}) {
     const heures = lots.reduce((s, lt) => s + (lt.heures || 0), 0);
     const rd = x => fmtSmart(x, x >= 50 ? 0 : 1);           // grandes valeurs arrondies à l'unité
     const resume = [
-        { l: 'Emprise au sol', v: `${rd(v.L * v.l)} m²` },
+        { l: 'Emprise au sol', v: `${rd(Sext)} m²` },
         { l: 'Surface habitable ≈', v: `${rd(Shab)} m²` },
         { l: 'Murs', v: `${rd(surfMurs)} m²` },
         { l: 'Toiture', v: `${rd(toit.surf)} m²` }
@@ -403,7 +430,7 @@ export function calculerMaison(brut, ctx = {}) {
             'Ordre de grandeur pour commander et prévoir : le plan, l\'étude de sol et le plan de charpente restent la référence.'
         ],
         heures,
-        mesure: { q: v.L * v.l, u: 'm²', h: heures }
+        mesure: { q: Sext, u: 'm²', h: heures }
     };
 }
 
