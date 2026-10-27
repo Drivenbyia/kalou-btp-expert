@@ -7,7 +7,7 @@
 import {
     L, fusion, lignesBeton, lignesMortier, lignesMurBlocs, lignesChainage, nbBarres6m,
     calcPlancher, calcToiture, calcPlaco, BLOCS, COUVERTURES, PERTE_BETON, PERTE_MORTIER,
-    lignesChainageVertical, TREILLIS_UTILE, calcDrainage, lignesEchafaudage
+    lignesChainageVertical, TREILLIS_UTILE, calcDrainage, lignesEchafaudage, calcSoufflage
 } from './base.js';
 import { valider as validerOuvrage } from './ouvrages.js';
 import { fmtSmart } from '../core/format.js';
@@ -85,10 +85,10 @@ export const ETAPES = [
         id: 'interieur', titre: 'Intérieur (second œuvre)', ic: '📐',
         champs: [
             oui('interieur', 'Compter l\'intérieur', true),
-            oui('doublage', 'Doublage isolé des murs', true, { si: v => v.interieur && v.bloc !== 'monomur30' }),
-            oui('plafonds', 'Plafonds placo + isolation combles', true, { si: v => v.interieur }),
+            c('doublage', 'Doublage des murs', [{ v: 'colle', l: 'Collé PSE 13+120' }, { v: 'appuis', l: 'Sur appuis + laine 120' }, { v: 'non', l: 'Aucun' }], 'colle', { si: v => v.interieur && v.bloc !== 'monomur30', aide: 'R ≈ 3,75 : niveau RE2020.' }),
+            oui('plafonds', 'Plafonds placo + combles soufflés R 8', true, { si: v => v.interieur }),
             n('cloisons', 'Cloisons', 'm', 0, { zero: true, max: 300, si: v => v.interieur, aide: '0 = estimation automatique (≈ 0,35 m par m² habitable).' }),
-            oui('chape', 'Chape (sur isolant)', false, { si: v => v.interieur }),
+            oui('chape', 'Chape flottante sur isolant', false, { si: v => v.interieur }),
             oui('carrelage', 'Carrelage partout', true, { si: v => v.interieur }),
             oui('peinture', 'Peinture murs et plafonds', true, { si: v => v.interieur })
         ]
@@ -325,42 +325,56 @@ export function calculerMaison(brut, ctx = {}) {
         const infos = [];
         let h = 0;
         const hsp = Math.max(2.3, v.hMur - 0.2);
-        if (v.doublage && v.bloc !== 'monomur30') {
-            const r = calcPlaco('doublage', perimInt * niv, hsp, { isolant: true, ouv: surfOuv });
-            lignes.push(...r.lignes); h += r.S * 0.6;
-            infos.push(`Doublage isolé : ${fm(r.S)} m² (100 mm ≈ R 3,15 ; en RE2020 viser 120-140 mm).`);
+        const mlCloisons = v.cloisons > 0 ? v.cloisons : Math.round(Shab * 0.35);
+        const nbPortes = Math.max(1, Math.round(Shab / 12));             // portes intérieures estimées
+        const tableaux = Object.entries(nbOuv).reduce((t, [k, nb]) => t + (nb > 0 ? nb * (2 * OUVERTURES[k].haut + OUVERTURES[k].larg) : 0), 0);
+        if (v.doublage !== 'non' && v.doublage !== false && v.bloc !== 'monomur30') {
+            const type = v.doublage === 'appuis' ? 'appuis' : 'colle';
+            const r = calcPlaco(type, perimInt * niv, hsp, { isolant: true, ouv: surfOuv, laine: 120, complexe: '120', angles: tableaux });
+            lignes.push(...r.lignes); h += r.S * (type === 'colle' ? 0.45 : 0.7);
+            infos.push(`Doublage ${type === 'colle' ? 'collé PSE graphite 13+120' : 'sur appuis, laine 120 mm'} : ${fm(r.S)} m² (R ≈ 3,75). Bande armée sur les tableaux des ouvertures.`);
         }
         if (v.plafonds) {
-            const r = calcPlaco('plafond', Lint, lint, { isolant: false });
-            r.lignes.forEach(li => lignes.push({ ...li, q: li.q * niv }));
-            lignes.push(L('laine_combles', Sniv * 1.05, { d: 'épaisseur 300 mm' }));
-            h += Sniv * niv * 0.8 + Sniv * 0.15;
-            infos.push(`Plafonds : ${fm(Sniv * niv)} m² + isolation des combles ${fm(Sniv)} m².`);
+            // Niveau du haut : il porte l'isolant (fourrures à 50 cm + pare-vapeur). Rez-de-chaussée d'un R+1 : plafond simple.
+            const haut = calcPlaco('plafond', Lint, lint, { isolant: true });
+            lignes.push(...haut.lignes);
+            if (niv === 2) lignes.push(...calcPlaco('plafond', Lint, lint, { isolant: false }).lignes);
+            const s = calcSoufflage(Sniv, 'verre', 8, { pareVapeur: false });
+            lignes.push(...s.lignes);
+            h += Sniv * niv * 0.8 + Sniv * 0.12;
+            infos.push(`Plafonds : ${fm(Sniv * niv)} m², fourrures à 50 cm sous les combles. Combles perdus : laine de verre soufflée R 8 (${fmtSmart(s.eSouffle * 1000, 0)} mm), pare-vapeur dessous.`);
         }
-        const mlCloisons = v.cloisons > 0 ? v.cloisons : Math.round(Shab * 0.35);
         if (mlCloisons > 0) {
-            const r = calcPlaco('cloison', mlCloisons, hsp, { isolant: true });
+            const r = calcPlaco('cloison', mlCloisons, hsp, { isolant: true, portes: nbPortes });
             lignes.push(...r.lignes); h += r.S * 0.9;
-            infos.push(`Cloisons : ${fm(mlCloisons)} m${v.cloisons > 0 ? '' : ' (estimation)'} × ${fm(hsp)} m.`);
+            infos.push(`Cloisons 72/48 : ${fm(mlCloisons)} m${v.cloisons > 0 ? '' : ' (estimation)'} × ${fm(hsp)} m, ${nbPortes} portes. Salle de bain : prévoir des plaques H1.`);
         }
         // Chape : partout si demandée ; à l'étage d'office si carrelage (pas de carrelage collé sur la dalle de compression)
         const sChape = v.chape ? Shab : (v.carrelage && niv === 2 ? Sniv : 0);
         if (sChape > 0) {
-            lignes.push(...lignesMortier(sChape * 0.05 * PERTE_BETON, { sableM3: 1.15 }), L('bande_peri', perimInt * (sChape / Sniv) * 1.05));
-            h += sChape * 0.35;
-            infos.push(v.chape ? `Chape 5 cm : ${fm(sChape)} m².` : `Chape 5 cm à l'étage (${fm(sChape)} m²) : on ne colle pas le carrelage directement sur la dalle de compression.`);
+            const volCh = sChape * 0.05 * PERTE_BETON;
+            lignes.push(...lignesMortier(volCh, { sableM3: 1.15 }), L('bande_peri', perimInt * (sChape / Sniv) * 1.05));
+            if (v.chape) lignes.push(L('isolant_chape', sChape * 1.05), L('polyane', sChape * 1.15), L('treillis_chape', sChape * 1.10));
+            h += sChape * (v.chape ? 0.5 : 0.35);
+            infos.push(v.chape ? `Chape flottante 5 cm sur isolant : ${fm(sChape)} m² (treillis de chape, film, bande périphérique).` : `Chape 5 cm à l'étage (${fm(sChape)} m²) : on ne colle pas le carrelage directement sur la dalle de compression.`);
         }
         if (v.carrelage) {
-            lignes.push(L('carrelage', Shab * 1.10), L('colle_carrelage', Shab * 7), L('joint_carrelage', Shab * 0.4), L('plinthe', (perimInt * niv + mlCloisons * 2) * 1.05));
+            const plinthes = Math.max(0, perimInt * niv + mlCloisons * 2 - 0.9 * 2 * nbPortes);
+            lignes.push(L('carrelage', Shab * 1.10), L('colle_carrelage', Shab * 7), L('joint_carrelage', Shab * 0.18),
+                L('croisillon', Math.ceil(Shab * 1.1 / 0.36)), L('cale_nivel', Math.ceil(Shab * 4.4 / 0.36)),
+                L('plinthe', plinthes * 1.10), L('spec', 4 * 1.5, { d: 'douche ≈ 4 m²' }), L('bande_spec', 4), L('silicone', 3));
             h += Shab * 0.8;
-            infos.push(`Carrelage : ${fm(Shab)} m², format 60×60 en double encollage (≈ 7 kg de colle/m²).`);
+            infos.push(`Carrelage : ${fm(Shab)} m², 60×60 en double encollage (≈ 7 kg de colle/m²), joint 3 mm. SPEC pour une douche.`);
         }
         if (v.peinture) {
-            const sMurs = perimInt * niv * hsp - surfOuv + mlCloisons * 2 * hsp;
-            const sP = Math.max(0, sMurs) + Shab;
-            lignes.push(L('impression', sP / 10 * 1.05), L('peinture', sP * 2 / 10 * 1.05, { d: '2 couches' }));
-            h += sP * 0.36;
-            infos.push(`Peinture : ${fm(sP)} m² (murs + plafonds).`);
+            const sMurs = Math.max(0, perimInt * niv * hsp - surfOuv + mlCloisons * 2 * hsp - nbPortes * 1.7 * 2);
+            const sP = Shab;
+            lignes.push(L('impression', (sMurs + sP) / 8 * 1.05),
+                L('peinture', sMurs * 2 / 10 * 1.05, { d: '2 couches' }),
+                L('peinture_plafond', sP * 2 / 10 * 1.05, { d: '2 couches' }),
+                L('enduit_lissage', (sMurs + sP) * 0.2, { d: 'rebouchage' }));
+            h += (sMurs + sP) * 0.4;
+            infos.push(`Peinture : ${fm(sMurs)} m² de murs + ${fm(sP)} m² de plafonds (impression + 2 couches).`);
         }
         if (lignes.length) lot('interieur', 'Intérieur', '📐', lignes, infos, h);
     }
