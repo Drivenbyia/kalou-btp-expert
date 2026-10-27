@@ -13,10 +13,14 @@ function vuesPour(champs, valeurs) {
     return v;
 }
 
-export function htmlChamp(ch, valeurs, vues) {
+const demiPossible = ch => ch.demi && !(ch.aide && ch.aide.length > 38);
+
+export function htmlChamp(ch, valeurs, vues, demiForce) {
     const val = valeurs[ch.id];
     const label = ch.labelSi ? ch.labelSi(vues) : ch.l;
-    const cls = `f${ch.demi ? ' demi' : ''}`;
+    // Une aide longue ne tient pas en demi-largeur : le champ passe en pleine largeur
+    const demi = demiForce ?? demiPossible(ch);
+    const cls = `f${demi ? ' demi' : ''}`;
     const aide = ch.aide ? `<p class="aide">${esc(ch.aide)}</p>` : '';
     if (ch.type === 'num') {
         return `<div class="${cls}" data-f="${ch.id}">
@@ -51,7 +55,15 @@ export function htmlChamp(ch, valeurs, vues) {
 
 export function htmlChamps(champs, valeurs) {
     const vues = vuesPour(champs, valeurs);
-    return champs.filter(ch => champVisible(ch, vues)).map(ch => htmlChamp(ch, valeurs, vues)).join('');
+    const visibles = champs.filter(ch => champVisible(ch, vues));
+    // Les demi-largeurs vont par deux ; une case restée seule passe en pleine largeur
+    const demi = visibles.map(demiPossible);
+    for (let i = 0; i < demi.length; i++) {
+        if (!demi[i]) continue;
+        if (demi[i + 1]) { i++; continue; }
+        demi[i] = false;
+    }
+    return visibles.map((ch, i) => htmlChamp(ch, valeurs, vues, demi[i])).join('');
 }
 
 /**

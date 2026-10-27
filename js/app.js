@@ -10,7 +10,7 @@ import { vueChantiers, vueChantier } from './views/chantiers.js';
 import { vueReglages } from './views/reglages.js';
 import { barreActions } from './views/commun.js';
 
-export const APP_VERSION = '4.4.1';
+export const APP_VERSION = '4.4.2';
 
 const main = () => document.getElementById('vue');
 let _profondeur = 0;          // pages ouvertes depuis le lancement (pour « retour »)

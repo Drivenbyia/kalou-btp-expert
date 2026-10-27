@@ -34,7 +34,7 @@ const oui = (id, l, def = true, o = {}) => ({ id, type: 'oui', l, def, ...o });
 const MODE = c('mode', 'Le béton', [
     { v: 'betonniere', l: 'Bétonnière' },
     { v: 'bpe', l: 'Toupie (prêt à l\'emploi)' }
-], 'betonniere');
+], 'betonniere', { aide: 'Bétonnière pour les petites quantités. Au-delà de 3 m³ environ, la toupie fait gagner beaucoup de temps.' });
 
 const DOSAGE = c('dosage', 'Dosage du béton', [
     { v: '300', l: '300 kg' }, { v: '350', l: '350 kg' }, { v: '400', l: '400 kg' }
@@ -1304,6 +1304,55 @@ export const OUVRAGES = [
         }
     }
 ];
+
+// ─── Explications des champs : d'où à où mesurer, ce qui est compris ─────────
+const AIDES = {
+    fondation: { larg: 'Souvent 50 cm sous un mur de 20.', haut: 'Hauteur de béton dans la fouille, souvent 30 à 40 cm.' },
+    dalle: { L: 'Dimensions de la dalle finie.', isolant: 'Sous une dalle de maison chauffée.' },
+    poteau: { h: 'Hauteur coulée, de la semelle (ou dalle) jusqu\'au chaînage.' },
+    escalier: {
+        nb: 'Nombre de contremarches = hauteur à monter ÷ hauteur d\'une marche.',
+        hm: '16 à 18 cm pour un escalier confortable.',
+        g: 'Profondeur où l\'on pose le pied, 25 à 30 cm.',
+        ep: 'Dalle inclinée sous les marches, 15 cm courant.'
+    },
+    mur: {
+        h: 'Du dessus de la fondation ou de la dalle jusqu\'au dessus du dernier rang.',
+        angles: 'Chaque angle, bout de mur libre ou tableau d\'ouverture : agglos d\'angle sur toute la hauteur. Un mur droit seul = 2.'
+    },
+    pierre: { ep: 'Épaisseur totale du mur. Bâti ancien : souvent 40 à 60 cm.' },
+    muret: {
+        h: 'Du terrain jusqu\'au dessus des agglos, chaperon non compris.',
+        larg: '40 cm pour un agglo de 20.',
+        prof: 'Fond de fouille sous le terrain : 50 cm mini (hors gel).'
+    },
+    ouverture: { larg: 'Dimensions du trou fini (le passage), pas de la menuiserie.' },
+    enduit: { h: 'Du sol (ou du dessus du soubassement) jusqu\'au toit.', ouv: 'Portes et fenêtres de la façade.' },
+    chaux: { h: 'Du sol jusqu\'en haut de la partie à enduire.' },
+    rejoint: { h: 'Du sol jusqu\'en haut de la partie à rejointoyer.' },
+    toiture: {
+        L: 'Côtes extérieures des murs, sans les débords.',
+        pans: '2 pans : un pignon maçonné à chaque bout. 4 pans : croupes, pas de pignon.',
+        debord: 'Dépassement du toit au-delà des murs, mesuré à plat (souvent 30 à 50 cm).',
+        pente: 'Canal ≈ 30 % · romane ≈ 35 % · ardoise ≈ 80 % · tuile plate ≈ 100 % (= 45°). Pente = hauteur ÷ demi-largeur.'
+    },
+    ragreage: { ep: 'Moyenne entre le point haut et le point bas du sol.' },
+    placo: { a: 'Longueur du mur ou de la pièce.', b: 'Du sol jusqu\'au plafond (ou largeur de la pièce pour un plafond).' },
+    isolation: { L: 'Surface du plancher des combles (= surface du plafond en dessous).' },
+    peinture: { ouv: 'Total des portes et fenêtres (porte ≈ 1,7 m², fenêtre ≈ 1,5 m²).' },
+    terrassement: { p: 'Profondeur moyenne à creuser.' },
+    piscine: { p: 'Profondeur d\'eau moyenne, intérieur du bassin.', L: 'Dimensions intérieures du bassin.' },
+    sousoeuvre: { h: 'Hauteur de la nouvelle fondation coulée sous le mur existant.' },
+    demolition: { ep: 'Piquage : épaisseur d\'enduit (2 à 4 cm). Joints : profondeur à dégarnir. Mur, cloison, dalle : épaisseur totale.' },
+    drainage: { prof: 'Hauteur de mur sous le terrain, jusqu\'au pied de la fondation.' },
+    echafaudage: { h: 'Jusqu\'au toit, plus 1 m pour travailler en sécurité.' },
+    soutenement: { L: 'Longueur du mur le long du talus.' },
+    linteau: { ouv: 'Largeur du trou à franchir. 20 cm d\'appui sont ajoutés de chaque côté.' }
+};
+OUVRAGES.forEach(o => o.champs.forEach(ch => {
+    const a = AIDES[o.id] && AIDES[o.id][ch.id];
+    if (a) ch.aide = a;
+}));
 
 export const OUVRAGES_PAR_ID = Object.fromEntries(OUVRAGES.map(o => [o.id, o]));
 
