@@ -2,7 +2,7 @@
 // Stratégie « réseau d'abord » : dès qu'il y a du réseau, on prend la dernière
 // version publiée (mises à jour immédiates) ; sinon on sert la copie en cache.
 
-const CACHE = 'kalou-btp-v4.1.0';
+const CACHE = 'kalou-btp-v4.2.0';
 const FICHIERS = [
     './',
     './index.html',

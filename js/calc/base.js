@@ -346,3 +346,39 @@ export function calcPlaco(type, a, b, { cloison = '72', isolant = true, ouv = 0 
     lignes.push(L('enduit_joint', Svue * 0.5));
     return { S, Sp, lignes, detail };
 }
+
+// ─── Drainage et protection des murs enterrés ──────────────────────────────
+
+/**
+ * Drainage périphérique : tranchée 40×40 cm en pied de fondation, drain Ø100 sous
+ * chaussette, gravier lavé, géotextile, protection du mur (Delta MS ou bitume).
+ * @param {number} ml     longueur de mur enterré
+ * @param {number} prof   hauteur enterrée à protéger (m)
+ */
+export function calcDrainage(ml, prof, { protection = 'delta', regards = 4, exutoire = 10 } = {}) {
+    const lignes = [
+        L('drain', ml * 1.05),
+        L('gravier_drain', ml * 0.4 * 0.4 * 1.6),
+        L('geotextile', ml * 1.6 * 1.10),
+        L('regard', regards),
+        exutoire > 0 ? L('pvc100', exutoire) : null
+    ];
+    if (protection === 'delta') lignes.push(L('delta', ml * (prof + 0.2) * 1.10));
+    if (protection === 'bitume') lignes.push(L('bitume', ml * prof * 1.5));
+    if (protection === 'les2') lignes.push(L('bitume', ml * prof * 1.5), L('delta', ml * (prof + 0.2) * 1.10));
+    return {
+        lignes: lignes.filter(Boolean),
+        infos: [
+            'Drain posé au pied des fondations (jamais plus haut que le dessous du dallage), pente 0,5 à 1 % vers l\'exutoire.',
+            'Regard à chaque angle pour curer. Jamais raccordé au tout-à-l\'égout des eaux usées.',
+            'Mur enterré : enduit bitumineux (2 couches) puis membrane à excroissances, remblai drainant.'
+        ]
+    };
+}
+
+/** Échafaudage de façade en location (m² × semaines). */
+export function lignesEchafaudage(longueur, hauteur, semaines) {
+    const S = longueur * hauteur;
+    if (!(S > 0) || !(semaines > 0)) return [];
+    return [L('echaf', S * semaines, { d: `${fmtSmart(S, 0)} m² pendant ${fmtSmart(semaines, 0)} semaine(s)` })];
+}

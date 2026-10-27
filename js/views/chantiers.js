@@ -5,7 +5,7 @@ import { OUVRAGES_PAR_ID, calculer } from '../calc/ouvrages.js';
 import { calculerMaison } from '../calc/maison.js';
 import {
     listeChantiers, getChantier, creerChantier, majChantier, supprimerChantier, supprimerItem, ctxCalcul,
-    restaurerItem, restaurerChantier
+    restaurerItem, restaurerChantier, ajouterItem, ajouterLibre, supprimerLibre, derniereSauvegarde
 } from '../core/store.js';
 import { quantiteAchat, affichage, MATERIAUX } from '../calc/materiaux.js';
 import { ICONES, toast, partager, confirmer, demanderTexte, ouvrirFeuille, fermerFeuille, apresFeuille, dateCourte } from '../ui/dom.js';
@@ -18,7 +18,10 @@ import { barreActions } from './commun.js';
 export function vueChantiers(root) {
     entete({ titre: 'Mes chantiers' });
     const liste = listeChantiers();
+    const dS = derniereSauvegarde();
+    const rappel = liste.length && (!dS || Date.now() - dS > 30 * 864e5);
     root.innerHTML = `
+        ${rappel ? `<button class="banner" id="rappel" style="width:100%;text-align:left">💾 <span><b>Pense à sauvegarder tes chantiers</b>${dS ? 'Dernière copie il y a plus d\'un mois.' : 'Aucune copie pour l\'instant : si le téléphone casse, tout est perdu.'} Touche ici.</span></button>` : ''}
         <p class="section-title">Mes chantiers</p>
         ${liste.length ? liste.map(c => `
             <button class="card ch-card" data-id="${esc(c.id)}">
@@ -32,6 +35,8 @@ export function vueChantiers(root) {
                 <p class="hint">Un chantier regroupe plusieurs calculs (dalle, murs, enduit…) et fait la liste de courses complète à envoyer au négociant.</p>
             </div>`}`;
     root.querySelectorAll('[data-id]').forEach(b => b.addEventListener('click', () => aller(`#/chantier/${b.dataset.id}`)));
+    const rp = root.querySelector('#rappel');
+    if (rp) rp.addEventListener('click', () => aller('#/reglages'));
 
     const bar = barreActions(`<button class="btn btn-primary" data-act="nouveau">${ICONES.plus}<span>Nouveau chantier</span></button>`);
     bar.addEventListener('click', async e => {
@@ -79,7 +84,8 @@ export function vueChantier(root, id, params) {
     });
 
     const calc = ch.items.map(it => ({ it, ...calculerItem(it, ctx) }));
-    const toutes = consolider(calc.flatMap(c => c.lignes));
+    const libres = ch.libres || [];
+    const toutes = consolider([...calc.flatMap(c => c.lignes), ...libres.map(a => ({ l: a.l, q: a.q, u: a.u }))]);
     const heures = calc.reduce((s, c) => s + (c.h || 0), 0);
     const tva = calc.some(c => c.tva === 20) && calc.every(c => c.tva === 20) ? 20 : null;
 
@@ -106,6 +112,7 @@ export function vueChantier(root, id, params) {
                         ${!c.r ? '<p class="hint" style="font-size:13px;margin-top:8px;color:var(--muted)">Ancien calcul récupéré : il n\'est plus modifiable, mais ses quantités comptent dans la liste.</p>' : ''}
                         <div class="acts">
                             ${c.r ? `<button class="btn btn-ghost btn-sm" data-modif="${esc(c.it.id)}">Modifier</button>` : ''}
+                            ${c.r ? `<button class="btn btn-light btn-sm" data-dup="${esc(c.it.id)}">Dupliquer</button>` : ''}
                             <button class="btn btn-danger btn-sm" data-suppr="${esc(c.it.id)}">Retirer</button>
                         </div>
                     </div>
@@ -139,6 +146,14 @@ export function vueChantier(root, id, params) {
             } });
         }));
         contenu.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => aller(b.dataset.go)));
+        contenu.querySelectorAll('[data-dup]').forEach(b => b.addEventListener('click', () => {
+            const it = ch.items.find(x => x.id === b.dataset.dup);
+            if (!it) return;
+            const { id, date, ...copie } = it;
+            ajouterItem(ch.id, JSON.parse(JSON.stringify(copie)));
+            aller(`#/chantier/${ch.id}`, { remplacer: true });
+            toast('Ouvrage dupliqué : touche « Modifier » pour l\'ajuster');
+        }));
         let tNotes;
         contenu.querySelector('#notes').addEventListener('input', e => {
             clearTimeout(tNotes);
@@ -179,13 +194,24 @@ export function vueChantier(root, id, params) {
                 <p class="hint" style="margin:6px 0 4px;font-size:13.5px;color:var(--muted)">Touche une ligne pour la cocher quand c'est acheté.</p>
                 ${parCategorie(toutes).map(g => `<p class="cat-title">${esc(g.l)}</p><ul class="lines">${g.lignes.map(li => htmlLigne(li, ctx, { check: true, cle: li.cle, done: estFait(li), reste: resteTxt(li) })).join('')}</ul>`).join('')}
             </div>
+            <button class="btn btn-ghost btn-block" id="ajout-libre" style="margin-top:12px">${ICONES.plus}<span>Ajouter un article à la main</span></button>
+            ${libres.length ? `<p class="section-title">Ajoutés à la main</p><div class="card">${libres.map(a => `
+                <div class="set-row"><div class="tx"><b>${esc(a.l)}</b><small>${esc(String(a.q).replace('.', ','))} ${esc(a.u)}</small></div>
+                <button class="btn btn-danger btn-sm" data-suppr-libre="${esc(a.id)}" aria-label="Retirer">✕</button></div>`).join('')}</div>` : ''}
             ${fait ? '<button class="btn btn-light btn-block" id="decocher" style="margin-top:12px">Tout décocher</button>' : ''}
             ${htmlCout(toutes, heures, ctx, tva)}` : `
             <div class="card" style="text-align:center;padding:24px 18px">
                 <div style="font-size:40px">🛒</div>
                 <h2 style="margin:8px 0 6px">Liste vide</h2>
                 <p class="hint">Ajoute des ouvrages au chantier : leurs matériaux arrivent ici, additionnés.</p>
-            </div>`;
+            </div>
+            <button class="btn btn-ghost btn-block" id="ajout-libre" style="margin-top:12px">${ICONES.plus}<span>Ajouter un article à la main</span></button>`;
+        contenu.querySelector('#ajout-libre').addEventListener('click', () => ajouterArticle(ch));
+        contenu.querySelectorAll('[data-suppr-libre]').forEach(b => b.addEventListener('click', e => {
+            e.stopPropagation();
+            supprimerLibre(ch.id, b.dataset.supprLibre);
+            aller(`#/chantier/${ch.id}?vue=courses`, { remplacer: true });
+        }));
         const dec = contenu.querySelector('#decocher');
         if (dec) dec.addEventListener('click', () => {
             Object.keys(achete).forEach(k => delete achete[k]);
@@ -208,6 +234,42 @@ export function vueChantier(root, id, params) {
     bar.addEventListener('click', e => {
         if (!e.target.closest('[data-act]')) return;
         envoyerListe(ch, toutes, l => !estFait(l), ctx);
+    });
+}
+
+// ─── Article ajouté à la main ───────────────────────────────────────────────
+
+const UNITES_LIBRES = ['pcs', 'sacs', 'T', 'm', 'm²', 'm³', 'L', 'jour'];
+
+function ajouterArticle(ch) {
+    let unite = 'pcs';
+    ouvrirFeuille(`
+        <h2>Ajouter un article</h2>
+        <p style="color:var(--muted);font-size:15px;margin-bottom:10px">Ex : location bétonnière, colle, vis… Il s'ajoute à la liste de courses.</p>
+        <div class="f" style="margin-bottom:12px"><label for="lib-nom">Article</label><input class="txt" id="lib-nom" placeholder="ex : Location bétonnière" autocomplete="off"></div>
+        <div class="f" style="margin-bottom:12px"><label for="lib-q">Quantité</label><div class="inp"><input id="lib-q" inputmode="decimal" placeholder=""></div></div>
+        <span class="lab" style="font-weight:700;display:block;margin-bottom:8px">Unité</span>
+        <div class="seg" id="lib-u">${UNITES_LIBRES.map(u => `<button type="button" data-u="${u}" class="${u === unite ? 'on' : ''}">${u}</button>`).join('')}</div>
+        <div class="row" style="margin-top:16px"><button class="btn btn-light" data-r="0">Annuler</button><button class="btn btn-primary" data-r="1">Ajouter</button></div>
+    `, root => {
+        setTimeout(() => root.querySelector('#lib-nom').focus(), 60);
+        root.querySelector('#lib-u').addEventListener('click', e => {
+            const b = e.target.closest('[data-u]');
+            if (!b) return;
+            unite = b.dataset.u;
+            root.querySelectorAll('#lib-u button').forEach(x => x.classList.toggle('on', x === b));
+        });
+        root.querySelector('[data-r="0"]').addEventListener('click', () => fermerFeuille());
+        root.querySelector('[data-r="1"]').addEventListener('click', () => {
+            const nom = root.querySelector('#lib-nom').value.trim();
+            const qv = Number(String(root.querySelector('#lib-q').value).replace(',', '.').replace(/\s/g, ''));
+            if (!nom) { toast('Écris le nom de l\'article', true); return; }
+            if (!(qv > 0)) { toast('Mets une quantité', true); return; }
+            ajouterLibre(ch.id, { l: nom, q: qv, u: unite });
+            fermerFeuille();
+            aller(`#/chantier/${ch.id}?vue=courses`, { remplacer: true });
+            toast('Article ajouté');
+        });
     });
 }
 
@@ -251,7 +313,7 @@ function menu(ch) {
                 if (nom) { majChantier(ch.id, c => { c.nom = nom; }); aller(location.hash, { remplacer: true }); }
             } else if (m === 'partager') {
                 const ctx = ctxCalcul();
-                const toutes = consolider(ch.items.flatMap(it => calculerItem(it, ctx).lignes));
+                const toutes = consolider([...ch.items.flatMap(it => calculerItem(it, ctx).lignes), ...(ch.libres || []).map(a => ({ l: a.l, q: a.q, u: a.u }))]);
                 const a = ch.achete || {};
                 apresFeuille(() => envoyerListe(ch, toutes, li => {
                     const x = a[li.cle];

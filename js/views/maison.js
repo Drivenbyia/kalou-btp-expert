@@ -17,10 +17,10 @@ function resumeEtape(id, v) {
     const s = x => String(x ?? '').replace('.', ',');
     switch (id) {
         case 'maison': return `${s(v.L)} × ${s(v.l)} m · ${v.niveaux === '2' ? 'R+1' : 'plain-pied'}`;
-        case 'fondations': return v.bas === 'vs' ? 'Vide sanitaire + hourdis' : 'Dalle sur terre-plein';
+        case 'fondations': return (v.bas === 'vs' ? 'Vide sanitaire + hourdis' : 'Dalle sur terre-plein') + (v.drainage === true || v.drainage === 'true' ? ' · drainage' : '');
         case 'murs': return `${{ p20: 'Parpaing 20', brique20: 'Brique R20', monomur30: 'Monomur 30' }[v.bloc]} · ${s(v.porte)} portes, ${s(v.fenetre)} fenêtres, ${s(v.baie)} baies`;
         case 'toit': return `${v.charpente === 'trad' ? 'Traditionnelle' : 'Fermettes'} · ${(COUVERTURES[v.couverture] || {}).l?.split(' (')[0] || ''} · ${s(v.pente)} %`;
-        case 'facade': return { mono: 'Enduit monocouche', chaux: 'Enduit chaux', aucun: 'Pas d\'enduit' }[v.enduit];
+        case 'facade': return { mono: 'Enduit monocouche', chaux: 'Enduit chaux', aucun: 'Pas d\'enduit' }[v.enduit] + (v.echafaudage === true || v.echafaudage === 'true' ? ' · échafaudage' : '');
         case 'interieur': return v.interieur === true || v.interieur === 'true' ? 'Placo, isolation, carrelage, peinture' : 'Non compté';
         default: return '';
     }
