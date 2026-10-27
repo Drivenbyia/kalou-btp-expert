@@ -233,3 +233,31 @@ test('forme libre incohérente : erreurs claires', () => {
     assert.ok(calculerMaison({ ...d, nAngles: 7 }, ctx).erreurs.nAngles);
     assert.ok(calculerMaison({ ...d, P: 20, S: 134 }, ctx).erreurs.P);
 });
+
+// ─── Surface habitable et menuiseries sur mesure ───────────────────────────
+import { menuiseriesDe } from '../js/calc/maison.js';
+
+test('surface habitable : murs, doublage et cloisons déduits', () => {
+    const d = { ...valeursDefaut(MAISON_DEF), L: 12, l: 9, cloisons: 30 };
+    const hab = r => Number(r.resume.find(k => /habitable/.test(k.l)).v.replace(/[^\d,]/g, '').replace(',', '.'));
+    // 12 × 9 = 108 m² ; murs 20 cm + doublage 13,3 cm = 33,3 cm ; 30 m de cloisons de 7,2 cm
+    const e = 0.333, attendu = 108 - 42 * e + 4 * e * e - 30 * 0.072;
+    assert.ok(Math.abs(hab(calculerMaison(d, ctx)) - attendu) < 0.6, String(attendu));
+    const sansDoublage = hab(calculerMaison({ ...d, doublage: 'non' }, ctx));
+    assert.ok(sansDoublage > hab(calculerMaison(d, ctx)) + 4);
+});
+
+test('menuiseries : anciennes saisies converties, tailles libres', () => {
+    const anc = menuiseriesDe({ porte: 1, fenetre: '3', baie: 0, garage: 0 });
+    assert.deepEqual(anc.map(m => [m.t, m.nb, m.larg, m.haut]), [['porte', 1, 90, 215], ['fenetre', 3, 120, 125]]);
+    const d = valeursDefaut(MAISON_DEF);
+    const std = calculerMaison(d, ctx);
+    const parDefaut = calculerMaison({ ...d, menuiseries: menuiseriesDe(d) }, ctx);
+    assert.equal(q(parDefaut.lignes, 'parpaing20'), q(std.lignes, 'parpaing20'));
+    const deuxBaies = calculerMaison({ ...d, menuiseries: [{ t: 'baie', nb: '1', larg: '300', haut: '215' }, { t: 'baie', nb: 1, larg: '180', haut: '215' }] }, ctx);
+    assert.deepEqual(deuxBaies.erreurs, {});
+    assert.equal(q(deuxBaies.lignes, 'seuil'), 2);
+    assert.equal(q(deuxBaies.lignes, 'appui'), 0);
+    assert.ok(Math.abs(q(deuxBaies.lignes, 'linteau') - (3.4 + 2.2)) < 1e-9);
+    assert.ok(calculerMaison({ ...d, menuiseries: [{ t: 'fenetre', nb: 1, larg: '1,2', haut: '125' }] }, ctx).erreurs['men-0']);
+});

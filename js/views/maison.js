@@ -1,7 +1,7 @@
 // Écran « Maison neuve » : formulaire par étapes + résultat lot par lot.
 
 import { esc } from '../core/format.js';
-import { ETAPES, MAISON_DEF, calculerMaison } from '../calc/maison.js';
+import { ETAPES, MAISON_DEF, calculerMaison, menuiseriesDe, OUVERTURES, NOMS_MENUISERIES } from '../calc/maison.js';
 import { valeursDefaut } from '../calc/ouvrages.js';
 import { COUVERTURES } from '../calc/base.js';
 import { getSaisie, setSaisie, getChantier, ajouterItem, remplacerItem, ctxCalcul } from '../core/store.js';
@@ -19,7 +19,13 @@ function resumeEtape(id, v) {
     switch (id) {
         case 'maison': return `${v.forme === 'autre' ? `${s(v.S)} m² au sol, ${s(v.nAngles)} angles` : `${s(v.L)} × ${s(v.l)} m`} · ${v.niveaux === '2' ? 'R+1' : 'plain-pied'}`;
         case 'fondations': return (v.bas === 'vs' ? 'Vide sanitaire + hourdis' : 'Dalle sur terre-plein') + (v.drainage === true || v.drainage === 'true' ? ' · drainage' : '');
-        case 'murs': return `${{ p20: 'Parpaing 20', brique20: 'Brique R20', monomur30: 'Monomur 30' }[v.bloc]} · ${s(v.porte)} portes, ${s(v.fenetre)} fenêtres, ${s(v.baie)} baies`;
+        case 'murs': {
+            const nb = {};
+            (v.menuiseries || []).forEach(m => { const x = Number(String(m.nb).replace(',', '.')); if (x > 0) nb[m.t] = (nb[m.t] || 0) + x; });
+            const pl = (t, x) => `${x} ${NOMS_MENUISERIES[t].toLowerCase()}${x > 1 ? 's' : ''}`.replace('baie vitrées', 'baies vitrées');
+            const txt = Object.keys(NOMS_MENUISERIES).filter(t => nb[t]).map(t => pl(t, nb[t])).join(', ');
+            return `${{ p20: 'Parpaing 20', brique20: 'Brique R20', monomur30: 'Monomur 30' }[v.bloc]} · ${txt || 'aucune menuiserie'}`;
+        }
         case 'toit': return `${v.charpente === 'trad' ? 'Traditionnelle' : 'Fermettes'} · ${(COUVERTURES[v.couverture] || {}).l?.split(' (')[0] || ''} · ${s(v.pente)} %`;
         case 'facade': return { mono: 'Enduit monocouche', chaux: 'Enduit chaux', aucun: 'Pas d\'enduit' }[v.enduit] + (v.echafaudage === true || v.echafaudage === 'true' ? ' · échafaudage' : '');
         case 'interieur': return v.interieur === true || v.interieur === 'true' ? 'Placo, isolation, carrelage, peinture' : 'Non compté';
@@ -27,11 +33,35 @@ function resumeEtape(id, v) {
     }
 }
 
+const cmTxt = x => String(x ?? '').replace('.', ',');
+
+/** Liste des menuiseries : une ligne par taille (type, nombre, largeur × hauteur en cm). */
+function htmlMenuiseries(liste) {
+    return `<div class="f men-titre"><span class="lab">Menuiseries extérieures</span>
+        <p class="aide">Une ligne par taille : deux baies de tailles différentes = deux lignes. Taille du trou fini (tableau), en cm.</p></div>
+        ${liste.map((m, i) => `
+        <div class="f men" data-f="men-${i}" data-mi="${i}">
+            <div class="men-haut">
+                <div class="seg">${Object.entries(NOMS_MENUISERIES).map(([t, l]) =>
+                    `<button type="button" data-men-type="${t}" class="${m.t === t ? 'on' : ''}" aria-pressed="${m.t === t}">${esc(l)}</button>`).join('')}</div>
+                <button type="button" class="men-suppr" data-men-suppr aria-label="Retirer cette ligne">✕</button>
+            </div>
+            <div class="men-dims">
+                <div><span class="men-lab">Nombre</span><div class="inp"><input data-men="nb" inputmode="numeric" autocomplete="off" value="${esc(cmTxt(m.nb))}"></div></div>
+                <div><span class="men-lab">Largeur</span><div class="inp"><input data-men="larg" inputmode="decimal" autocomplete="off" value="${esc(cmTxt(m.larg))}"><span class="u">cm</span></div></div>
+                <div><span class="men-lab">Hauteur</span><div class="inp"><input data-men="haut" inputmode="decimal" autocomplete="off" value="${esc(cmTxt(m.haut))}"><span class="u">cm</span></div></div>
+            </div>
+            <p class="err"></p>
+        </div>`).join('')}
+        <div class="f"><button type="button" class="btn btn-ghost btn-block btn-sm" data-men-ajout>＋ Ajouter une menuiserie</button></div>`;
+}
+
 export function vueMaison(root, params) {
     const ch = params.ch ? getChantier(params.ch) : null;
     const item = ch && params.item ? ch.items.find(x => x.id === params.item) : null;
     const ctx = ctxCalcul();
     const valeurs = versSaisie(MAISON_DEF, { ...valeursDefaut(MAISON_DEF), ...(item ? item.valeurs : (getSaisie('maison') || {})) });
+    valeurs.menuiseries = menuiseriesDe(valeurs);
     const ouvertes = new Set(['maison']);
     let couvPrec = valeurs.couverture;
 
@@ -56,7 +86,7 @@ export function vueMaison(root, params) {
         etapes.innerHTML = ETAPES.map((e, i) => `
             <details class="card step" data-etape="${e.id}" ${ouvertes.has(e.id) ? 'open' : ''}>
                 <summary><span class="ic">${e.ic}</span><b>${i + 1}. ${esc(e.titre)}<small data-resume="${e.id}">${esc(resumeEtape(e.id, valeurs))}</small></b><span class="chev">${ICONES.down}</span></summary>
-                <div class="body"><div class="form">${htmlChamps(e.champs, valeurs)}</div>
+                <div class="body"><div class="form">${htmlChamps(e.champs, valeurs)}${e.id === 'murs' ? `<div class="men-liste" style="display:contents">${htmlMenuiseries(valeurs.menuiseries)}</div>` : ''}</div>
                 ${e.id === 'maison' && valeurs.forme === 'autre' ? '<button class="btn btn-dark btn-block" style="margin-top:14px" data-contour>📐 Calculer à partir des côtés du plan</button>' : ''}
                 ${i < ETAPES.length - 1 ? `<button class="btn btn-ghost btn-block btn-sm" style="margin-top:14px" data-suivant="${ETAPES[i + 1].id}">Étape suivante : ${esc(ETAPES[i + 1].titre)} ↓</button>`
                     : `<button class="btn btn-ghost btn-block btn-sm" style="margin-top:14px" data-voir-res>Voir le résultat ↓</button>`}</div>
@@ -146,7 +176,49 @@ export function vueMaison(root, params) {
         if (!d.dataset || !d.dataset.etape) return;
         if (d.open) ouvertes.add(d.dataset.etape); else ouvertes.delete(d.dataset.etape);
     }, true);
+    // Menuiseries : saisie dans la liste, re-rendu de la seule liste quand on ajoute / retire / change de type
+    const redessinerMenuiseries = focusDernier => {
+        const zone = etapes.querySelector('.men-liste');
+        if (zone) zone.innerHTML = htmlMenuiseries(valeurs.menuiseries);
+        if (item) armerGarde();
+        dessinerResultat();
+        if (focusDernier && zone) { const ins = zone.querySelectorAll('[data-men="nb"]'); ins.length && ins[ins.length - 1].focus(); }
+    };
+    etapes.addEventListener('input', e => {
+        const k = e.target.dataset && e.target.dataset.men;
+        const row = k && e.target.closest('[data-mi]');
+        if (!row) return;
+        valeurs.menuiseries[+row.dataset.mi][k] = e.target.value;
+        planifier();
+        if (item) armerGarde();
+    });
+    etapes.addEventListener('focusin', e => {
+        if (e.target.dataset && e.target.dataset.men) setTimeout(() => { try { e.target.select(); } catch { /* */ } }, 0);
+    });
     etapes.addEventListener('click', e => {
+        const row = e.target.closest('[data-mi]');
+        const bt = e.target.closest('[data-men-type]');
+        if (row && bt) {
+            const m = valeurs.menuiseries[+row.dataset.mi];
+            const anc = OUVERTURES[m.t], nouv = OUVERTURES[bt.dataset.menType];
+            // Taille standard du nouveau type si l'ancienne n'avait pas été retouchée
+            const std = o => String(m.larg).replace(',', '.') === String(Math.round(o.larg * 100)) && String(m.haut).replace(',', '.') === String(Math.round(o.haut * 100));
+            if (!String(m.larg).trim() || !String(m.haut).trim() || std(anc)) { m.larg = String(Math.round(nouv.larg * 100)); m.haut = String(Math.round(nouv.haut * 100)); }
+            m.t = bt.dataset.menType;
+            redessinerMenuiseries();
+            return;
+        }
+        if (row && e.target.closest('[data-men-suppr]')) {
+            valeurs.menuiseries.splice(+row.dataset.mi, 1);
+            redessinerMenuiseries();
+            return;
+        }
+        if (e.target.closest('[data-men-ajout]')) {
+            const o = OUVERTURES.fenetre;
+            valeurs.menuiseries.push({ t: 'fenetre', nb: '1', larg: String(Math.round(o.larg * 100)), haut: String(Math.round(o.haut * 100)) });
+            redessinerMenuiseries(true);
+            return;
+        }
         if (e.target.closest('[data-contour]')) {
             ouvrirContour(getSaisie('maison_contour'), r => {
                 valeurs.P = String(r.P).replace('.', ',');
@@ -173,6 +245,7 @@ export function vueMaison(root, params) {
 
     root.querySelector('#reset').addEventListener('click', () => {
         Object.assign(valeurs, versSaisie(MAISON_DEF, valeursDefaut(MAISON_DEF)));
+        valeurs.menuiseries = menuiseriesDe({});
         dessinerEtapes(); dessinerResultat();
         toast('Valeurs par défaut remises');
     });
