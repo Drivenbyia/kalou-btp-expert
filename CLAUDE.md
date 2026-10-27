@@ -67,6 +67,11 @@
 - Forme libre (murs à angles droits) : axe = P − 4·ép., intérieur = P − 8·ép.,
   surface int. = S − P·ép. + 4·ép² ; toiture = (S + P·d + 4d²)/cos(pente), noues aux angles rentrants.
 
+- Surface habitable (maison) : emprise − murs − doublage (collé 13,3 cm, sur appuis 14,5 cm,
+  aucun si monomur) − cloisons 7,2 cm × ml − trémie 3 m² en R+1. Le détail s'affiche dans « À savoir ».
+- Menuiseries (maison) : liste `menuiseries[{ t, nb, larg, haut }]` (cm), une ligne par taille ;
+  anciennes saisies `porte/fenetre/baie/garage` converties par `menuiseriesDe()`.
+
 ### Données (localStorage)
 
 - `kalou_chantiers_v4` : `{ id, nom, notes, items[], achete{ clé: quantité achetée }, libres[] }`.
@@ -98,6 +103,7 @@
 | 4.4.0 | #11 | Maison de **forme libre** (L, T, U, Z) + aide « tour de la maison » (flèches + longueurs, dessin, contrôle de fermeture) |
 | 4.4.1 | #12 | Aide « tour » : indique quels côtés vérifier si le tour ne se referme pas |
 | 4.4.2 | #13 | Explications sur ~40 champs (d'où à où mesurer), alignement des champs |
+| 4.5.0 | #15 | Maison : surface habitable sans doublage ni cloisons (détail affiché) ; menuiseries en liste avec tailles libres |
 
 Projet en cours chez l'utilisateur : maison en Z (plan ≈ 58 m de tour, 134 m² au sol, 8 angles,
 2 blocs de toit, ailes ≈ 7,5 m).

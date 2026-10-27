@@ -9,7 +9,7 @@ import {
     calcPlancher, calcToiture, calcPlaco, BLOCS, COUVERTURES, PERTE_BETON, PERTE_MORTIER,
     lignesChainageVertical, TREILLIS_UTILE, calcDrainage, lignesEchafaudage, calcSoufflage
 } from './base.js';
-import { valider as validerOuvrage } from './ouvrages.js';
+import { valider as validerOuvrage, lireNombre } from './ouvrages.js';
 import { fmtSmart } from '../core/format.js';
 
 const fm = x => fmtSmart(x, 2);
@@ -24,6 +24,47 @@ export const OUVERTURES = {
     baie:    { l: 'Baie vitrée / porte-fenêtre',   larg: 2.4, haut: 2.15 },
     garage:  { l: 'Porte de garage',               larg: 2.4, haut: 2.0 }
 };
+export const NOMS_MENUISERIES = { porte: 'Porte', fenetre: 'Fenêtre', baie: 'Baie vitrée', garage: 'Garage' };
+const NB_DEFAUT = { porte: 2, fenetre: 8, baie: 1, garage: 0 };
+
+// Épaisseur du doublage intérieur (isolant + plaque), m
+export const EP_DOUBLAGE = { colle: 0.133, appuis: 0.145, non: 0 };
+const EP_CLOISON = 0.072;          // cloison 72/48
+const TREMIE_ESCALIER = 3;         // m² non comptés à l'étage d'un R+1
+
+/**
+ * Liste des menuiseries saisies (type, nombre, largeur et hauteur en cm, valeurs brutes).
+ * Anciennes saisies (nombre de portes, fenêtres… aux tailles standard) converties.
+ */
+export function menuiseriesDe(brut = {}) {
+    if (Array.isArray(brut.menuiseries)) {
+        return brut.menuiseries.map(m => ({ t: OUVERTURES[m && m.t] ? m.t : 'fenetre', nb: m.nb ?? '', larg: m.larg ?? '', haut: m.haut ?? '' }));
+    }
+    const out = [];
+    Object.keys(OUVERTURES).forEach(t => {
+        const x = brut[t] === undefined || brut[t] === '' ? NB_DEFAUT[t] : lireNombre(brut[t]);
+        if (x > 0) out.push({ t, nb: x, larg: Math.round(OUVERTURES[t].larg * 100), haut: Math.round(OUVERTURES[t].haut * 100) });
+    });
+    return out;
+}
+
+/** Lit et vérifie les menuiseries : { liste: [{t, nb, larg, haut} en m], erreurs: { 'men-i': msg } } */
+export function lireMenuiseries(brut, hMur) {
+    const liste = [], erreurs = {};
+    menuiseriesDe(brut).forEach((m, i) => {
+        const nb = lireNombre(m.nb), lg = lireNombre(m.larg), ht = lireNombre(m.haut);
+        let err = null;
+        if (isNaN(nb) || nb < 0 || nb !== Math.round(nb)) err = 'Nombre : un chiffre entier (0 si aucune).';
+        else if (nb > 60) err = 'Nombre : trop grand ? (max 60)';
+        else if (isNaN(lg) || isNaN(ht) || lg <= 0 || ht <= 0) err = 'Largeur et hauteur en cm (ex : 120 × 125).';
+        else if (lg < 20 || ht < 20) err = 'En centimètres : 120 pour 1,20 m.';
+        else if (lg > 800) err = 'Largeur : trop grande ? (max 800 cm)';
+        else if (hMur > 0 && ht / 100 > hMur - 0.1) err = `Plus haute que le mur (${fmtSmart(hMur, 2)} m) : vérifie.`;
+        if (err) { erreurs[`men-${i}`] = err; return; }
+        if (nb > 0) liste.push({ t: m.t, nb, larg: lg / 100, haut: ht / 100 });
+    });
+    return { liste, erreurs };
+}
 
 /** Étapes du formulaire (chaque étape = une carte). */
 export const ETAPES = [
@@ -61,11 +102,8 @@ export const ETAPES = [
     {
         id: 'murs', titre: 'Murs & ouvertures', ic: '🧱',
         champs: [
-            c('bloc', 'Murs en', [{ v: 'p20', l: 'Agglo de 20' }, { v: 'brique20', l: 'Brique de 20' }, { v: 'monomur30', l: 'Monomur de 30' }], 'p20'),
-            n('porte', 'Portes extérieures', 'u', 2, { demi: true, zero: true, max: 20, aide: '0,90 × 2,15 m' }),
-            n('fenetre', 'Fenêtres', 'u', 8, { demi: true, zero: true, max: 60, aide: '1,20 × 1,25 m' }),
-            n('baie', 'Baies vitrées', 'u', 1, { demi: true, zero: true, max: 20, aide: '2,40 × 2,15 m' }),
-            n('garage', 'Portes de garage', 'u', 0, { demi: true, zero: true, max: 5, aide: '2,40 × 2,00 m' })
+            c('bloc', 'Murs en', [{ v: 'p20', l: 'Agglo de 20' }, { v: 'brique20', l: 'Brique de 20' }, { v: 'monomur30', l: 'Monomur de 30' }], 'p20')
+            // Les menuiseries (liste type / nombre / taille) sont saisies sous ces champs : voir menuiseriesDe()
         ]
     },
     {
@@ -91,7 +129,7 @@ export const ETAPES = [
         id: 'interieur', titre: 'Intérieur (second œuvre)', ic: '📐',
         champs: [
             oui('interieur', 'Compter l\'intérieur', true),
-            c('doublage', 'Doublage des murs', [{ v: 'colle', l: 'Collé PSE 13+120' }, { v: 'appuis', l: 'Sur appuis + laine 120' }, { v: 'non', l: 'Aucun' }], 'colle', { si: v => v.interieur && v.bloc !== 'monomur30', aide: 'R ≈ 3,75 : niveau RE2020.' }),
+            c('doublage', 'Doublage des murs', [{ v: 'colle', l: 'Collé PSE 13+120' }, { v: 'appuis', l: 'Sur appuis + laine 120' }, { v: 'non', l: 'Aucun' }], 'colle', { si: v => v.interieur && v.bloc !== 'monomur30', aide: 'R ≈ 3,75 : niveau RE2020. Son épaisseur (≈ 13 à 15 cm) est retirée de la surface habitable.' }),
             oui('plafonds', 'Plafonds placo + combles soufflés R 8', true, { si: v => v.interieur }),
             n('cloisons', 'Cloisons', 'm', 0, { zero: true, max: 300, si: v => v.interieur, aide: '0 = estimation automatique (≈ 0,35 m par m² habitable).' }),
             oui('chape', 'Chape flottante sur isolant', false, { si: v => v.interieur, aide: 'Utile pour un plancher chauffant. Sinon, carrelage collé sur la dalle.' }),
@@ -125,6 +163,9 @@ export const MAISON_DEF = {
 export function calculerMaison(brut, ctx = {}) {
     // Validation avec le même moteur que les calculateurs
     const { v, erreurs } = validerOuvrage({ champs: MAISON_DEF.champs, verifier: MAISON_DEF.verifier }, brut);
+    v.menuiseries = menuiseriesDe(brut);
+    const men = lireMenuiseries(brut, v.hMur);
+    Object.assign(erreurs, men.erreurs);
     if (Object.keys(erreurs).length) return { erreurs, v };
     if (v.l > v.L) { const t = v.L; v.L = v.l; v.l = t; }       // L = plus grand côté
     // Géométrie commune : rectangle = cas particulier de la forme libre
@@ -146,7 +187,17 @@ export function calculerMaison(brut, ctx = {}) {
     const Sniv = Sext - Pext * ep + 4 * ep * ep;        // surface intérieure d'un niveau
     const lint = largeur - 2 * ep;
     const Lint = Sniv / lint;                           // longueur équivalente (ailes mises bout à bout)
-    const Shab = Sniv * niv;
+    // Surface intérieure finie : on retire aussi le doublage (isolant + plaque), puis cloisons et trémie
+    const epD = v.interieur && v.bloc !== 'monomur30' ? (EP_DOUBLAGE[v.doublage] ?? 0) : 0;
+    const epF = ep + epD;
+    const Sfin = Sext - Pext * epF + 4 * epF * epF;     // par niveau, entre doublages
+    const perimFin = Pext - 8 * epF;
+    const lfin = largeur - 2 * epF;
+    const Lfin = Sfin / lfin;
+    const mlCloisons = v.cloisons > 0 ? v.cloisons : Math.round(Sfin * niv * 0.35);
+    const sCloisons = mlCloisons * EP_CLOISON;
+    const sTremie = niv === 2 ? TREMIE_ESCALIER : 0;
+    const Shab = Sfin * niv - sCloisons - sTremie;
     const mlSemelles = perimAxe + v.refend;
     const portee = v.refend > 0 ? lint / 2 : lint;     // poutrelles dans le sens de la largeur
     const vs = v.bas === 'vs';
@@ -159,19 +210,20 @@ export function calculerMaison(brut, ctx = {}) {
     const nbPignons = pignons ? (ailes === 1 ? 2 : ailes) : 0;
     const surfPignons = nbPignons * largeur * hFaitage / 2;    // triangles de pignon
 
-    // Ouvertures
-    const nbOuv = { porte: v.porte, fenetre: v.fenetre, baie: v.baie, garage: v.garage };
-    let surfOuv = 0, mlLinteaux = 0;
-    const detLinteaux = [];
-    Object.entries(nbOuv).forEach(([k, nb]) => {
-        if (!(nb > 0)) return;
-        const o = OUVERTURES[k];
-        surfOuv += nb * o.larg * o.haut;
+    // Ouvertures (chaque menuiserie avec sa taille)
+    let surfOuv = 0, mlLinteaux = 0, tableaux = 0;
+    const lin = new Map();                              // longueur de linteau → nombre
+    const nbType = { porte: 0, fenetre: 0, baie: 0, garage: 0 };
+    men.liste.forEach(o => {
+        surfOuv += o.nb * o.larg * o.haut;
+        tableaux += o.nb * (2 * o.haut + o.larg);
+        nbType[o.t] += o.nb;
         const lg = Math.round((o.larg + 0.4) * 100) / 100;
-        mlLinteaux += nb * lg;
-        detLinteaux.push(`${nb} × ${fm(lg)} m`);
+        mlLinteaux += o.nb * lg;
+        lin.set(lg, (lin.get(lg) || 0) + o.nb);
     });
-    const nbOuvTotal = v.porte + v.fenetre + v.baie + v.garage;
+    const detLinteaux = [...lin.entries()].sort((a, b) => b[0] - a[0]).map(([lg, nb]) => `${nb} × ${fm(lg)} m`);
+    const nbOuvTotal = men.liste.reduce((t, o) => t + o.nb, 0);
     const nbT = v.refend > 0 ? 2 * Math.max(1, Math.round(v.refend / Math.max(1, lint))) : 0;   // jonctions refend / façade
     const nbChV = nAngles + nbT + Math.floor(perimAxe / 10);               // angles, refends, ~ tous les 10 m
 
@@ -284,13 +336,13 @@ export function calculerMaison(brut, ctx = {}) {
     const mlRampants = nbPignons * 2 * Math.sqrt(Math.pow(largeur / 2, 2) + hFaitage * hFaitage);
     const hChV = hSoub + hMurs;                                       // de la semelle au chaînage haut, d'un seul tenant
     const mlChV = nbChV * hChV;
-    const nbSeuils = v.porte + v.baie;
+    const nbSeuils = nbType.porte + nbType.baie;
     lot('chainages', 'Chaînages, linteaux, appuis & seuils', '⛓️', [
         ...lignesChainage(mlChH, { mode, angles: (nAngles + nbT) * niv }),
         ...lignesChainage(mlRampants, { mode }),
         ...lignesChainageVertical(nbChV, hChV, { mode }),
         mlLinteaux > 0 ? L(b.linteau || 'linteau', mlLinteaux, { d: detLinteaux.join(' + ') }) : null,
-        v.fenetre > 0 ? L('appui', v.fenetre) : null,
+        nbType.fenetre > 0 ? L('appui', nbType.fenetre) : null,
         nbSeuils > 0 ? L('seuil', nbSeuils) : null
     ], [
         `Chaînage horizontal en haut de chaque niveau : ${fm(mlChH)} m, équerres à chaque angle.`,
@@ -352,9 +404,7 @@ export function calculerMaison(brut, ctx = {}) {
         const infos = [];
         let h = 0;
         const hsp = Math.max(2.3, v.hMur - 0.2);
-        const mlCloisons = v.cloisons > 0 ? v.cloisons : Math.round(Shab * 0.35);
         const nbPortes = Math.max(1, Math.round(Shab / 12));             // portes intérieures estimées
-        const tableaux = Object.entries(nbOuv).reduce((t, [k, nb]) => t + (nb > 0 ? nb * (2 * OUVERTURES[k].haut + OUVERTURES[k].larg) : 0), 0);
         if (v.doublage !== 'non' && v.doublage !== false && v.bloc !== 'monomur30') {
             const type = v.doublage === 'appuis' ? 'appuis' : 'colle';
             const r = calcPlaco(type, perimInt * niv, hsp, { isolant: true, ouv: surfOuv, laine: 120, complexe: '120', angles: tableaux });
@@ -363,13 +413,13 @@ export function calculerMaison(brut, ctx = {}) {
         }
         if (v.plafonds) {
             // Niveau du haut : il porte l'isolant (fourrures à 50 cm + pare-vapeur). Rez-de-chaussée d'un R+1 : plafond simple.
-            const haut = calcPlaco('plafond', Lint, lint, { isolant: true });
+            const haut = calcPlaco('plafond', Lfin, lfin, { isolant: true });
             lignes.push(...haut.lignes);
-            if (niv === 2) lignes.push(...calcPlaco('plafond', Lint, lint, { isolant: false }).lignes);
-            const s = calcSoufflage(Sniv, 'verre', 8, { pareVapeur: false });
+            if (niv === 2) lignes.push(...calcPlaco('plafond', Lfin, lfin, { isolant: false }).lignes);
+            const s = calcSoufflage(Sfin, 'verre', 8, { pareVapeur: false });
             lignes.push(...s.lignes);
-            h += Sniv * niv * 0.8 + Sniv * 0.12;
-            infos.push(`Plafonds : ${fm(Sniv * niv)} m², fourrures à 50 cm sous les combles. Combles perdus : laine de verre soufflée R 8 (${fmtSmart(s.eSouffle * 1000, 0)} mm), pare-vapeur dessous.`);
+            h += Sfin * niv * 0.8 + Sfin * 0.12;
+            infos.push(`Plafonds : ${fm(Sfin * niv)} m², fourrures à 50 cm sous les combles. Combles perdus : laine de verre soufflée R 8 (${fmtSmart(s.eSouffle * 1000, 0)} mm), pare-vapeur dessous.`);
         }
         if (mlCloisons > 0) {
             const r = calcPlaco('cloison', mlCloisons, hsp, { isolant: true, portes: nbPortes });
@@ -377,16 +427,16 @@ export function calculerMaison(brut, ctx = {}) {
             infos.push(`Cloisons 72/48 : ${fm(mlCloisons)} m${v.cloisons > 0 ? '' : ' (estimation)'} × ${fm(hsp)} m, ${nbPortes} portes. Salle de bain : prévoir des plaques H1.`);
         }
         // Chape : partout si demandée ; à l'étage d'office si carrelage (pas de carrelage collé sur la dalle de compression)
-        const sChape = v.chape ? Shab : (v.carrelage && niv === 2 ? Sniv : 0);
+        const sChape = v.chape ? Sfin * niv : (v.carrelage && niv === 2 ? Sfin : 0);
         if (sChape > 0) {
             const volCh = sChape * 0.05 * PERTE_BETON;
-            lignes.push(...lignesMortier(volCh, { sableM3: 1.15 }), L('bande_peri', perimInt * (sChape / Sniv) * 1.05));
+            lignes.push(...lignesMortier(volCh, { sableM3: 1.15 }), L('bande_peri', perimFin * (sChape / Sfin) * 1.05));
             if (v.chape) lignes.push(L('isolant_chape', sChape * 1.05), L('polyane', sChape * 1.15), L('treillis_chape', sChape * 1.10));
             h += sChape * (v.chape ? 0.5 : 0.35);
             infos.push(v.chape ? `Chape flottante 5 cm sur isolant : ${fm(sChape)} m² (treillis de chape, film, bande périphérique).` : `Chape 5 cm à l'étage (${fm(sChape)} m²) : on ne colle pas le carrelage directement sur la dalle de compression.`);
         }
         if (v.carrelage) {
-            const plinthes = Math.max(0, perimInt * niv + mlCloisons * 2 - 0.9 * 2 * nbPortes);
+            const plinthes = Math.max(0, perimFin * niv + mlCloisons * 2 - 0.9 * 2 * nbPortes);
             lignes.push(L('carrelage', Shab * 1.10), L('colle_carrelage', Shab * 7), L('joint_carrelage', Shab * 0.18),
                 L('croisillon', Math.ceil(Shab * 1.1 / 0.36)), L('cale_nivel', Math.ceil(Shab * 4.4 / 0.36)),
                 L('plinthe', plinthes * 1.10), L('spec', 4 * 1.5, { d: 'douche ≈ 4 m²' }), L('bande_spec', 4), L('silicone', 3));
@@ -394,7 +444,7 @@ export function calculerMaison(brut, ctx = {}) {
             infos.push(`Carrelage : ${fm(Shab)} m², 60×60 en double encollage (≈ 7 kg de colle/m²), joint 3 mm. SPEC pour une douche.`);
         }
         if (v.peinture) {
-            const sMurs = Math.max(0, perimInt * niv * hsp - surfOuv + mlCloisons * 2 * hsp - nbPortes * 1.7 * 2);
+            const sMurs = Math.max(0, perimFin * niv * hsp - surfOuv + mlCloisons * 2 * hsp - nbPortes * 1.7 * 2);
             const sP = Shab;
             lignes.push(L('impression', (sMurs + sP) / 8 * 1.05),
                 L('peinture', sMurs * 2 / 10 * 1.05, { d: '2 couches' }),
@@ -413,6 +463,7 @@ export function calculerMaison(brut, ctx = {}) {
     const resume = [
         { l: 'Emprise au sol', v: `${rd(Sext)} m²` },
         { l: 'Surface habitable ≈', v: `${rd(Shab)} m²` },
+        { l: 'Menuiseries', v: `${nbOuvTotal} (${rd(surfOuv)} m²)` },
         { l: 'Murs', v: `${rd(surfMurs)} m²` },
         { l: 'Toiture', v: `${rd(toit.surf)} m²` }
     ];
@@ -425,13 +476,29 @@ export function calculerMaison(brut, ctx = {}) {
         resume, lots,
         lignes: toutes,
         infos: [
-            'Maison rectangulaire, dimensions extérieures. Quantités pertes comprises.',
+            texteSurface({ Sext, Pext, ep, epD, Sfin, niv, sCloisons, mlCloisons, estime: !(v.cloisons > 0), sTremie, Shab, doublage: v.doublage, interieur: v.interieur, monomur: v.bloc === 'monomur30' }),
+            'Dimensions extérieures (côtes du plan). Quantités pertes comprises.',
             'Non compté : menuiseries, électricité, plomberie, chauffage, escalier, raccordements (voir « Fosse toutes eaux » pour l\'assainissement).',
             'Ordre de grandeur pour commander et prévoir : le plan, l\'étude de sol et le plan de charpente restent la référence.'
         ],
         heures,
         mesure: { q: Sext, u: 'm²', h: heures }
     };
+}
+
+/** Explique d'où vient la surface habitable. */
+function texteSurface(x) {
+    const fm = y => fmtSmart(y, 1);
+    const cm = e => fmtSmart(e * 100, 1);
+    const sMurs = x.Sext - (x.Sext - x.Pext * x.ep + 4 * x.ep * x.ep);
+    const sDoub = x.Sext - sMurs - x.Sfin;
+    let t = `Surface habitable : ${fm(x.Sext)} m² d'emprise − ${fm(sMurs)} m² de murs (${cm(x.ep)} cm)`;
+    if (x.epD > 0) t += ` − ${fm(sDoub)} m² de doublage (${cm(x.epD)} cm)`;
+    t += ` = ${fm(x.Sfin)} m² par niveau`;
+    if (x.niv === 2) t += `, × 2 niveaux − ${fm(x.sTremie)} m² de trémie d'escalier`;
+    t += ` − ${fm(x.sCloisons)} m² de cloisons (${fm(x.mlCloisons)} m${x.estime ? ' estimés' : ''}) = ${fm(x.Shab)} m².`;
+    if (x.epD === 0) t += x.monomur ? ' Monomur : pas de doublage.' : !x.interieur ? ' Doublage non déduit (intérieur non compté).' : ' Pas de doublage.';
+    return t;
 }
 
 export { COUVERTURES };
