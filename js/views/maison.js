@@ -11,12 +11,13 @@ import { htmlKpis, htmlLignes, htmlInfos, htmlCout, texteListe, consolider, parC
 import { aller, entete, retourVers, garderSortie, armerGarde } from '../app.js';
 import { choisirChantier, barreActions, BTN_PARTAGER } from './commun.js';
 import { versSaisie } from './calculs.js';
+import { ouvrirContour } from '../ui/contour.js';
 
 /** Petit résumé sous le titre de chaque étape (pour s'y retrouver fermé). */
 function resumeEtape(id, v) {
     const s = x => String(x ?? '').replace('.', ',');
     switch (id) {
-        case 'maison': return `${s(v.L)} × ${s(v.l)} m · ${v.niveaux === '2' ? 'R+1' : 'plain-pied'}`;
+        case 'maison': return `${v.forme === 'autre' ? `${s(v.S)} m² au sol, ${s(v.nAngles)} angles` : `${s(v.L)} × ${s(v.l)} m`} · ${v.niveaux === '2' ? 'R+1' : 'plain-pied'}`;
         case 'fondations': return (v.bas === 'vs' ? 'Vide sanitaire + hourdis' : 'Dalle sur terre-plein') + (v.drainage === true || v.drainage === 'true' ? ' · drainage' : '');
         case 'murs': return `${{ p20: 'Parpaing 20', brique20: 'Brique R20', monomur30: 'Monomur 30' }[v.bloc]} · ${s(v.porte)} portes, ${s(v.fenetre)} fenêtres, ${s(v.baie)} baies`;
         case 'toit': return `${v.charpente === 'trad' ? 'Traditionnelle' : 'Fermettes'} · ${(COUVERTURES[v.couverture] || {}).l?.split(' (')[0] || ''} · ${s(v.pente)} %`;
@@ -56,6 +57,7 @@ export function vueMaison(root, params) {
             <details class="card step" data-etape="${e.id}" ${ouvertes.has(e.id) ? 'open' : ''}>
                 <summary><span class="ic">${e.ic}</span><b>${i + 1}. ${esc(e.titre)}<small data-resume="${e.id}">${esc(resumeEtape(e.id, valeurs))}</small></b><span class="chev">${ICONES.down}</span></summary>
                 <div class="body"><div class="form">${htmlChamps(e.champs, valeurs)}</div>
+                ${e.id === 'maison' && valeurs.forme === 'autre' ? '<button class="btn btn-dark btn-block" style="margin-top:14px" data-contour>📐 Calculer à partir des côtés du plan</button>' : ''}
                 ${i < ETAPES.length - 1 ? `<button class="btn btn-ghost btn-block btn-sm" style="margin-top:14px" data-suivant="${ETAPES[i + 1].id}">Étape suivante : ${esc(ETAPES[i + 1].titre)} ↓</button>`
                     : `<button class="btn btn-ghost btn-block btn-sm" style="margin-top:14px" data-voir-res>Voir le résultat ↓</button>`}</div>
             </details>`).join('');
@@ -145,6 +147,18 @@ export function vueMaison(root, params) {
         if (d.open) ouvertes.add(d.dataset.etape); else ouvertes.delete(d.dataset.etape);
     }, true);
     etapes.addEventListener('click', e => {
+        if (e.target.closest('[data-contour]')) {
+            ouvrirContour(getSaisie('maison_contour'), r => {
+                valeurs.P = String(r.P).replace('.', ',');
+                valeurs.S = String(r.S).replace('.', ',');
+                valeurs.nAngles = String(r.angles);
+                setSaisie('maison_contour', r.cotes);
+                if (item) armerGarde();
+                dessinerEtapes(); dessinerResultat();
+                toast(`Forme prise en compte : ${valeurs.P} m de tour, ${valeurs.S} m²`);
+            });
+            return;
+        }
         const s = e.target.closest('[data-suivant]');
         if (s) {
             const cur = s.closest('details');

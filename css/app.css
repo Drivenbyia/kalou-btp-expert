@@ -336,3 +336,7 @@ details.more[open] summary::before { transform: rotate(90deg); }
     main { padding: 0; }
     .card { box-shadow: none; border: 1px solid #ddd; break-inside: avoid; }
 }
+
+/* Flèches de direction (aide « tour de la maison ») */
+.seg button.fleche { min-height: 46px; width: 40px; padding: 0; flex: none; font-size: 19px; }
+.seg button.fleche.on::before { content: none; }

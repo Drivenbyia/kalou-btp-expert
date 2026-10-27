@@ -198,3 +198,38 @@ test('chape flottante : 5 cm minimum, isolant + armature', () => {
     const r = calculer('chape', { pose: 'flot', ep: 5 }, ctx);
     assert.ok(q(r.lignes, 'isolant_chape') > 0 && q(r.lignes, 'treillis_chape') > 0);
 });
+
+// ─── Maison de forme libre (L, T, Z…) ───────────────────────────────────────
+import { analyserContour } from '../js/ui/contour.js';
+import { calcToiture } from '../js/calc/base.js';
+
+test('forme libre : un rectangle saisi en « autre forme » donne les mêmes quantités', () => {
+    const d = valeursDefaut(MAISON_DEF);
+    const a = calculerMaison(d, ctx);
+    const b = calculerMaison({ ...d, forme: 'autre', P: 42, S: 108, nAngles: 4, ailes: 1, largeur: 9 }, ctx);
+    ['parpaing20', 'arm_semelle', 'fermette', 'tuile_meca', 'enduit_mono'].forEach(k => assert.equal(q(b.lignes, k), q(a.lignes, k), k));
+});
+
+test('toiture : rectangle identique en mode forme libre, noues pour un L', () => {
+    const a = calcToiture({ L: 12, l: 9, pans: 2, pente: 35, debord: 0.4 });
+    const b = calcToiture({ pans: 2, pente: 35, debord: 0.4, forme: { S: 108, P: 42, angles: 4, largeur: 9 } });
+    assert.ok(Math.abs(a.surf - b.surf) < 1e-9 && a.gout === b.gout);
+    const c = calcToiture({ pans: 2, pente: 35, debord: 0.4, forme: { S: 134.2, P: 58.1, angles: 6, largeur: 7.5, ailes: 2 } });
+    assert.ok(c.noues > 0 && q(c.lignes, 'noue') > 0);
+});
+
+test('contour du plan : périmètre, surface, angles et fermeture', () => {
+    const cotes = [['r', 10.72], ['d', 2.57], ['r', 7.90], ['d', 7.87], ['l', 6.84], ['u', 3.39], ['l', 11.78], ['u', 7.05]].map(([d, l]) => ({ d, l: String(l) }));
+    const a = analyserContour(cotes);
+    assert.ok(a.ferme && a.alterne && a.complet);
+    assert.ok(Math.abs(a.P - 58.12) < 0.01);
+    assert.ok(Math.abs(a.S - 134.2) < 0.2, String(a.S));
+    assert.equal(a.angles, 8);
+    assert.ok(!analyserContour(cotes.slice(0, 7)).ferme);
+});
+
+test('forme libre incohérente : erreurs claires', () => {
+    const d = { ...valeursDefaut(MAISON_DEF), forme: 'autre' };
+    assert.ok(calculerMaison({ ...d, nAngles: 7 }, ctx).erreurs.nAngles);
+    assert.ok(calculerMaison({ ...d, P: 20, S: 134 }, ctx).erreurs.P);
+});

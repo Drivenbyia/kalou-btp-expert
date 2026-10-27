@@ -112,6 +112,7 @@ export const MATERIAUX = {
     faitiere:   { l: 'Tuile faîtière / arêtier',          cat: 'couverture', base: 'u', prix: 4.5 },
     tuile_rive: { l: 'Tuile de rive',                     cat: 'couverture', base: 'u', prix: 5 },
     closoir:    { l: 'Closoir ventilé de faîtage',        cat: 'couverture', base: 'ml', prix: 9 },
+    noue:       { l: 'Noue (zinc ou alu)',               cat: 'couverture', base: 'ml', prix: 30 },
     gouttiere:  { l: 'Gouttière (zinc ou PVC)',           cat: 'couverture', base: 'ml', prix: 15 },
     descente:   { l: 'Descente EP + coude + dauphin',     cat: 'couverture', base: 'u', prix: 45 },
     crochet:    { l: 'Crochets de gouttière',             cat: 'couverture', base: 'u', prix: 2.5 },
