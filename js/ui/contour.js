@@ -31,7 +31,15 @@ export function analyserContour(cotes) {
     let alterne = n >= 4;
     for (let i = 0; i < n; i++) if (horiz(cotes[i].d) === horiz(cotes[(i + 1) % n].d)) alterne = false;
     const complet = cotes.every(c => lire(c.l) > 0);
-    return { pts, P, S: Math.abs(A) / 2, angles: n, ecart, ferme: ecart < 0.05, alterne, complet };
+    // Détail de l'écart par direction : quels côtés vérifier
+    const somme = d => cotes.reduce((t, c) => t + (c.d === d ? lire(c.l) : 0), 0);
+    const nums = d => cotes.map((c, i) => (c.d === d ? i + 1 : 0)).filter(Boolean);
+    const axes = [];
+    const dx = somme('r') - somme('l'), dy = somme('d') - somme('u');
+    if (Math.abs(dx) >= 0.01) axes.push({ axe: 'horizontal', plus: dx > 0 ? 'r' : 'l', moins: dx > 0 ? 'l' : 'r', ecart: Math.abs(dx), sPlus: Math.max(somme('r'), somme('l')), sMoins: Math.min(somme('r'), somme('l')) });
+    if (Math.abs(dy) >= 0.01) axes.push({ axe: 'vertical', plus: dy > 0 ? 'd' : 'u', moins: dy > 0 ? 'u' : 'd', ecart: Math.abs(dy), sPlus: Math.max(somme('d'), somme('u')), sMoins: Math.min(somme('d'), somme('u')) });
+    axes.forEach(a => { a.cotesPlus = nums(a.plus); a.cotesMoins = nums(a.moins); });
+    return { pts, P, S: Math.abs(A) / 2, angles: n, ecart, ferme: ecart < 0.05, alterne, complet, axes };
 }
 
 function svgForme(pts, ferme) {
@@ -71,8 +79,19 @@ export function ouvrirContour(cotesInit, onValider) {
             const etat = root.querySelector('#ct-etat');
             if (!a.complet) etat.innerHTML = '<span style="color:var(--muted)">Remplis la longueur de chaque côté.</span>';
             else if (!a.alterne) etat.innerHTML = '<span style="color:var(--danger)">Deux côtés de suite vont dans le même axe : vérifie les flèches.</span>';
-            else if (!a.ferme) etat.innerHTML = `<span style="color:var(--danger)">Le tour ne se referme pas : il manque ${fmtSmart(a.ecart, 2)} m. Vérifie une longueur ou ajoute un côté.</span>`;
+            else if (!a.ferme) {
+                const f = d => DIRS[d].f;
+                const liste = t => t.length ? `côté${t.length > 1 ? 's' : ''} ${t.join(', ')}` : 'aucun côté';
+                etat.innerHTML = `<span style="color:var(--danger)">Le tour ne se referme pas :</span>` + a.axes.filter(x => x.ecart >= 0.02).map(x =>
+                    `<span style="display:block;font-weight:600;color:var(--ink);margin-top:6px">Murs ${f(x.plus)} ${fmtSmart(x.sPlus, 2)} m contre ${f(x.moins)} ${fmtSmart(x.sMoins, 2)} m : il manque <b>${fmtSmart(x.ecart, 2)} m</b> sur un mur ${f(x.moins)} (${liste(x.cotesMoins)}), ou il y a ${fmtSmart(x.ecart, 2)} m de trop sur un mur ${f(x.plus)} (${liste(x.cotesPlus)}).</span>`).join('');
+            }
             else etat.innerHTML = `✔ Périmètre ${fmtSmart(a.P, 2)} m · Surface ${fmtSmart(a.S, 1)} m² · ${a.angles} angles`;
+            // Surligne les côtés à vérifier
+            const suspects = new Set(a.complet && a.alterne && !a.ferme ? a.axes.filter(x => x.ecart >= 0.02).flatMap(x => [...x.cotesPlus, ...x.cotesMoins]) : []);
+            lignes.querySelectorAll('[data-i]').forEach(r => {
+                const inp = r.querySelector('[data-len]');
+                if (inp) { inp.style.borderColor = suspects.has(+r.dataset.i + 1) ? '#D97706' : ''; inp.style.background = suspects.has(+r.dataset.i + 1) ? '#FEF3C7' : ''; }
+            });
             return a;
         };
         const dessiner = () => {
