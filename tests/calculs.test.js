@@ -152,3 +152,49 @@ test('maison : drainage et échafaudage en option', () => {
     assert.ok(r.lots.some(l => l.id === 'drainage'));
     assert.ok(q(r.lignes, 'echaf') > 0);
 });
+
+// ─── Second œuvre (relecture plaquiste-carreleur) ───────────────────────────
+import { calcSoufflage, longueurPlaque } from '../js/calc/base.js';
+
+test('plaque toute hauteur : 2,70 m de haut → plaques de 2,70 m', () => {
+    assert.equal(longueurPlaque(2.7), 2.7);
+    assert.equal(longueurPlaque(2.5), 2.5);
+});
+
+test('cloison 72/48 : montants doublés au-delà de 2,60 m, refus au-delà de 2,95 m', () => {
+    const a = calcPlaco('cloison', 6, 2.5, { cloison: '72' });
+    const b = calcPlaco('cloison', 6, 2.8, { cloison: '72' });
+    assert.equal(q(b.lignes, 'montant'), 2 * q(a.lignes, 'montant'));
+    assert.ok(calculer('placo', { type: 'cloison', a: 4, b: 3.2, cloison: '72' }, ctx).erreurs.b);
+    assert.deepEqual(calculer('placo', { type: 'cloison', a: 4, b: 3.2, cloison: '98' }, ctx).erreurs, {});
+});
+
+test('plafond isolé : fourrures tous les 50 cm + pare-vapeur', () => {
+    const sans = calcPlaco('plafond', 5, 4, { isolant: false });
+    const avec = calcPlaco('plafond', 5, 4, { isolant: true });
+    assert.ok(q(avec.lignes, 'fourrure') > q(sans.lignes, 'fourrure'));
+    assert.ok(q(avec.lignes, 'pare_vapeur') > 0);
+});
+
+test('doublage collé : MAP 4 kg/m²', () => {
+    const r = calcPlaco('colle', 10, 2.5, {});
+    assert.equal(q(r.lignes, 'map'), 100);
+});
+
+test('soufflage laine de verre R 8 ≈ 385 mm et ≈ 4,2 kg/m²', () => {
+    const r = calcSoufflage(100, 'verre', 8);
+    assert.ok(Math.abs(r.eSouffle - 0.3864) < 0.001);
+    assert.ok(Math.abs(r.kgM2 - 4.25) < 0.01);
+});
+
+test('carrelage : joint selon format (60×60, 3 mm ≈ 0,18 kg/m²)', () => {
+    const r = calcul_joint(); function calcul_joint() { return calculer('carrelage', { L: 10, l: 10, format: 'grand', joint: '3' }, ctx); }
+    const kg = q(r.lignes, 'joint_carrelage') / 100;
+    assert.ok(kg > 0.15 && kg < 0.2, String(kg));
+});
+
+test('chape flottante : 5 cm minimum, isolant + armature', () => {
+    assert.ok(calculer('chape', { pose: 'flot', ep: 4 }, ctx).erreurs.ep);
+    const r = calculer('chape', { pose: 'flot', ep: 5 }, ctx);
+    assert.ok(q(r.lignes, 'isolant_chape') > 0 && q(r.lignes, 'treillis_chape') > 0);
+});

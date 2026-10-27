@@ -44,9 +44,15 @@ export const MATERIAUX = {
     mortier_refr: { l: 'Mortier réfractaire (boisseaux)', cat: 'liants', base: 'kg', pack: { taille: 25, nom: 'seau', noms: 'seaux', label: 'de 25 kg' }, prix: 45 },
     bitume:     { l: 'Enduit bitumineux (murs enterrés)', cat: 'liants', base: 'kg', pack: { taille: 25, nom: 'seau', noms: 'seaux', label: 'de 25 kg' }, prix: 60 },
     enduit_etanche: { l: 'Enduit d\'étanchéité (piscine)', cat: 'liants', base: 'kg', pack: { taille: 25, nom: 'sac', noms: 'sacs' }, prix: 28 },
-    colle_carrelage: { l: 'Colle carrelage',            cat: 'liants', base: 'kg', pack: { taille: 25, nom: 'sac', noms: 'sacs' }, prix: 18 },
-    joint_carrelage: { l: 'Joint carrelage',            cat: 'liants', base: 'kg', pack: { taille: 5,  nom: 'sac', noms: 'sacs' }, prix: 12 },
-    ragreage:   { l: 'Ragréage autolissant',            cat: 'liants', base: 'kg', pack: { taille: 25, nom: 'sac', noms: 'sacs' }, prix: 22 },
+    colle_carrelage: { l: 'Mortier-colle C2 (carrelage)',            cat: 'liants', base: 'kg', pack: { taille: 25, nom: 'sac', noms: 'sacs' }, prix: 18 },
+    joint_carrelage: { l: 'Mortier joint CG2',            cat: 'liants', base: 'kg', pack: { taille: 5,  nom: 'sac', noms: 'sacs' }, prix: 12 },
+    ragreage:   { l: 'Ragréage autolissant P3',            cat: 'liants', base: 'kg', pack: { taille: 25, nom: 'sac', noms: 'sacs' }, prix: 22 },
+
+    map:        { l: 'Mortier adhésif MAP (doublage collé)', cat: 'liants', base: 'kg', pack: { taille: 25, nom: 'sac', noms: 'sacs' }, prix: 14 },
+    primaire:   { l: 'Primaire d\'accrochage',            cat: 'liants', base: 'kg', pack: { taille: 5, nom: 'bidon', noms: 'bidons', label: 'de 5 kg' }, prix: 35 },
+    spec:       { l: 'SPEC : protection à l\'eau sous carrelage', cat: 'liants', base: 'kg', pack: { taille: 7, nom: 'seau', noms: 'seaux', label: 'de 7 kg' }, prix: 85 },
+    colle_parquet: { l: 'Colle parquet MS polymère',       cat: 'liants', base: 'kg', pack: { taille: 15, nom: 'seau', noms: 'seaux', label: 'de 15 kg' }, prix: 95 },
+    enduit_lissage: { l: 'Enduit de lissage en pâte',      cat: 'liants', base: 'kg', pack: { taille: 25, nom: 'seau', noms: 'seaux', label: 'de 25 kg' }, prix: 40 },
 
     // ── Blocs, briques, pierre ───────────────────────────────────────────
     parpaing20: { l: 'Agglo creux de 20 (20×20×50)',         cat: 'blocs', base: 'u', prix: 1.9 },
@@ -111,28 +117,57 @@ export const MATERIAUX = {
     crochet:    { l: 'Crochets de gouttière',             cat: 'couverture', base: 'u', prix: 2.5 },
 
     // ── Plâtrerie & isolation ────────────────────────────────────────────
-    ba13:       { l: 'Plaque de plâtre BA13 (1,20×2,50 m)', cat: 'platrerie', base: 'u', prix: 9.5 },
-    rail:       { l: 'Rail R48 (3 m)',                    cat: 'platrerie', base: 'u', prix: 4.5 },
+    ba13:       { l: 'Plaque BA13 standard',              cat: 'platrerie', base: 'u', prix: 9.5 },
+    ba13_h1:    { l: 'Plaque BA13 H1 hydrofuge (verte)',  cat: 'platrerie', base: 'u', prix: 13 },
+    ba13_phon:  { l: 'Plaque BA13 phonique',              cat: 'platrerie', base: 'u', prix: 14 },
+    doublage_colle: { l: 'Doublage collé PSE graphite + plâtre (type Placomur)', cat: 'platrerie', base: 'u', prix: 32 },
+    rail:       { l: 'Rail R48 (3 m) Placostil / Prégymétal',                    cat: 'platrerie', base: 'u', prix: 4.5 },
     montant:    { l: 'Montant M48',                       cat: 'platrerie', base: 'u', prix: 5 },
+    rail70:     { l: 'Rail R70 (3 m)',                    cat: 'platrerie', base: 'u', prix: 6 },
+    montant70:  { l: 'Montant M70',                       cat: 'platrerie', base: 'u', prix: 7 },
+    eclisse:    { l: 'Éclisse F530',                      cat: 'platrerie', base: 'u', prix: 0.5 },
+    appui_doublage: { l: 'Appui intermédiaire de doublage (type Optima)', cat: 'platrerie', base: 'u', prix: 1.2 },
     fourrure:   { l: 'Fourrure F530 (3 m)',               cat: 'platrerie', base: 'u', prix: 3.8 },
-    suspente:   { l: 'Suspente / appui intermédiaire',    cat: 'platrerie', base: 'u', prix: 0.7 },
+    suspente:   { l: 'Suspente F530 (pivot ou étrier)',    cat: 'platrerie', base: 'u', prix: 0.7 },
     corniere:   { l: 'Cornière de rive / lisse U (3 m)',    cat: 'platrerie', base: 'u', prix: 2.8 },
+    vis_placo35:{ l: 'Vis plaque TTPC 35 (2e plaque)',    cat: 'platrerie', base: 'u', pack: { taille: 1000, nom: 'boîte', noms: 'boîtes', label: 'de 1000' }, prix: 22 },
+    fixation:   { l: 'Chevilles à frapper / vis de fixation', cat: 'platrerie', base: 'u', pack: { taille: 100, nom: 'boîte', noms: 'boîtes', label: 'de 100' }, prix: 12 },
     vis_placo:  { l: 'Vis plaque TTPC 25',                cat: 'platrerie', base: 'u', pack: { taille: 1000, nom: 'boîte', noms: 'boîtes', label: 'de 1000' }, prix: 18 },
     bande:      { l: 'Bande à joint papier',              cat: 'platrerie', base: 'ml', pack: { taille: 150, nom: 'rouleau', noms: 'rouleaux', label: 'de 150 m' }, prix: 9 },
-    enduit_joint:{ l: 'Enduit à joint',                   cat: 'platrerie', base: 'kg', pack: { taille: 25, nom: 'sac', noms: 'sacs' }, prix: 28 },
-    laine_mur:  { l: 'Isolant laine minérale murs (100 mm)', cat: 'platrerie', base: 'm2', prix: 9 },
-    laine_cloison:{ l: 'Laine acoustique cloison (45 mm)', cat: 'platrerie', base: 'm2', prix: 4 },
-    laine_combles:{ l: 'Isolant combles (laine 300 mm)',  cat: 'platrerie', base: 'm2', prix: 13 },
-    pare_vapeur:{ l: 'Pare-vapeur (sous isolant de combles)', cat: 'platrerie', base: 'm2', prix: 1.5 },
+    bande_armee:{ l: 'Bande armée (angles sortants)',     cat: 'platrerie', base: 'ml', pack: { taille: 30, nom: 'rouleau', noms: 'rouleaux', label: 'de 30 m' }, prix: 14 },
+    enduit_joint:{ l: 'Enduit à joint en poudre',                   cat: 'platrerie', base: 'kg', pack: { taille: 25, nom: 'sac', noms: 'sacs' }, prix: 28 },
+    laine_mur:  { l: 'Laine minérale de doublage (panneau semi-rigide)', cat: 'platrerie', base: 'm2', prix: 9 },
+    laine_cloison:{ l: 'Laine de verre cloison 45 mm', cat: 'platrerie', base: 'm2', prix: 4 },
+    laine_combles:{ l: 'Laine minérale en rouleau',  cat: 'platrerie', base: 'm2', prix: 13 },
+    souffle_verre: { l: 'Laine de verre à souffler',      cat: 'platrerie', base: 'kg', pack: { taille: 16, nom: 'sac', noms: 'sacs', label: 'de 16 kg' }, prix: 22 },
+    souffle_roche: { l: 'Laine de roche à souffler',      cat: 'platrerie', base: 'kg', pack: { taille: 20, nom: 'sac', noms: 'sacs', label: 'de 20 kg' }, prix: 20 },
+    souffle_ouate: { l: 'Ouate de cellulose à souffler',  cat: 'platrerie', base: 'kg', pack: { taille: 12.5, nom: 'sac', noms: 'sacs', label: 'de 12,5 kg' }, prix: 13 },
+    pige:       { l: 'Piges graduées (combles soufflés)', cat: 'platrerie', base: 'u', prix: 1 },
+    rehausse:   { l: 'Rehausse de trappe de visite',      cat: 'platrerie', base: 'u', prix: 25 },
+    pare_vapeur:{ l: 'Membrane pare-vapeur (côté chaud)', cat: 'platrerie', base: 'm2', prix: 1.5 },
+    adhesif_pv: { l: 'Adhésif pour membrane',             cat: 'platrerie', base: 'ml', pack: { taille: 25, nom: 'rouleau', noms: 'rouleaux', label: 'de 25 m' }, prix: 12 },
+    mastic_pv:  { l: 'Mastic pour membrane',              cat: 'platrerie', base: 'u', prix: 11 },
+    isolant_chape: { l: 'Isolant sous chape PSE / PU (SC1 a2 Ch)', cat: 'platrerie', base: 'm2', prix: 12 },
     isolant_sol:{ l: 'Isolant sous dalle (polystyrène)',  cat: 'platrerie', base: 'm2', prix: 14 },
 
     // ── Revêtements ──────────────────────────────────────────────────────
+    natte_desol:{ l: 'Natte de désolidarisation',         cat: 'revetement', base: 'm2', prix: 18 },
+    croisillon: { l: 'Croisillons',                       cat: 'revetement', base: 'u', pack: { taille: 250, nom: 'sachet', noms: 'sachets', label: 'de 250' }, prix: 4 },
+    cale_nivel: { l: 'Cales autonivelantes',              cat: 'revetement', base: 'u', pack: { taille: 100, nom: 'sachet', noms: 'sachets', label: 'de 100' }, prix: 15 },
+    bande_spec: { l: 'Bande d\'angle SPEC',              cat: 'revetement', base: 'ml', prix: 3 },
+    silicone:   { l: 'Mastic silicone sanitaire (310 ml)', cat: 'revetement', base: 'u', prix: 8 },
+    acrylique:  { l: 'Mastic acrylique (310 ml)',          cat: 'revetement', base: 'u', prix: 4 },
     carrelage:  { l: 'Carrelage',                         cat: 'revetement', base: 'm2', prix: 30 },
-    plinthe:    { l: 'Plinthes',                          cat: 'revetement', base: 'ml', prix: 4 },
-    parquet:    { l: 'Parquet / lames',                   cat: 'revetement', base: 'm2', prix: 28 },
+    plinthe:    { l: 'Plinthes (carrelage ou bois)',                          cat: 'revetement', base: 'ml', prix: 4 },
+    parquet:    { l: 'Parquet contrecollé ou stratifié',                   cat: 'revetement', base: 'm2', prix: 28 },
     sous_couche:{ l: 'Sous-couche parquet',               cat: 'revetement', base: 'm2', prix: 3.5 },
-    peinture:   { l: 'Peinture (2 couches)',              cat: 'revetement', base: 'L', pack: { taille: 10, nom: 'pot', noms: 'pots', label: 'de 10 L' }, prix: 75 },
-    impression: { l: 'Sous-couche d\'impression',         cat: 'revetement', base: 'L', pack: { taille: 10, nom: 'pot', noms: 'pots', label: 'de 10 L' }, prix: 50 },
+    polyane200: { l: 'Film polyane 200 µm (sous parquet)', cat: 'revetement', base: 'm2', prix: 0.9 },
+    barre_seuil:{ l: 'Barre de seuil',                    cat: 'revetement', base: 'u', prix: 12 },
+    peinture:   { l: 'Peinture de finition murs (velours / satin)', cat: 'revetement', base: 'L', pack: { taille: 10, nom: 'pot', noms: 'pots', label: 'de 10 L' }, prix: 75 },
+    peinture_plafond: { l: 'Peinture de finition plafonds (mat)', cat: 'revetement', base: 'L', pack: { taille: 10, nom: 'pot', noms: 'pots', label: 'de 10 L' }, prix: 65 },
+    ruban:      { l: 'Ruban de masquage',                 cat: 'revetement', base: 'ml', pack: { taille: 50, nom: 'rouleau', noms: 'rouleaux', label: 'de 50 m' }, prix: 5 },
+    bache:      { l: 'Bâche de protection',               cat: 'revetement', base: 'm2', prix: 0.5 },
+    impression: { l: 'Impression acrylique (plaques, plâtre)',         cat: 'revetement', base: 'L', pack: { taille: 10, nom: 'pot', noms: 'pots', label: 'de 10 L' }, prix: 50 },
 
     // ── Divers ───────────────────────────────────────────────────────────
     arase:      { l: 'Arase étanche (bande bitumineuse ou mortier hydrofuge)', cat: 'divers', base: 'ml', prix: 2.5 },
@@ -148,6 +183,8 @@ export const MATERIAUX = {
     polyane:    { l: 'Film polyane 150 µm',               cat: 'divers', base: 'm2', prix: 0.8 },
     geotextile: { l: 'Géotextile',                        cat: 'divers', base: 'm2', prix: 1.2 },
     desactivant:{ l: 'Désactivant de surface',            cat: 'divers', base: 'L', prix: 9 },
+    treillis_chape: { l: 'Treillis de chape galva 50×50, fil Ø2 mm', cat: 'divers', base: 'm2', prix: 3.5 },
+    fibres_pp:  { l: 'Fibres polypropylène (mortier)',     cat: 'divers', base: 'kg', pack: { taille: 0.6, nom: 'sachet', noms: 'sachets', label: 'de 600 g' }, prix: 6 },
     bande_peri: { l: 'Bande de désolidarisation (périphérique)', cat: 'divers', base: 'ml', prix: 0.6 },
     baguette:   { l: 'Baguette d\'angle pour enduit (3 m)', cat: 'divers', base: 'u', prix: 4 },
     grille_vs:  { l: 'Grille d\'aération vide sanitaire', cat: 'divers', base: 'u', prix: 4 },
@@ -202,7 +239,7 @@ export function affichage(k, q, ctx = {}) {
     if (t) {
         const n = quantiteAchat(k, q, ctx);
         const lab = m.pack.label || `de ${t} kg`;
-        const brut = m.base === 'kg' ? ` · ${fmt(q)} kg` : m.base === 'm2' ? ` · ${fmt(q)} m²` : m.base === 'ml' ? ` · ${fmt(q)} m` : m.base === 'L' ? ` · ${fmt(q)} L` : '';
+        const brut = m.base === 'kg' ? ` · ${fmtSmart(q, q < 10 ? 1 : 0)} kg` : m.base === 'm2' ? ` · ${fmt(q)} m²` : m.base === 'ml' ? ` · ${fmt(q)} m` : m.base === 'L' ? ` · ${fmt(q)} L` : '';
         return { v: fmt(n), u: n > 1 ? m.pack.noms : m.pack.nom, d: `${lab}${brut}` };
     }
     switch (m.base) {

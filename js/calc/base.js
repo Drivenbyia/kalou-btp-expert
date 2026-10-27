@@ -307,44 +307,168 @@ export function calcToiture(p) {
     return { surf, rampant, hFaitage, faitage, aretiers, rives, gout, lignes, infos, heures };
 }
 
-// ─── Plâtrerie ─────────────────────────────────────────────────────────────
+// ─── Plâtrerie (DTU 25.41 / 25.42) ─────────────────────────────────────────
 
-const LONGUEURS_MONTANT = [2.5, 2.6, 2.7, 2.8, 3.0];
+const LONGUEURS_PLAQUE = [2.5, 2.6, 2.7, 2.8, 3.0];
+const LONGUEURS_MONTANT = [2.5, 2.6, 2.7, 2.8, 3.0, 3.5, 4.0, 5.0];
+
+/** Longueur de plaque toute hauteur (jusqu'à 3 m), sinon 3 m aboutées. */
+export const longueurPlaque = h => LONGUEURS_PLAQUE.find(x => x >= h - 1e-9) || 3.0;
+
+// Hauteurs maxi des cloisons, entraxe 0,60 m (montants simples / doublés)
+export const LIMITES_CLOISON = {
+    '72': { simple: 2.60, double: 2.95 },
+    '98': { simple: 3.00, double: 3.40 },
+    '70': { simple: 4.00, double: 4.00 }      // ossature M70 (au-delà : PV du fabricant)
+};
+
+// Complexes de doublage collé PSE graphite λ 0,032
+export const DOUBLAGE_COLLE = {
+    '80':  { l: '13+80',  R: 2.50 },
+    '100': { l: '13+100', R: 3.15 },
+    '120': { l: '13+120', R: 3.75 },
+    '140': { l: '13+140', R: 4.40 },
+    '160': { l: '13+160', R: 5.00 }
+};
+
+// Laine à souffler : λ, densité (kg/m³), tassement, clé matériau (valeurs « notice », voir le sac)
+export const SOUFFLAGE = {
+    verre: { l: 'Laine de verre',     lambda: 0.046, dens: 11, tass: 0.05, k: 'souffle_verre' },
+    roche: { l: 'Laine de roche',     lambda: 0.045, dens: 28, tass: 0.07, k: 'souffle_roche' },
+    ouate: { l: 'Ouate de cellulose', lambda: 0.040, dens: 30, tass: 0.20, k: 'souffle_ouate' }
+};
+
+/** Combles perdus soufflés : épaisseur à souffler, kg, sacs, piges, rehausse, pare-vapeur. */
+export function calcSoufflage(S, materiau = 'verre', R = 8, { pareVapeur = true } = {}) {
+    const m = SOUFFLAGE[materiau] || SOUFFLAGE.verre;
+    const eUtile = R * m.lambda;                           // m
+    const eSouffle = eUtile * (1 + m.tass);
+    const kgM2 = eSouffle * m.dens;
+    const lignes = [
+        L(m.k, S * kgM2 * 1.05, { d: `R ${fmtSmart(R, 1)} : ${fmtSmart(eSouffle * 1000, 0)} mm à souffler, ${fmtSmart(kgM2, 1)} kg/m²` }),
+        L('pige', Math.max(3, Math.ceil(S / 50 - 1e-9))),
+        L('rehausse', 1)
+    ];
+    if (pareVapeur) lignes.push(...lignesPareVapeur(S, 4 * Math.sqrt(S)));
+    return { lignes, eUtile, eSouffle, kgM2 };
+}
+
+/** Membrane pare-vapeur + adhésif + mastic de périphérie. */
+export function lignesPareVapeur(S, perim) {
+    return [
+        L('pare_vapeur', S * 1.10),
+        L('adhesif_pv', S * 0.7 + perim),
+        L('mastic_pv', Math.ceil(perim / 10 - 1e-9))
+    ];
+}
+
+/** Plaque choisie : standard, hydrofuge H1 ou phonique. */
+const clePlaque = p => (p === 'h1' ? 'ba13_h1' : p === 'phon' ? 'ba13_phon' : 'ba13');
 
 /**
- * Plaques de plâtre sur ossature métallique.
- * @param {string} type 'doublage' | 'cloison' | 'plafond'
+ * Plaques de plâtre.
+ * @param {string} type 'cloison' | 'plafond' | 'appuis' (doublage isolé sur appuis) | 'colle' (doublage collé) | 'rampant'
  * @param {number} a    longueur (m)
  * @param {number} b    hauteur (mur) ou largeur (plafond) (m)
+ * @param {object} o    { cloison: '72'|'98'|'70', plaque: 'std'|'h1'|'phon', isolant, ouv (m²), portes (u),
+ *                        laine (mm, doublage sur appuis), complexe (doublage collé), angles (ml de bande armée),
+ *                        chargeLourde (plafond : isolant > 10 kg/m²) }
  */
-export function calcPlaco(type, a, b, { cloison = '72', isolant = true, ouv = 0 } = {}) {
-    const S = Math.max(0, a * b - (ouv || 0));
-    // Cloison 72/48 : 1 plaque par face · 98/48 : 2 plaques par face (même ossature)
-    const faces = type === 'cloison' ? (cloison === '98' ? 4 : 2) : 1;
-    const Sp = S * faces;
-    const lignes = [L('ba13', Math.ceil(Sp * 1.10 / 3 - 1e-9))];
+export function calcPlaco(type, a, b, o = {}) {
+    const { cloison = '72', plaque = 'std', isolant = true, ouv = 0, portes = 0, laine = 120, complexe = '120', angles = 0, chargeLourde = false } = o;
+    const surfPortes = type === 'cloison' ? portes * 1.7 : 0;
+    const S = Math.max(0, a * b - (ouv || 0) - surfPortes);
+    const lignes = [];
+    const infos = [];
     let detail = '';
+    const Lp = type === 'plafond' || type === 'rampant' ? 2.5 : longueurPlaque(b);
+    const kPl = clePlaque(plaque);
+    const nbPlaques = (surf, perte) => Math.ceil(surf * perte / (1.2 * Lp) - 1e-9);
+    const dPl = { d: `1,20 × ${fmtSmart(Lp, 2)} m${b > 3 + 1e-9 && type !== 'plafond' && type !== 'rampant' ? ' (aboutées, joints décalés de 40 cm)' : ''}` };
+    let Svue = S;                    // faces visibles (bandes, enduit)
 
-    if (type === 'plafond') {
-        const rangs = Math.ceil(b / 0.6 - 1e-9) + 1;
+    if (type === 'colle') {
+        const c = DOUBLAGE_COLLE[complexe] || DOUBLAGE_COLLE['120'];
+        lignes.push(L('doublage_colle', nbPlaques(S, 1.05), { d: `${c.l} (R ${fmtSmart(c.R, 2)}), 1,20 × ${fmtSmart(Lp, 2)} m` }));
+        lignes.push(L('map', S * 4), L('acrylique', Math.ceil(2 * a / 10 - 1e-9)));
+        infos.push(`Doublage collé ${c.l} : R ${fmtSmart(c.R, 2)}. MAP ≈ 10 plots par m² (≈ 4 kg/m²). Plaque surélevée de 1 cm, joint acrylique en pied.`,
+            'Support plan à 15 mm près sous la règle de 2 m, sec et sans remontées d\'humidité. Interdit sur mur humide ou peinture qui farine.');
+    } else if (type === 'appuis') {
+        const nbF = Math.ceil(a / 0.6 - 1e-9) + 1;
+        const appuisParF = Math.max(1, Math.ceil(b / 1.35 - 1e-9) - 1);
+        lignes.push(L(kPl, nbPlaques(S, 1.08), dPl));
+        lignes.push(L('fourrure', Math.ceil(nbF * b * 1.05 / 3 - 1e-9)));
+        lignes.push(L('appui_doublage', nbF * appuisParF));
+        lignes.push(L('corniere', Math.ceil(2 * a * 1.05 / 3 - 1e-9), { d: 'lisses haute et basse' }));
+        if (isolant) {
+            const R = laine / 1000 / 0.032;
+            lignes.push(L('laine_mur', S * 1.05, { d: `${laine} mm λ 0,032 (R ${fmtSmart(R, 2)})` }));
+            lignes.push(...lignesPareVapeur(S, 2 * (a + b)));
+        }
+        lignes.push(L('fixation', nbF * appuisParF * 2 + Math.ceil(2 * a / 0.6)));
+        lignes.push(L('vis_placo', S * 15));
+        infos.push(`Doublage sur appuis : fourrures F530 tous les 60 cm, 1 appui tous les 1,35 m de haut. Laine ${laine} mm λ 0,032 ≈ R ${fmtSmart(laine / 1000 / 0.032, 2)} (RE2020 : viser R ≥ 3,7).`);
+    } else if (type === 'plafond' || type === 'rampant') {
+        const entraxe = type === 'rampant' || isolant ? 0.5 : 0.6;
+        const rangs = Math.ceil(b / entraxe - 1e-9) + 1;
+        const eclisses = rangs * Math.max(0, Math.ceil(a / 3 - 1e-9) - 1);
+        const pasSusp = chargeLourde ? 1.0 : 1.2;
+        const nbSusp = type === 'rampant' ? Math.ceil(S * 1.8) : rangs * (Math.ceil(a / pasSusp - 1e-9) + 1);
+        lignes.push(L(kPl, Math.ceil(S * 1.10 / 3 - 1e-9), { d: '1,20 × 2,50 m' }));
         lignes.push(L('fourrure', Math.ceil(rangs * a * 1.10 / 3 - 1e-9)));
-        lignes.push(L('suspente', rangs * (Math.ceil(a / 1.2 - 1e-9) + 1)));
-        lignes.push(L('corniere', Math.ceil(2 * (a + b) / 3 - 1e-9)));
-        if (isolant) lignes.push(L('laine_combles', S * 1.05), L('pare_vapeur', S * 1.10));
+        if (eclisses) lignes.push(L('eclisse', eclisses));
+        lignes.push(L('suspente', nbSusp));
+        lignes.push(L('fixation', nbSusp));
+        lignes.push(L('corniere', Math.ceil(2 * (a + b) * 1.05 / 3 - 1e-9)));
+        lignes.push(L('vis_placo', S * 20));
+        if (isolant) lignes.push(...lignesPareVapeur(S, 2 * (a + b)));
+        infos.push(`Fourrures F530 tous les ${entraxe === 0.5 ? '50 cm (isolant posé dessus)' : '60 cm'}, suspentes tous les ${fmtSmart(pasSusp, 1)} m maxi${chargeLourde ? ' (isolant lourd)' : ''}. Plaques perpendiculaires aux fourrures.`);
     } else {
-        const lgM = LONGUEURS_MONTANT.find(x => x >= b - 1e-9) || 3.0;
-        const parFile = b > 3 ? Math.ceil(b / 3 - 1e-9) : 1;
-        const nbM = (Math.ceil(a / 0.6 - 1e-9) + 1) * parFile;
-        lignes.push(L('rail', Math.ceil(2 * a * 1.05 / 3 - 1e-9)));
-        lignes.push(L('montant', nbM, { d: `longueur ${fmtSmart(lgM, 2)} m` }));
-        if (isolant) lignes.push(L(type === 'cloison' ? 'laine_cloison' : 'laine_mur', S * 1.05));
+        // Cloison : choix automatique montants simples / doublés / M70 selon la hauteur
+        const lim = LIMITES_CLOISON[cloison] || LIMITES_CLOISON['72'];
+        const m70 = cloison === '70';
+        const double = b > lim.simple + 1e-9;
+        const nbFaces = cloison === '98' ? 4 : 2;           // couches de plaques
+        const Sp = S * nbFaces;
+        Svue = S * 2;
+        const lgM = LONGUEURS_MONTANT.find(x => x >= b - 1e-9) || b;
+        const nbM = (Math.ceil(a / 0.6 - 1e-9) + 1) * (double ? 2 : 1) + 2 * portes;
+        lignes.push(L(kPl, nbPlaques(Sp, b > 3 ? 1.10 : 1.08), dPl));
+        lignes.push(L(m70 ? 'rail70' : 'rail', Math.ceil((2 * a + 0.9 * portes) * 1.05 / 3 - 1e-9)));
+        lignes.push(L(m70 ? 'montant70' : 'montant', nbM, { d: `longueur ${fmtSmart(lgM, 2)} m${double ? ', doublés dos à dos' : ''}` }));
+        lignes.push(L('fixation', Math.ceil(2 * a / 0.6) + 4));
+        if (isolant) lignes.push(L('laine_cloison', S * 1.05, { d: m70 ? '70 mm' : '45 mm' }));
+        if (cloison === '98') {
+            lignes.push(L('vis_placo', S * 2 * 7, { d: '1re plaque' }), L('vis_placo35', S * 2 * 15, { d: '2e plaque' }));
+        } else lignes.push(L('vis_placo', Sp * 15));
         detail = `montants ${fmtSmart(lgM, 2)} m`;
+        infos.push(`Cloison ${m70 ? 'M70' : cloison + '/48'} : ${fmtSmart(lim.simple, 2)} m maxi en montants simples, ${fmtSmart(lim.double, 2)} m doublés. ${double ? 'Ici montants doublés.' : ''}`);
+        if (portes > 0) infos.push(`${portes} porte(s) : 2 montants d'huisserie et 1 traverse par porte, plaques découpées en L (pas de joint dans l'alignement du montant).`);
     }
-    const Svue = S * (type === 'cloison' ? 2 : 1);           // faces visibles (bandes et enduit)
-    lignes.push(L('vis_placo', Sp * (type === 'plafond' ? 20 : 15)));
+
     lignes.push(L('bande', Svue * 1.5));
-    lignes.push(L('enduit_joint', Svue * 0.5));
-    return { S, Sp, lignes, detail };
+    lignes.push(L('enduit_joint', Svue * 0.4));
+    if (angles > 0) lignes.push(L('bande_armee', angles * 1.05));
+    if (plaque === 'h1') infos.push('Pièce humide : plaques H1, pied de cloison protégé (bande d\'étanchéité remontée 2 cm + mastic), SPEC sur les parois de douche.');
+    return { S, Lp, lignes, infos, detail };
+}
+
+/** Rampants de combles aménagés : laine en 2 couches + plaques sur fourrures. */
+export function calcRampants(S, { couche1 = 100, couche2 = 140, plaque = 'std' } = {}) {
+    const R = (couche1 + couche2) / 1000 / 0.032;
+    const lignes = [
+        L('laine_mur', S * 1.05, { d: `1re couche ${couche1} mm entre chevrons` }),
+        L('laine_mur', S * 1.05, { d: `2e couche ${couche2} mm croisée` }),
+        L(clePlaque(plaque), Math.ceil(S * 1.10 / 3 - 1e-9), { d: '1,20 × 2,50 m' }),
+        L('fourrure', Math.ceil(S / 0.5 * 1.10 / 3 - 1e-9), { d: 'entraxe 50 cm' }),
+        L('suspente', Math.ceil(S * 1.8), { d: 'suspentes de rampant' }),
+        L('fixation', Math.ceil(S * 1.8)),
+        L('vis_placo', S * 20),
+        ...lignesPareVapeur(S, 4 * Math.sqrt(S)),
+        L('bande', S * 1.5),
+        L('enduit_joint', S * 0.4)
+    ];
+    return { lignes, R };
 }
 
 // ─── Drainage et protection des murs enterrés ──────────────────────────────

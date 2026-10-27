@@ -70,6 +70,8 @@ export function vueReglages(root) {
                 <li>Agglos : 10 au m² (+5 % de casse). Brique rectifiée de 20 : 6,4 au m². Monomur 30 : 16,2 au m². Treillis 2,40×3,60 : 6,9 m² utiles (2 mailles de recouvrement).</li>
                 <li>Pertes comprises : béton +5 %, mortiers et enduits +10 %, plaques et carrelage +10 % (diagonale +15 %), tuiles +5 %.</li>
                 <li>Enduit monocouche : ≈ 17 kg par m² et par cm. Enduits en 3 couches à dosages dégressifs : chaux 450 / 325 / 275 kg, traditionnel 500 / 400 / 300 kg. Mortier de pierre et joints à la chaux : 300 à 325 kg, jamais plus dur que la pierre.</li>
+                <li>Placo (DTU 25.41) : plaque toute hauteur jusqu'à 3 m. Cloison 72/48 : 2,60 m maxi (2,95 m en montants doublés), 98/48 : 3 m (3,40 m doublés). Plafond isolé : fourrures tous les 50 cm. Doublage collé : MAP ≈ 4 kg/m².</li>
+                <li>Isolation : R = épaisseur ÷ λ. Soufflé R 8 en laine de verre ≈ 385 mm (tassement compris). Carrelage : joint calculé selon le format et la largeur du joint.</li>
                 <li>Hérisson : 1,8 T par m³ compacté. Terre foisonnée : ×1,25 (argile ×1,35, roche ×1,5).</li>
                 <li>Ce sont des ordres de grandeur pour commander : vérifier sur les notices des fabricants et faire valider les éléments de structure (IPN, charpente, planchers).</li>
             </ul>
