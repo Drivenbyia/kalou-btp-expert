@@ -10,7 +10,8 @@ const K = {
     prix:      'kalou_prix_v4',
     chantiers: 'kalou_chantiers_v4',
     saisies:   'kalou_saisies_v4',
-    migre:     'kalou_migre_v4'
+    migre:     'kalou_migre_v4',
+    sauvegarde:'kalou_derniere_sauvegarde'
 };
 const ANCIENS = { historique: 'kalou_btp_v3', devis: 'kalou_devis_v1' };
 
@@ -120,6 +121,16 @@ export function remplacerItem(chantierId, itemId, item) {
         if (i >= 0) c.items[i] = { ...c.items[i], ...item, date: Date.now() };
     });
 }
+/** Article ajouté à la main dans la liste de courses ({ l, q, u }). */
+export function ajouterLibre(chantierId, art) {
+    const a = { id: uid(), ...art };
+    majChantier(chantierId, c => { c.libres = [...(c.libres || []), a]; });
+    return a;
+}
+export function supprimerLibre(chantierId, id) {
+    majChantier(chantierId, c => { c.libres = (c.libres || []).filter(x => x.id !== id); });
+}
+
 /** Remet un ouvrage retiré à sa place (bouton « Annuler »). */
 export function restaurerItem(chantierId, item, index) {
     majChantier(chantierId, c => { c.items.splice(Math.min(index, c.items.length), 0, item); });
@@ -195,6 +206,10 @@ export function migrer() {
 }
 
 // ─── Sauvegarde / restauration (fichier .json) ───────────────────────────────
+
+/** Date de la dernière sauvegarde (fichier) — pour le rappel. */
+export const derniereSauvegarde = () => Number(localStorage.getItem(K.sauvegarde)) || 0;
+export const noterSauvegarde = () => localStorage.setItem(K.sauvegarde, String(Date.now()));
 
 export function exporterDonnees() {
     const stores = {};

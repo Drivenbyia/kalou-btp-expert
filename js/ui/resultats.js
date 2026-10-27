@@ -83,7 +83,7 @@ export function consolider(lignes) {
 /** Regroupe des lignes consolidées par catégorie (ordre du catalogue). */
 export function parCategorie(lignes) {
     const groupes = CATEGORIES.map(c => ({ ...c, lignes: [] }));
-    const autres = { id: 'autres', l: 'Autres (anciennes données)', lignes: [] };
+    const autres = { id: 'autres', l: 'Autres articles', lignes: [] };
     lignes.forEach(li => {
         const cat = li.k && MATERIAUX[li.k] ? MATERIAUX[li.k].cat : null;
         const g = groupes.find(x => x.id === cat);

@@ -1,7 +1,7 @@
 // Écran « Réglages » : sacs de ciment, option estimation entreprise, prix, sauvegarde.
 
 import { esc, fmt, num } from '../core/format.js';
-import { getReglages, setReglages, getPrix, setPrix, resetPrix, prixModifies, exporterDonnees, importerDonnees, listeChantiers } from '../core/store.js';
+import { getReglages, setReglages, getPrix, setPrix, resetPrix, prixModifies, exporterDonnees, importerDonnees, listeChantiers, noterSauvegarde, derniereSauvegarde } from '../core/store.js';
 import { MATERIAUX, CATEGORIES, PRIX_DEFAUT, libelle, unitePrix } from '../calc/materiaux.js';
 import { toast, confirmer } from '../ui/dom.js';
 import { entete, aller, APP_VERSION } from '../app.js';
@@ -53,6 +53,7 @@ export function vueReglages(root) {
 
         <p class="section-title">Sauvegarde</p>
         <div class="card">
+            <p class="hint" style="font-size:14px;margin-bottom:8px"><b>Dernière sauvegarde : ${derniereSauvegarde() ? new Date(derniereSauvegarde()).toLocaleDateString('fr-FR') : 'jamais'}</b></p>
             <p class="hint" style="font-size:14px;margin-bottom:12px">Les chantiers restent dans ce téléphone. Fais une copie de temps en temps (ou pour passer sur un autre appareil) : l'import ajoute sans rien effacer.</p>
             <div class="row">
                 <button class="btn btn-dark btn-sm" id="exporter">⤓ Sauvegarder</button>
@@ -118,6 +119,7 @@ export function vueReglages(root) {
         const data = JSON.stringify(exporterDonnees(), null, 1);
         const nom = `kalou-btp-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`;
         const fichier = new File([data], nom, { type: 'application/json' });
+        noterSauvegarde();
         if (navigator.canShare && navigator.canShare({ files: [fichier] })) {
             try { await navigator.share({ files: [fichier], title: 'Sauvegarde Kalou BTP' }); return; }
             catch (e) { if (e && e.name === 'AbortError') return; }

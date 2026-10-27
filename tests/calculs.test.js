@@ -129,3 +129,26 @@ test('ouvertures plus grandes que le mur : erreur claire', () => {
     const r = calculer('mur', { L: 2, h: 2, ouv: 10 }, ctx);
     assert.ok(r.erreurs.ouv);
 });
+
+// ─── Phase 2 : nouveaux ouvrages ────────────────────────────────────────────
+
+test('fosse toutes eaux : 3 m³ jusqu\'à 5 pièces, +1 m³ par pièce', () => {
+    assert.match(calculer('fosse', { pieces: 5 }, ctx).lignes[0].d, /^3 m³/);
+    assert.match(calculer('fosse', { pieces: 7 }, ctx).lignes[0].d, /^5 m³/);
+});
+
+test('reprise en sous-œuvre : passes de 1 m', () => {
+    const r = calculer('sousoeuvre', { L: 6, passe: 1 }, ctx);
+    assert.equal(r.resume[0].v, '6');
+});
+
+test('démolition : bennes limitées au poids (8 T)', () => {
+    const r = calculer('demolition', { type: 'mur', L: 10, h: 3, ep: 50, mat: '2.2' }, ctx);
+    assert.equal(q(r.lignes, 'benne6'), 5);   // 15 m³ en place = 33 T
+});
+
+test('maison : drainage et échafaudage en option', () => {
+    const r = calculerMaison({ ...valeursDefaut(MAISON_DEF), drainage: true, echafaudage: true }, ctx);
+    assert.ok(r.lots.some(l => l.id === 'drainage'));
+    assert.ok(q(r.lignes, 'echaf') > 0);
+});

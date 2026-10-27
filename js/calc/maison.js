@@ -7,7 +7,7 @@
 import {
     L, fusion, lignesBeton, lignesMortier, lignesMurBlocs, lignesChainage, nbBarres6m,
     calcPlancher, calcToiture, calcPlaco, BLOCS, COUVERTURES, PERTE_BETON, PERTE_MORTIER,
-    lignesChainageVertical, TREILLIS_UTILE
+    lignesChainageVertical, TREILLIS_UTILE, calcDrainage, lignesEchafaudage
 } from './base.js';
 import { valider as validerOuvrage } from './ouvrages.js';
 import { fmtSmart } from '../core/format.js';
@@ -48,6 +48,7 @@ export const ETAPES = [
             n('dalleEp', 'Épaisseur de dalle', 'cm', 12, { demi: true, max: 30, si: v => v.bas === 'terreplein' }),
             n('he', 'Hérisson', 'cm', 20, { demi: true, zero: true, max: 60, si: v => v.bas === 'terreplein' }),
             oui('isolSol', 'Isolant sous dalle', true, { si: v => v.bas === 'terreplein' }),
+            oui('drainage', 'Drainage + protection des murs enterrés', false, { aide: 'Conseillé sur terrain argileux, en pente ou humide.' }),
             c('mode', 'Le béton', [{ v: 'bpe', l: 'Toupie (conseillé)' }, { v: 'betonniere', l: 'Bétonnière' }], 'bpe')
         ]
     },
@@ -75,7 +76,9 @@ export const ETAPES = [
     {
         id: 'facade', titre: 'Façade', ic: '🖌️',
         champs: [
-            c('enduit', 'Enduit extérieur', [{ v: 'mono', l: 'Monocouche' }, { v: 'chaux', l: 'Chaux' }, { v: 'aucun', l: 'Aucun' }], 'mono')
+            c('enduit', 'Enduit extérieur', [{ v: 'mono', l: 'Monocouche' }, { v: 'chaux', l: 'Chaux' }, { v: 'aucun', l: 'Aucun' }], 'mono'),
+            oui('echafaudage', 'Échafaudage en location', true),
+            n('semEchaf', 'Durée de location', 'sem.', 6, { si: v => v.echafaudage === true || v.echafaudage === 'true', max: 52, aide: 'Murs + toiture + enduit : souvent 6 à 10 semaines.' })
         ]
     },
     {
@@ -197,6 +200,15 @@ export function calculerMaison(brut, ctx = {}) {
     }
     lot('soubassement', vs ? 'Soubassement & vide sanitaire' : 'Soubassement', '🧱', lSoub, infSoub, surfSoub * 1.1 + mlSemelles * 0.5);
 
+    // 3 bis. Drainage et protection des murs enterrés
+    if (v.drainage) {
+        const d = calcDrainage(perimExt, v.prof / 100, { protection: 'les2', regards: 4, exutoire: 10 });
+        lot('drainage', 'Drainage & murs enterrés', '💦', d.lignes, [
+            `Drain périphérique sur ${fm(perimExt)} m, protection des murs enterrés sur ${fm(v.prof / 100)} m de haut.`,
+            ...d.infos
+        ], perimExt * 1.0);
+    }
+
     // 4. Plancher bas
     if (vs) {
         const p = calcPlancher(Lint, portee, { haut: 16, rives: false, mode, pse: true });
@@ -285,8 +297,9 @@ export function calculerMaison(brut, ctx = {}) {
         ...toit.infos
     ], toit.heures);
 
-    // 9. Façade
+    // 9. Façade (+ échafaudage)
     const surfFacade = Math.max(0, perimExt * (hMurs + hHorsSol) + surfPignons - surfOuv);
+    const lEchaf = v.echafaudage ? lignesEchafaudage(perimExt + 4, hMurs + hHorsSol + 1, v.semEchaf) : [];
     if (v.enduit !== 'aucun') {
         const lignes = v.enduit === 'mono'
             ? [L('enduit_mono', surfFacade * 1.5 * 17 * PERTE_MORTIER)]
@@ -296,11 +309,14 @@ export function calculerMaison(brut, ctx = {}) {
                 ...lignesMortier(surfFacade * 0.005 * PERTE_MORTIER, { liant: 'chaux', dosage: 275, sable: 'sable02' })
             ];
         lignes.push(L('baguette', Math.ceil(4 * (hMurs + hHorsSol) / 3 - 1e-9) + nbOuvTotal * 2));
-        lot('facade', 'Façade', '🖌️', lignes, [
+        lignes.push(...lEchaf);
+        lot('facade', 'Façade & échafaudage', '🖌️', lignes, [
             `Surface enduite : ${fm(surfFacade)} m² (ouvertures déduites).`,
             v.enduit === 'mono' ? 'Monocouche 15 mm : ≈ 25 kg/m², en 2 passes.' : 'Enduit chaux 3 couches (2,5 cm), dosages dégressifs 450 / 325 / 275 kg/m³.',
-            'Échafaudage à prévoir (location au m² de façade et à la semaine).'
-        ], surfFacade * (v.enduit === 'mono' ? 0.5 : 1.5));
+            v.echafaudage ? `Échafaudage : tour de la maison sur ${fm(hMurs + hHorsSol + 1)} m de haut, ${fmtSmart(v.semEchaf, 0)} semaines.` : 'Échafaudage non compté.'
+        ], surfFacade * (v.enduit === 'mono' ? 0.5 : 1.5) + (v.echafaudage ? (perimExt + 4) * (hMurs + 1) * 0.3 : 0));
+    } else if (lEchaf.length) {
+        lot('facade', 'Échafaudage', '🏗️', lEchaf, [`Tour de la maison, ${fmtSmart(v.semEchaf, 0)} semaines.`], (perimExt + 4) * (hMurs + 1) * 0.3);
     }
 
     // 10. Intérieur
@@ -369,7 +385,7 @@ export function calculerMaison(brut, ctx = {}) {
         lignes: toutes,
         infos: [
             'Maison rectangulaire, dimensions extérieures. Quantités pertes comprises.',
-            'Non compté : menuiseries, électricité, plomberie, chauffage, escalier, VRD et raccordements.',
+            'Non compté : menuiseries, électricité, plomberie, chauffage, escalier, raccordements (voir « Fosse toutes eaux » pour l\'assainissement).',
             'Ordre de grandeur pour commander et prévoir : le plan, l\'étude de sol et le plan de charpente restent la référence.'
         ],
         heures,

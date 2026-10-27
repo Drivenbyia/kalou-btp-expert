@@ -31,6 +31,7 @@ export const MATERIAUX = {
     sable02:    { l: 'Sable fin 0/2 (enduit de finition)', cat: 'granulats', base: 'T', dens: 1.5, prix: 52 },
     gravier:    { l: 'Gravillon 4/20 (béton)',          cat: 'granulats', base: 'T', dens: 1.45, prix: 48 },
     gravillon_fin: { l: 'Gravillon 4/10 (remplissage blocs, chaînages)', cat: 'granulats', base: 'T', dens: 1.45, prix: 52 },
+    gravier_drain: { l: 'Gravier lavé 20/40 (drainage, épandage)', cat: 'granulats', base: 'T', dens: 1.6, prix: 38 },
     herisson:   { l: 'Cailloux 20/40 (hérisson)',       cat: 'granulats', base: 'T', dens: 1.6, prix: 32 },
     bpe:        { l: 'Béton toupie (BPE)',              cat: 'granulats', base: 'm3', prix: 170 },
 
@@ -40,6 +41,8 @@ export const MATERIAUX = {
     enduit_mono:{ l: 'Enduit monocouche',               cat: 'liants', base: 'kg', pack: { taille: 25, nom: 'sac', noms: 'sacs' }, prix: 13 },
     colle_bloc: { l: 'Mortier-colle joint mince (briques)', cat: 'liants', base: 'kg', pack: { taille: 25, nom: 'sac', noms: 'sacs' }, prix: 13 },
     mortier_sr: { l: 'Mortier sans retrait (calage)',   cat: 'liants', base: 'kg', pack: { taille: 25, nom: 'sac', noms: 'sacs' }, prix: 25 },
+    mortier_refr: { l: 'Mortier réfractaire (boisseaux)', cat: 'liants', base: 'kg', pack: { taille: 25, nom: 'seau', noms: 'seaux', label: 'de 25 kg' }, prix: 45 },
+    bitume:     { l: 'Enduit bitumineux (murs enterrés)', cat: 'liants', base: 'kg', pack: { taille: 25, nom: 'seau', noms: 'seaux', label: 'de 25 kg' }, prix: 60 },
     enduit_etanche: { l: 'Enduit d\'étanchéité (piscine)', cat: 'liants', base: 'kg', pack: { taille: 25, nom: 'sac', noms: 'sacs' }, prix: 28 },
     colle_carrelage: { l: 'Colle carrelage',            cat: 'liants', base: 'kg', pack: { taille: 25, nom: 'sac', noms: 'sacs' }, prix: 18 },
     joint_carrelage: { l: 'Joint carrelage',            cat: 'liants', base: 'kg', pack: { taille: 5,  nom: 'sac', noms: 'sacs' }, prix: 12 },
@@ -63,6 +66,8 @@ export const MATERIAUX = {
     arm_semelle:{ l: 'Semelle filante armée préfa (6 m)',   cat: 'acier', base: 'u', prix: 22 },
     arm_chainage:{ l: 'Chaînage préfa 4 HA (6 m)', cat: 'acier', base: 'u', prix: 13 },
     fer10:      { l: 'Fer HA Ø10 (barre de 6 m)',        cat: 'acier', base: 'u', prix: 11 },
+    fer12:      { l: 'Fer HA Ø12 (barre de 6 m)',        cat: 'acier', base: 'u', prix: 15 },
+    etrier:     { l: 'Cadre / étrier HA6 façonné',        cat: 'acier', base: 'u', prix: 0.9 },
     equerre_sem:{ l: 'Équerre d\'angle / té de semelle préfa', cat: 'acier', base: 'u', prix: 14 },
     equerre_ch: { l: 'Équerre d\'angle de chaînage',     cat: 'acier', base: 'u', prix: 6 },
     attente:    { l: 'Attente en L (chaînage vertical)', cat: 'acier', base: 'u', prix: 6 },
@@ -87,6 +92,7 @@ export const MATERIAUX = {
     liteau:     { l: 'Liteau 27×40',                      cat: 'bois', base: 'ml', prix: 0.9 },
     contreliteau:{ l: 'Contre-liteau 27×40',              cat: 'bois', base: 'ml', prix: 0.9 },
     planche:    { l: 'Planche de coffrage',               cat: 'bois', base: 'ml', prix: 3 },
+    contreplaque: { l: 'Contreplaqué de coffrage',         cat: 'bois', base: 'm2', prix: 14 },
 
     // ── Couverture & zinguerie ───────────────────────────────────────────
     ecran:      { l: 'Écran sous-toiture HPV',            cat: 'couverture', base: 'm2', pack: { taille: 75, nom: 'rouleau', noms: 'rouleaux', label: 'de 75 m²' }, prix: 120 },
@@ -130,6 +136,15 @@ export const MATERIAUX = {
 
     // ── Divers ───────────────────────────────────────────────────────────
     arase:      { l: 'Arase étanche (bande bitumineuse ou mortier hydrofuge)', cat: 'divers', base: 'ml', prix: 2.5 },
+    drain:      { l: 'Drain agricole Ø100 avec chaussette', cat: 'divers', base: 'ml', prix: 2.2 },
+    delta:      { l: 'Membrane à excroissances (type Delta MS)', cat: 'divers', base: 'm2', prix: 5 },
+    regard:     { l: 'Regard de visite (PVC ou béton)',    cat: 'divers', base: 'u', prix: 35 },
+    pvc100:     { l: 'Tuyau PVC Ø100 (évacuation)',         cat: 'divers', base: 'ml', prix: 4.5 },
+    barbacane:  { l: 'Barbacane (tube PVC Ø50)',            cat: 'divers', base: 'u', prix: 2 },
+    fosse:      { l: 'Fosse toutes eaux',                   cat: 'divers', base: 'u', prix: 1100 },
+    boisseau:   { l: 'Boisseau de conduit de fumée',        cat: 'divers', base: 'u', prix: 22 },
+    chapeau:    { l: 'Chapeau / sortie de souche',          cat: 'divers', base: 'u', prix: 90 },
+    echaf:      { l: 'Échafaudage (location)',              cat: 'divers', base: 'm2', prix: 3 },
     polyane:    { l: 'Film polyane 150 µm',               cat: 'divers', base: 'm2', prix: 0.8 },
     geotextile: { l: 'Géotextile',                        cat: 'divers', base: 'm2', prix: 1.2 },
     desactivant:{ l: 'Désactivant de surface',            cat: 'divers', base: 'L', prix: 9 },
@@ -141,6 +156,7 @@ export const MATERIAUX = {
     etai:       { l: 'Étais (location)',                  cat: 'divers', base: 'u', prix: 4 },
     mini_pelle: { l: 'Location mini-pelle',               cat: 'divers', base: 'jour', prix: 220 },
     benne:      { l: 'Benne 8 m³ (terre)',                cat: 'divers', base: 'u', prix: 280 },
+    bigbag_gravats: { l: 'Big bag à gravats (1 m³)',      cat: 'divers', base: 'u', prix: 15 },
     benne6:     { l: 'Benne 6 m³ (gravats lourds)',       cat: 'divers', base: 'u', prix: 300 }
 };
 
