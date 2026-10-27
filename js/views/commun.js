@@ -40,7 +40,7 @@ export function barreActions(html) {
     const bar = ancien.cloneNode(false);           // repart sans écouteurs
     ancien.replaceWith(bar);
     if (!html) { bar.classList.add('hidden'); bar.innerHTML = ''; return null; }
-    bar.innerHTML = `<div class="in">${html}</div>`;
+    bar.innerHTML = html.includes('class="in"') ? html : `<div class="in">${html}</div>`;
     bar.classList.remove('hidden');
     return bar;
 }

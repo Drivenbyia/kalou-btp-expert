@@ -23,7 +23,7 @@ export function htmlLigne(li, ctx, opts = {}) {
     const check = opts.check;
     return `<li class="line${check ? ' check' : ''}${opts.done ? ' done' : ''}" ${check ? `data-check="${esc(opts.cle)}" role="checkbox" aria-checked="${!!opts.done}"` : ''}>
         ${check ? `<span class="box">${opts.done ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : ''}</span>` : ''}
-        <span class="nm">${esc(nom)}${d && !opts.sansDetail ? `<small>${esc(d)}</small>` : ''}</span>
+        <span class="nm">${esc(nom)}${d && !opts.sansDetail ? `<small>${esc(d)}</small>` : ''}${opts.reste ? `<span class="reste">${esc(opts.reste)}</span>` : ''}</span>
         <span class="qt"><b>${esc(v)}<em>${esc(u)}</em></b></span>
     </li>`;
 }

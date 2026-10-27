@@ -29,28 +29,30 @@ export const MATERIAUX = {
     // ── Granulats & béton ────────────────────────────────────────────────
     sable04:    { l: 'Sable 0/4 (maçonnerie, béton)',   cat: 'granulats', base: 'T', dens: 1.5,  prix: 48 },
     sable02:    { l: 'Sable fin 0/2 (enduit de finition)', cat: 'granulats', base: 'T', dens: 1.5, prix: 52 },
-    gravier:    { l: 'Gravier 5/20 (béton)',            cat: 'granulats', base: 'T', dens: 1.45, prix: 48 },
-    herisson:   { l: 'Cailloux 20/40 ou tout-venant (hérisson)', cat: 'granulats', base: 'T', dens: 1.6, prix: 32 },
-    bpe:        { l: 'Béton prêt à l\'emploi (toupie)', cat: 'granulats', base: 'm3', prix: 170 },
+    gravier:    { l: 'Gravillon 4/20 (béton)',          cat: 'granulats', base: 'T', dens: 1.45, prix: 48 },
+    gravillon_fin: { l: 'Gravillon 4/10 (remplissage blocs, chaînages)', cat: 'granulats', base: 'T', dens: 1.45, prix: 52 },
+    herisson:   { l: 'Cailloux 20/40 (hérisson)',       cat: 'granulats', base: 'T', dens: 1.6, prix: 32 },
+    bpe:        { l: 'Béton toupie (BPE)',              cat: 'granulats', base: 'm3', prix: 170 },
 
     // ── Liants & mortiers ────────────────────────────────────────────────
-    ciment:     { l: 'Ciment CEM II',                   cat: 'liants', base: 'kg', pack: { ciment: true, nom: 'sac', noms: 'sacs' }, prix: 9.5 },
-    chaux:      { l: 'Chaux hydraulique NHL 3,5',       cat: 'liants', base: 'kg', pack: { taille: 35, nom: 'sac', noms: 'sacs' }, prix: 17 },
+    ciment:     { l: 'Ciment CEM II/B 32,5',                   cat: 'liants', base: 'kg', pack: { ciment: true, nom: 'sac', noms: 'sacs' }, prix: 9.5 },
+    chaux:      { l: 'Chaux NHL 3,5 (type St-Astier)',       cat: 'liants', base: 'kg', pack: { taille: 35, nom: 'sac', noms: 'sacs' }, prix: 17 },
     enduit_mono:{ l: 'Enduit monocouche',               cat: 'liants', base: 'kg', pack: { taille: 25, nom: 'sac', noms: 'sacs' }, prix: 13 },
     colle_bloc: { l: 'Mortier-colle joint mince (briques)', cat: 'liants', base: 'kg', pack: { taille: 25, nom: 'sac', noms: 'sacs' }, prix: 13 },
+    mortier_sr: { l: 'Mortier sans retrait (calage)',   cat: 'liants', base: 'kg', pack: { taille: 25, nom: 'sac', noms: 'sacs' }, prix: 25 },
     enduit_etanche: { l: 'Enduit d\'étanchéité (piscine)', cat: 'liants', base: 'kg', pack: { taille: 25, nom: 'sac', noms: 'sacs' }, prix: 28 },
     colle_carrelage: { l: 'Colle carrelage',            cat: 'liants', base: 'kg', pack: { taille: 25, nom: 'sac', noms: 'sacs' }, prix: 18 },
     joint_carrelage: { l: 'Joint carrelage',            cat: 'liants', base: 'kg', pack: { taille: 5,  nom: 'sac', noms: 'sacs' }, prix: 12 },
     ragreage:   { l: 'Ragréage autolissant',            cat: 'liants', base: 'kg', pack: { taille: 25, nom: 'sac', noms: 'sacs' }, prix: 22 },
 
     // ── Blocs, briques, pierre ───────────────────────────────────────────
-    parpaing20: { l: 'Parpaing creux 20×20×50',         cat: 'blocs', base: 'u', prix: 1.9 },
-    angle20:    { l: 'Parpaing d\'angle 20',            cat: 'blocs', base: 'u', prix: 2.4 },
-    parpaing15: { l: 'Parpaing creux 15×20×50',         cat: 'blocs', base: 'u', prix: 1.6 },
-    angle15:    { l: 'Parpaing d\'angle 15',            cat: 'blocs', base: 'u', prix: 2.0 },
-    parpaing10: { l: 'Parpaing 10×20×50 (cloison)',     cat: 'blocs', base: 'u', prix: 1.25 },
+    parpaing20: { l: 'Agglo creux de 20 (20×20×50)',         cat: 'blocs', base: 'u', prix: 1.9 },
+    angle20:    { l: 'Agglo d\'angle de 20',            cat: 'blocs', base: 'u', prix: 2.4 },
+    parpaing15: { l: 'Agglo creux de 15 (15×20×50)',         cat: 'blocs', base: 'u', prix: 1.6 },
+    angle15:    { l: 'Agglo d\'angle de 15',            cat: 'blocs', base: 'u', prix: 2.0 },
+    parpaing10: { l: 'Agglo de 10 (10×20×50)',     cat: 'blocs', base: 'u', prix: 1.25 },
     bancher20:  { l: 'Bloc à bancher 20×20×50',         cat: 'blocs', base: 'u', prix: 2.8 },
-    brique20:   { l: 'Brique terre cuite R20 (50×20×31,4)', cat: 'blocs', base: 'u', prix: 2.9 },
+    brique20:   { l: 'Brique rectifiée de 20 (50×20×31,4)', cat: 'blocs', base: 'u', prix: 2.9 },
     monomur30:  { l: 'Brique monomur 30 (25×30×24,9)',  cat: 'blocs', base: 'u', prix: 5.9 },
     bloc_u:     { l: 'Bloc U / bloc chaînage 20',        cat: 'blocs', base: 'u', prix: 3.2 },
     planelle:   { l: 'Planelle (rive de plancher)',      cat: 'blocs', base: 'u', prix: 1.7 },
@@ -58,17 +60,23 @@ export const MATERIAUX = {
     chaperon:   { l: 'Chaperon de mur (50 cm)',          cat: 'blocs', base: 'u', prix: 6.5 },
 
     // ── Acier, linteaux, plancher ────────────────────────────────────────
-    arm_semelle:{ l: 'Armature semelle filante (6 m)',   cat: 'acier', base: 'u', prix: 22 },
-    arm_chainage:{ l: 'Armature chaînage / poteau (6 m)', cat: 'acier', base: 'u', prix: 13 },
+    arm_semelle:{ l: 'Semelle filante armée préfa (6 m)',   cat: 'acier', base: 'u', prix: 22 },
+    arm_chainage:{ l: 'Chaînage préfa 4 HA (6 m)', cat: 'acier', base: 'u', prix: 13 },
     fer10:      { l: 'Fer HA Ø10 (barre de 6 m)',        cat: 'acier', base: 'u', prix: 11 },
-    treillis36: { l: 'Treillis soudé 2,40×3,60 m',       cat: 'acier', base: 'u', prix: 22 },
-    treillis6:  { l: 'Treillis soudé 2,40×6,00 m',       cat: 'acier', base: 'u', prix: 38 },
+    equerre_sem:{ l: 'Équerre d\'angle / té de semelle préfa', cat: 'acier', base: 'u', prix: 14 },
+    equerre_ch: { l: 'Équerre d\'angle de chaînage',     cat: 'acier', base: 'u', prix: 6 },
+    attente:    { l: 'Attente en L (chaînage vertical)', cat: 'acier', base: 'u', prix: 6 },
+    treillis36: { l: 'Treillis soudé ST 25 C 2,40×3,60 m',       cat: 'acier', base: 'u', prix: 22 },
+    treillis6:  { l: 'Treillis soudé ST 25 C 2,40×6,00 m',       cat: 'acier', base: 'u', prix: 38 },
     cales:      { l: 'Cales à béton (distanciers)',      cat: 'acier', base: 'u', prix: 0.25 },
-    linteau:    { l: 'Linteau béton préfabriqué',        cat: 'acier', base: 'ml', prix: 28 },
+    linteau:    { l: 'Linteau béton préfa',              cat: 'acier', base: 'ml', prix: 28 },
+    linteau_tc: { l: 'Linteau terre cuite (brique)',     cat: 'acier', base: 'ml', prix: 32 },
     ipn:        { l: 'Poutre acier IPN / HEA',           cat: 'acier', base: 'ml', prix: 70 },
     poutrelle:  { l: 'Poutrelle béton précontraint',     cat: 'acier', base: 'ml', prix: 7 },
     entrevous:  { l: 'Entrevous (hourdis) béton',        cat: 'acier', base: 'u', prix: 1.7 },
+    entrevous_pse: { l: 'Entrevous isolant PSE (hourdis polystyrène)', cat: 'acier', base: 'u', prix: 4.5 },
     appui:      { l: 'Appui de fenêtre béton préfa',     cat: 'acier', base: 'u', prix: 38 },
+    seuil:      { l: 'Seuil de porte béton préfa',       cat: 'acier', base: 'u', prix: 45 },
 
     // ── Bois / charpente ─────────────────────────────────────────────────
     fermette:   { l: 'Fermette industrielle (sur mesure)', cat: 'bois', base: 'u', prix: 120 },
@@ -82,11 +90,13 @@ export const MATERIAUX = {
 
     // ── Couverture & zinguerie ───────────────────────────────────────────
     ecran:      { l: 'Écran sous-toiture HPV',            cat: 'couverture', base: 'm2', pack: { taille: 75, nom: 'rouleau', noms: 'rouleaux', label: 'de 75 m²' }, prix: 120 },
-    tuile_meca: { l: 'Tuile à emboîtement (romane / grand moule)', cat: 'couverture', base: 'u', prix: 1.4 },
-    tuile_canal:{ l: 'Tuile canal (courant + couvert)',   cat: 'couverture', base: 'u', prix: 0.95 },
-    tuile_plate:{ l: 'Tuile plate 17×27',                 cat: 'couverture', base: 'u', prix: 0.9 },
+    tuile_meca: { l: 'Tuile romane (emboîtement)',       cat: 'couverture', base: 'u', prix: 1.4 },
+    tuile_gm:   { l: 'Tuile mécanique grand moule',      cat: 'couverture', base: 'u', prix: 1.5 },
+    tuile_canal:{ l: 'Tuile canal (courants + chapeaux)',   cat: 'couverture', base: 'u', prix: 0.95 },
+    tuile_plate:{ l: 'Tuile plate 17×27 (Périgord)',                 cat: 'couverture', base: 'u', prix: 0.9 },
     ardoise:    { l: 'Ardoise naturelle 32×22',           cat: 'couverture', base: 'u', prix: 1.3 },
-    plaque_st:  { l: 'Plaque support sous-tuile',         cat: 'couverture', base: 'm2', prix: 10 },
+    crochet_ardoise: { l: 'Crochets d\'ardoise',          cat: 'couverture', base: 'u', prix: 0.08 },
+    plaque_st:  { l: 'Plaque sous-tuile (PST, type Onduline)',         cat: 'couverture', base: 'm2', prix: 10 },
     faitiere:   { l: 'Tuile faîtière / arêtier',          cat: 'couverture', base: 'u', prix: 4.5 },
     tuile_rive: { l: 'Tuile de rive',                     cat: 'couverture', base: 'u', prix: 5 },
     closoir:    { l: 'Closoir ventilé de faîtage',        cat: 'couverture', base: 'ml', prix: 9 },
@@ -100,13 +110,14 @@ export const MATERIAUX = {
     montant:    { l: 'Montant M48',                       cat: 'platrerie', base: 'u', prix: 5 },
     fourrure:   { l: 'Fourrure F530 (3 m)',               cat: 'platrerie', base: 'u', prix: 3.8 },
     suspente:   { l: 'Suspente / appui intermédiaire',    cat: 'platrerie', base: 'u', prix: 0.7 },
-    corniere:   { l: 'Cornière / lisse de rive (3 m)',    cat: 'platrerie', base: 'u', prix: 2.8 },
+    corniere:   { l: 'Cornière de rive / lisse U (3 m)',    cat: 'platrerie', base: 'u', prix: 2.8 },
     vis_placo:  { l: 'Vis plaque TTPC 25',                cat: 'platrerie', base: 'u', pack: { taille: 1000, nom: 'boîte', noms: 'boîtes', label: 'de 1000' }, prix: 18 },
     bande:      { l: 'Bande à joint papier',              cat: 'platrerie', base: 'ml', pack: { taille: 150, nom: 'rouleau', noms: 'rouleaux', label: 'de 150 m' }, prix: 9 },
     enduit_joint:{ l: 'Enduit à joint',                   cat: 'platrerie', base: 'kg', pack: { taille: 25, nom: 'sac', noms: 'sacs' }, prix: 28 },
     laine_mur:  { l: 'Isolant laine minérale murs (100 mm)', cat: 'platrerie', base: 'm2', prix: 9 },
     laine_cloison:{ l: 'Laine acoustique cloison (45 mm)', cat: 'platrerie', base: 'm2', prix: 4 },
     laine_combles:{ l: 'Isolant combles (laine 300 mm)',  cat: 'platrerie', base: 'm2', prix: 13 },
+    pare_vapeur:{ l: 'Pare-vapeur (sous isolant de combles)', cat: 'platrerie', base: 'm2', prix: 1.5 },
     isolant_sol:{ l: 'Isolant sous dalle (polystyrène)',  cat: 'platrerie', base: 'm2', prix: 14 },
 
     // ── Revêtements ──────────────────────────────────────────────────────
@@ -118,6 +129,7 @@ export const MATERIAUX = {
     impression: { l: 'Sous-couche d\'impression',         cat: 'revetement', base: 'L', pack: { taille: 10, nom: 'pot', noms: 'pots', label: 'de 10 L' }, prix: 50 },
 
     // ── Divers ───────────────────────────────────────────────────────────
+    arase:      { l: 'Arase étanche (bande bitumineuse ou mortier hydrofuge)', cat: 'divers', base: 'ml', prix: 2.5 },
     polyane:    { l: 'Film polyane 150 µm',               cat: 'divers', base: 'm2', prix: 0.8 },
     geotextile: { l: 'Géotextile',                        cat: 'divers', base: 'm2', prix: 1.2 },
     desactivant:{ l: 'Désactivant de surface',            cat: 'divers', base: 'L', prix: 9 },
@@ -128,12 +140,13 @@ export const MATERIAUX = {
     dalle_ter:  { l: 'Dalles de terrasse',                cat: 'divers', base: 'm2', prix: 40 },
     etai:       { l: 'Étais (location)',                  cat: 'divers', base: 'u', prix: 4 },
     mini_pelle: { l: 'Location mini-pelle',               cat: 'divers', base: 'jour', prix: 220 },
-    benne:      { l: 'Benne / camion 8 m³ (évacuation)',  cat: 'divers', base: 'u', prix: 280 }
+    benne:      { l: 'Benne 8 m³ (terre)',                cat: 'divers', base: 'u', prix: 280 },
+    benne6:     { l: 'Benne 6 m³ (gravats lourds)',       cat: 'divers', base: 'u', prix: 300 }
 };
 
 export const PRIX_DEFAUT = Object.fromEntries(Object.entries(MATERIAUX).map(([k, m]) => [k, m.prix]));
 
-const UNITES = { u: '', m2: 'm²', ml: 'm', m3: 'm³', L: 'L', T: 'T', kg: 'kg', jour: 'jour' };
+const UNITES = { u: 'pcs', m2: 'm²', ml: 'm', m3: 'm³', L: 'L', T: 'T', kg: 'kg', jour: 'jour' };
 
 /** Taille du conditionnement (sac de ciment selon le réglage 25/35 kg). */
 function taillePack(mat, ctx = {}) {

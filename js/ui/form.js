@@ -23,10 +23,10 @@ export function htmlChamp(ch, valeurs, vues) {
             <label for="in-${ch.id}">${esc(label)}</label>
             <div class="inp">
                 <input id="in-${ch.id}" data-id="${ch.id}" type="text" inputmode="decimal" autocomplete="off"
-                       enterkeyhint="next" value="${esc(val ?? '')}" placeholder="0">
+                       enterkeyhint="next" value="${esc(val ?? '')}" placeholder="">
                 ${ch.u ? `<span class="u">${esc(ch.u)}</span>` : ''}
             </div>
-            <p class="err"></p>${aide}
+            <p class="err"></p><p class="warn"></p>${aide}
         </div>`;
     }
     if (ch.type === 'choix') {
@@ -87,12 +87,16 @@ export function brancherForm(root, valeurs, { onInput, onStruct }) {
     });
 }
 
-/** Affiche les erreurs de validation sous les champs concernés. */
-export function afficherErreurs(root, erreurs = {}) {
+/** Affiche les erreurs (rouge, bloquant) et les alertes (orange, non bloquant) sous les champs. */
+export function afficherErreurs(root, erreurs = {}, alertes = {}) {
     root.querySelectorAll('.f[data-f]').forEach(f => {
         const msg = erreurs[f.dataset.f];
+        const al = !msg && alertes[f.dataset.f];
         f.classList.toggle('ko', !!msg);
+        f.classList.toggle('alerte', !!al);
         const p = f.querySelector('.err');
         if (p) p.textContent = msg || '';
+        const w = f.querySelector('.warn');
+        if (w) w.textContent = al || '';
     });
 }

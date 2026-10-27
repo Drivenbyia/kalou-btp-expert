@@ -18,21 +18,69 @@ export const ICONES = {
 };
 
 // ─── Toast ──────────────────────────────────────────────────────────────────
-let _t;
-export function toast(msg, err = false) {
+let _t, _tDebut = 0;
+/**
+ * Petit message en bas de l'écran.
+ * @param {string} msg
+ * @param {boolean|object} opt  true = erreur · { action: 'Annuler', onAction: fn, duree }
+ */
+export function toast(msg, opt = false) {
     const el = document.getElementById('toast');
     if (!el) return;
-    el.textContent = msg;
-    el.classList.toggle('err', !!err);
+    const o = typeof opt === 'object' ? opt : { err: !!opt };
+    el.innerHTML = `<span>${esc(msg)}</span>${o.action ? `<button type="button">${esc(o.action)}</button>` : ''}`;
+    if (o.action) el.querySelector('button').addEventListener('click', () => { cacherToast(true); o.onAction && o.onAction(); });
+    el.classList.toggle('err', !!o.err);
     el.classList.add('show');
+    _tDebut = Date.now();
     clearTimeout(_t);
-    _t = setTimeout(() => el.classList.remove('show'), 2600);
+    _t = setTimeout(() => el.classList.remove('show'), o.duree || (o.action ? 5000 : 2600));
+}
+/** Cache le message (sauf s'il vient d'apparaître, pour survivre à un changement d'écran). */
+export function cacherToast(force = false) {
+    if (!force && Date.now() - _tDebut < 600) return;
+    const el = document.getElementById('toast');
+    if (el) el.classList.remove('show');
 }
 
 // ─── Feuille du bas ─────────────────────────────────────────────────────────
+// Ouvrir une feuille ajoute une étape dans l'historique : le bouton « retour »
+// du téléphone ferme la feuille au lieu de quitter l'écran.
 let _sheet = null;
-export function fermerFeuille() {
+let _entreeFeuille = false;
+let _popAttendu = false;
+const _apresPop = [];
+
+export function fermerFeuille({ depuisHistorique = false } = {}) {
     if (_sheet) { _sheet.remove(); _sheet = null; }
+    if (_entreeFeuille && !depuisHistorique) {
+        _entreeFeuille = false;
+        _popAttendu = true;
+        history.back();
+    } else if (depuisHistorique) _entreeFeuille = false;
+}
+
+/** Retire la feuille sans revenir en arrière (changement d'écran). */
+export function oublierFeuille() {
+    if (_sheet) { _sheet.remove(); _sheet = null; }
+    _entreeFeuille = false;
+}
+
+/** Exécute fn une fois l'historique stabilisé (après la fermeture d'une feuille). */
+export function apresFeuille(fn) {
+    if (_popAttendu) _apresPop.push(fn); else fn();
+}
+
+/** À appeler sur « popstate » : true si l'événement concernait une feuille. */
+export function gererPopFeuille() {
+    if (_popAttendu) {
+        _popAttendu = false;
+        const fns = _apresPop.splice(0);
+        fns.forEach(f => f());
+        return true;
+    }
+    if (_sheet) { fermerFeuille({ depuisHistorique: true }); return true; }
+    return false;
 }
 /**
  * Ouvre une feuille modale en bas de l'écran.
@@ -40,13 +88,15 @@ export function fermerFeuille() {
  * @param {(root:HTMLElement)=>void} bind  branchement des événements
  */
 export function ouvrirFeuille(html, bind) {
-    fermerFeuille();
+    if (_sheet) { _sheet.remove(); _sheet = null; }        // remplace la feuille sans toucher à l'historique
     const bg = document.createElement('div');
     bg.className = 'sheet-bg';
     bg.innerHTML = `<div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div>`;
     bg.addEventListener('click', e => { if (e.target === bg) fermerFeuille(); });
+    cacherToast(true);
     document.body.appendChild(bg);
     _sheet = bg;
+    if (!_entreeFeuille) { _entreeFeuille = true; apresFeuille(() => history.pushState({ feuille: 1 }, '')); }
     if (bind) bind(bg.querySelector('.sheet'));
     return bg;
 }

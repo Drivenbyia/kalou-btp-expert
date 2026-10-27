@@ -120,6 +120,16 @@ export function remplacerItem(chantierId, itemId, item) {
         if (i >= 0) c.items[i] = { ...c.items[i], ...item, date: Date.now() };
     });
 }
+/** Remet un ouvrage retiré à sa place (bouton « Annuler »). */
+export function restaurerItem(chantierId, item, index) {
+    majChantier(chantierId, c => { c.items.splice(Math.min(index, c.items.length), 0, item); });
+}
+/** Recrée un chantier supprimé (bouton « Annuler »). */
+export function restaurerChantier(chantier) {
+    const liste = listeChantiers().filter(c => c.id !== chantier.id);
+    liste.unshift(chantier);
+    sauverTous(liste);
+}
 export function supprimerItem(chantierId, itemId) {
     majChantier(chantierId, c => { c.items = c.items.filter(x => x.id !== itemId); });
 }

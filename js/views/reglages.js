@@ -42,10 +42,11 @@ export function vueReglages(root) {
                 <summary>Prix des matériaux (${Object.keys(MATERIAUX).length})</summary>
                 <p class="hint" style="font-size:13.5px;margin:4px 0 8px">Prix TTC indicatifs (négoce Dordogne). Mets ceux de ton fournisseur : la case devient orange.</p>
                 ${CATEGORIES.map(cat => `
-                    <p class="cat-title">${esc(cat.l)}</p>
+                    <details class="more"><summary>${esc(cat.l)}</summary>
                     ${Object.entries(MATERIAUX).filter(([, m]) => m.cat === cat.id).map(([k]) => `
                         <div class="set-row"><div class="tx"><b>${esc(libelle(k, ctx))}</b><small>€ par ${esc(unitePrix(k, ctx))}${modifs.has(k) ? ` · défaut ${fmt(PRIX_DEFAUT[k], 2)} €` : ''}</small></div>
-                        <input inputmode="decimal" data-prix="${k}" class="${modifs.has(k) ? 'mod' : ''}" value="${esc(String(prix[k]).replace('.', ','))}"></div>`).join('')}`).join('')}
+                        <input inputmode="decimal" data-prix="${k}" class="${modifs.has(k) ? 'mod' : ''}" value="${esc(String(prix[k]).replace('.', ','))}"></div>`).join('')}
+                    </details>`).join('')}
                 <button class="btn btn-light btn-block btn-sm" id="reset-prix" style="margin-top:12px">Remettre tous les prix par défaut</button>
             </details>` : ''}
         </div>
@@ -63,11 +64,11 @@ export function vueReglages(root) {
         <p class="section-title">Comment sont faits les calculs</p>
         <div class="card">
             <ul class="infos" style="margin:0">
-                <li>Béton : par m³, le dosage en ciment (350 kg = 10 sacs de 35 kg), ≈ 400 L de sable 0/4 (0,65 T) et ≈ 800 L de gravier 5/20 (1,15 T), ≈ 175 L d'eau.</li>
+                <li>Béton : par m³, le dosage en ciment (350 kg = 10 sacs de 35 kg, béton toupie C25/30), ≈ 400 L de sable 0/4 (0,65 T) et ≈ 800 L de gravillon 4/20 (1,15 T), ≈ 175 L d'eau. Remplissage de blocs et chaînages : gravillon 4/10.</li>
                 <li>Mortier : par m³, le dosage en liant et ≈ 1 m³ de sable (1,5 T). Hourdage parpaing 20 : ≈ 20 L de mortier par m².</li>
-                <li>Parpaings : 10 au m² (+5 % de casse). Brique R20 : 6,4 au m². Monomur 30 : 16,2 au m².</li>
+                <li>Agglos : 10 au m² (+5 % de casse). Brique rectifiée de 20 : 6,4 au m². Monomur 30 : 16,2 au m². Treillis 2,40×3,60 : 6,9 m² utiles (2 mailles de recouvrement).</li>
                 <li>Pertes comprises : béton +5 %, mortiers et enduits +10 %, plaques et carrelage +10 % (diagonale +15 %), tuiles +5 %.</li>
-                <li>Enduit monocouche : ≈ 17 kg par m² et par cm. Chaux NHL : 350 kg par m³ de sable.</li>
+                <li>Enduit monocouche : ≈ 17 kg par m² et par cm. Enduits en 3 couches à dosages dégressifs : chaux 450 / 325 / 275 kg, traditionnel 500 / 400 / 300 kg. Mortier de pierre et joints à la chaux : 300 à 325 kg, jamais plus dur que la pierre.</li>
                 <li>Hérisson : 1,8 T par m³ compacté. Terre foisonnée : ×1,25 (argile ×1,35, roche ×1,5).</li>
                 <li>Ce sont des ordres de grandeur pour commander : vérifier sur les notices des fabricants et faire valider les éléments de structure (IPN, charpente, planchers).</li>
             </ul>
