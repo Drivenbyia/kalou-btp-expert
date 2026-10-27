@@ -142,7 +142,8 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px calc(var(--nav-h) + 
 .hero .go { margin-left: auto; width: 44px; height: 44px; border-radius: 12px; background: var(--brand); color: var(--ink); display: grid; place-items: center; flex: none; }
 
 /* ── Formulaires ───────────────────────────────────────────────── */
-.form { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 12px; align-items: end; }
+.form { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 12px; align-items: start; }
+.f.demi > label, .f.demi > .lab { min-height: 2.6em; display: flex; align-items: flex-end; }
 .f { grid-column: span 2; min-width: 0; }
 .f.demi { grid-column: span 1; }
 .f > label, .f > .lab { display: block; font-size: 15px; font-weight: 700; color: var(--ink); margin: 0 2px 6px; }

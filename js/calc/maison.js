@@ -35,27 +35,27 @@ export const ETAPES = [
             n('l', 'Largeur', 'm', 9, { demi: true, max: 20, aide: 'Côtes extérieures.', si: v => v.forme !== 'autre' }),
             n('P', 'Périmètre extérieur', 'm', 58, { demi: true, max: 300, si: v => v.forme === 'autre', aide: 'Le tour des murs, côtes extérieures.' }),
             n('S', 'Surface au sol', 'm²', 134, { demi: true, max: 2000, si: v => v.forme === 'autre', aide: 'Emprise, côtes extérieures.' }),
-            n('nAngles', 'Nombre d\'angles', 'u', 8, { demi: true, max: 40, si: v => v.forme === 'autre', aide: 'Rentrants + sortants (L = 6).' }),
-            n('ailes', 'Blocs de toit', 'u', 2, { demi: true, max: 6, si: v => v.forme === 'autre', aide: 'L ou Z = 2, T ou U = 3.' }),
+            n('nAngles', 'Nombre d\'angles', 'u', 8, { demi: true, max: 40, si: v => v.forme === 'autre', aide: 'Chaque coin du tour de la maison : rectangle = 4, L = 6, T, U ou Z = 8.' }),
+            n('ailes', 'Blocs de toit', 'u', 2, { demi: true, max: 6, si: v => v.forme === 'autre', aide: 'Nombre de toits à 2 pans qui se rejoignent : L ou Z = 2, T ou U = 3.' }),
             n('largeur', 'Largeur des ailes', 'm', 7.5, { demi: true, max: 20, si: v => v.forme === 'autre', aide: 'Profondeur d\'une aile : la portée des fermettes et poutrelles.' }),
             c('niveaux', 'Niveaux', [{ v: '1', l: 'Plain-pied' }, { v: '2', l: 'Étage (R+1)' }], '1'),
-            n('hMur', 'Hauteur des murs par niveau', 'm', 2.7, { max: 4, bas: 2.4, aide: 'Plain-pied ≈ 2,70 m. Rez-de-chaussée d\'un R+1 ≈ 2,80 m (plancher + isolant + sol).' }),
-            n('refend', 'Murs de refend porteurs', 'm', 0, { zero: true, max: 60, aide: 'Longueur des murs intérieurs porteurs (0 si aucun).' })
+            n('hMur', 'Hauteur des murs par niveau', 'm', 2.7, { max: 4, bas: 2.4, aide: 'Du dessus de la dalle au dessus du chaînage haut (là où pose la charpente ou le plancher). Ce n\'est pas la hauteur sous plafond. Plain-pied ≈ 2,70 m · rez-de-chaussée d\'un R+1 ≈ 2,80 m.' }),
+            n('refend', 'Murs de refend porteurs', 'm', 0, { zero: true, max: 60, aide: 'Murs intérieurs maçonnés qui portent la charpente ou le plancher (avec leur fondation). Les cloisons placo ne comptent pas. 0 si aucun.' })
         ]
     },
     {
         id: 'fondations', titre: 'Fondations & plancher bas', ic: '🏗️',
         champs: [
             c('bas', 'Plancher bas', [{ v: 'terreplein', l: 'Dalle sur terre-plein' }, { v: 'vs', l: 'Vide sanitaire' }], 'terreplein'),
-            n('semL', 'Largeur des semelles', 'cm', 50, { demi: true, max: 120 }),
-            n('semH', 'Épaisseur de semelle', 'cm', 35, { demi: true, max: 100, bas: 20 }),
-            n('prof', 'Profondeur de fouille', 'cm', 80, { demi: true, max: 200, bas: 50, aide: 'Hors gel. Sol argileux : 80 cm mini, 1,20 m en aléa fort.' }),
-            n('hVS', 'Hauteur du vide sanitaire', 'cm', 60, { demi: true, max: 150, si: v => v.bas === 'vs' }),
-            n('dalleEp', 'Épaisseur de dalle', 'cm', 12, { demi: true, max: 30, si: v => v.bas === 'terreplein' }),
-            n('he', 'Hérisson', 'cm', 20, { demi: true, zero: true, max: 60, si: v => v.bas === 'terreplein' }),
+            n('semL', 'Largeur des semelles', 'cm', 50, { demi: true, max: 120, aide: 'Souvent 50 cm sous un mur de 20.' }),
+            n('semH', 'Épaisseur de semelle', 'cm', 35, { demi: true, max: 100, bas: 20, aide: 'Hauteur de béton dans la fouille.' }),
+            n('prof', 'Profondeur de fouille', 'cm', 80, { demi: true, max: 200, bas: 50, aide: 'Depuis le terrain naturel. Hors gel ; sol argileux : 80 cm mini, 1,20 m en aléa fort.' }),
+            n('hVS', 'Hauteur du vide sanitaire', 'cm', 60, { demi: true, max: 150, si: v => v.bas === 'vs', aide: 'Du terrain au dessous du plancher.' }),
+            n('dalleEp', 'Épaisseur de dalle', 'cm', 12, { demi: true, max: 30, si: v => v.bas === 'terreplein', aide: '12 cm habituel.' }),
+            n('he', 'Hérisson', 'cm', 20, { demi: true, zero: true, max: 60, si: v => v.bas === 'terreplein', aide: 'Cailloux compactés sous la dalle.' }),
             oui('isolSol', 'Isolant sous dalle', true, { si: v => v.bas === 'terreplein' }),
             oui('drainage', 'Drainage + protection des murs enterrés', false, { aide: 'Conseillé sur terrain argileux, en pente ou humide.' }),
-            c('mode', 'Le béton', [{ v: 'bpe', l: 'Toupie (conseillé)' }, { v: 'betonniere', l: 'Bétonnière' }], 'bpe')
+            c('mode', 'Le béton', [{ v: 'bpe', l: 'Toupie (conseillé)' }, { v: 'betonniere', l: 'Bétonnière' }], 'bpe', { aide: 'Pour une maison, la toupie : plus de 20 m³ de béton.' })
         ]
     },
     {
@@ -71,11 +71,11 @@ export const ETAPES = [
     {
         id: 'toit', titre: 'Charpente & toiture', ic: '🪵',
         champs: [
-            c('pans', 'Toit', [{ v: '2', l: '2 pans (pignons)' }, { v: '4', l: '4 pans' }], '2'),
+            c('pans', 'Toit', [{ v: '2', l: '2 pans (pignons)' }, { v: '4', l: '4 pans' }], '2', { aide: '2 pans : pignons maçonnés aux bouts. 4 pans : croupes, pas de pignon.' }),
             c('charpente', 'Charpente', [{ v: 'fermettes', l: 'Fermettes' }, { v: 'trad', l: 'Traditionnelle' }], 'fermettes'),
             c('couverture', 'Couverture', Object.entries(COUVERTURES).map(([v, x]) => ({ v, l: x.l })), 'meca'),
-            n('pente', 'Pente', '%', 35, { demi: true, max: 200, aide: 'Canal ≈ 30 % · romane ≈ 35 % · ardoise ≈ 80 % · plate ≈ 100 %.' }),
-            n('debord', 'Débord', 'cm', 40, { demi: true, zero: true, max: 150 }),
+            n('pente', 'Pente', '%', 35, { demi: true, max: 200, aide: 'Canal ≈ 30 % · romane ≈ 35 % · ardoise ≈ 80 % · plate ≈ 100 % (45°).' }),
+            n('debord', 'Débord', 'cm', 40, { demi: true, zero: true, max: 150, aide: 'Dépassement du toit, mesuré à plat.' }),
             oui('gouttieres', 'Gouttières et descentes')
         ]
     },
@@ -94,8 +94,8 @@ export const ETAPES = [
             c('doublage', 'Doublage des murs', [{ v: 'colle', l: 'Collé PSE 13+120' }, { v: 'appuis', l: 'Sur appuis + laine 120' }, { v: 'non', l: 'Aucun' }], 'colle', { si: v => v.interieur && v.bloc !== 'monomur30', aide: 'R ≈ 3,75 : niveau RE2020.' }),
             oui('plafonds', 'Plafonds placo + combles soufflés R 8', true, { si: v => v.interieur }),
             n('cloisons', 'Cloisons', 'm', 0, { zero: true, max: 300, si: v => v.interieur, aide: '0 = estimation automatique (≈ 0,35 m par m² habitable).' }),
-            oui('chape', 'Chape flottante sur isolant', false, { si: v => v.interieur }),
-            oui('carrelage', 'Carrelage partout', true, { si: v => v.interieur }),
+            oui('chape', 'Chape flottante sur isolant', false, { si: v => v.interieur, aide: 'Utile pour un plancher chauffant. Sinon, carrelage collé sur la dalle.' }),
+            oui('carrelage', 'Carrelage partout', true, { si: v => v.interieur, aide: 'Toutes les pièces, en 60×60.' }),
             oui('peinture', 'Peinture murs et plafonds', true, { si: v => v.interieur })
         ]
     }
