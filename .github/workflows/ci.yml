@@ -1,0 +1,59 @@
+# Contrôle à chaque PR, puis mise en ligne sur GitHub Pages quand main change (si tout est vert).
+name: Tests et mise en ligne
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Tests (calculs + écrans)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Calculs
+        run: npm test
+      - name: Navigateur pour le test des écrans
+        run: |
+          npm install --no-save playwright@1.63.0
+          npx playwright install --with-deps chromium
+      - name: Écrans (téléphone 360 px)
+        run: npm run test:ecrans
+
+  mise-en-ligne:
+    name: Mise en ligne (GitHub Pages)
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: tests
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fichiers de l'appli seulement
+        run: |
+          mkdir _site
+          cp -r index.html manifest.webmanifest sw.js css icons js _site/
+          touch _site/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploiement
+        uses: actions/deploy-pages@v4

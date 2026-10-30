@@ -31,8 +31,13 @@
 
 - **PWA statique**, vanilla JS (modules ES), **aucune dépendance, aucun build**. CSS maison
   (`css/app.css`, pas de Tailwind). Fonctionne **hors ligne** (`sw.js`, réseau d'abord puis cache).
-- **Hébergement : Netlify**, déploiement automatique depuis `main` →
-  https://kalou-btp-expert.netlify.app (vérifier : `curl -s …/js/app.js | grep APP_VERSION`).
+- **Hébergement : GitHub Pages** (dépôt public, gratuit), publié par `.github/workflows/ci.yml`
+  à chaque push sur `main`, **seulement si les tests passent** →
+  https://drivenbyia.github.io/kalou-btp-expert/ (vérifier : `curl -s …/js/app.js | grep APP_VERSION`).
+  Ancien hébergement Netlify (https://kalou-btp-expert.netlify.app) abandonné : crédits de l'équipe
+  « Comparateur d'Energie » épuisés en oct. 2026. L'adresse github.io est partagée avec les autres
+  sites Pages du compte : le `sw.js` ne supprime que les caches `kalou-btp-*`.
+- **Tests automatiques sur GitHub** (même workflow, à chaque PR) : `npm test` puis `npm run test:ecrans`.
 - Données **uniquement dans le navigateur** (localStorage), sauvegarde/restauration en fichier JSON
   (Réglages). Téléphone et iMac ne partagent pas leurs données.
 
@@ -44,13 +49,17 @@
 | `js/app.js` | routeur `#/…`, en-tête, historique (retour du téléphone), garde « Quitter sans enregistrer ? », `APP_VERSION` |
 | `js/calc/materiaux.js` | catalogue (~150 articles) : libellé négoce, catégorie, unité d'achat (sac, T, rouleau…), prix indicatif |
 | `js/calc/base.js` | **dosages de référence** et briques de calcul : béton, mortier (ciment/chaux/bâtard), blocs, chaînages, plancher, toiture (rectangle **et forme libre**), placo (DTU 25.41/25.42), soufflage, drainage, échafaudage |
-| `js/calc/ouvrages.js` | **33 calculateurs** (champs, aides, mots-clés de recherche, `calcul` pur, `verifier`), `CONSEILS`, table `AIDES`, validation (erreurs bloquantes + alertes douces) |
+| `js/calc/ouvrages.js` | assemble les **33 calculateurs**, catégories `OUV_CATS`, table `AIDES`, validation (erreurs bloquantes + alertes douces), `calculer()` |
+| `js/calc/ouvrages/*.js` | les calculateurs **par famille** (`beton`, `murs`, `enduits`, `toiture`, `interieur`, `exterieur`, `renovation`, `reseaux`) ; `commun.js` = constructeurs de champs, choix béton, `CONSEILS` |
 | `js/calc/maison.js` | assistant **Maison neuve** lot par lot ; rectangle ou **forme libre** (périmètre, surface, angles, blocs de toit, largeur) |
 | `js/calc/cout.js` | estimation façon entreprise (option) |
 | `js/core/store.js` | localStorage : réglages, prix, chantiers, saisies, migration v3→v4, sauvegarde JSON |
 | `js/ui/` | `dom.js` (toast avec « Annuler », feuilles du bas liées à l'historique, partage), `form.js` (champs, demi-largeurs appariées), `resultats.js` (listes, consolidation, texte de partage), `contour.js` (aide « tour de la maison ») |
 | `js/views/` | écrans Calculs, Maison, Chantiers, Réglages |
 | `tests/calculs.test.js` | `npm test` (node --test) : dosages, cohérence de tous les calculateurs, maison, forme libre |
+| `tests/pwa.test.js` | `npm test` : chaque fichier JS/CSS est dans `sw.js`, `APP_VERSION` = nom du cache |
+| `tests/ecrans.e2e.js` | `npm run test:ecrans` : Chromium à 360 px, tous les écrans et calculateurs, menuiseries, enregistrement d'un chantier, zéro erreur JS, pas de débordement |
+| `.github/workflows/ci.yml` | tests à chaque PR ; mise en ligne GitHub Pages depuis `main` |
 
 ### Dosages de référence (base.js)
 
@@ -82,12 +91,12 @@
 ## Méthode de travail (à suivre)
 
 1. Branche `claude/<sujet>` depuis `origin/main`.
-2. Modifier ; **`npm test`** ; parcours **Playwright** à 360/390 px (Chromium préinstallé :
-   `require('playwright')`, `python3 -m http.server`), regarder les captures, zéro erreur JS.
+2. Modifier ; **`npm test`** et **`npm run test:ecrans`** (Chromium préinstallé dans les sessions) ;
+   pour un nouvel écran, compléter `tests/ecrans.e2e.js` et regarder des captures à 360/390 px.
 3. **Incrémenter `APP_VERSION`** (`js/app.js`) **et le nom du cache** (`sw.js`, `kalou-btp-vX.Y.Z`) ;
    ajouter tout nouveau fichier JS à la liste du `sw.js`.
-4. Commit, push, PR, puis **fusion dans `main`** (l'utilisateur a autorisé la fusion directe) ;
-   vérifier la version en ligne sur Netlify.
+4. Commit, push, PR, attendre le **contrôle GitHub vert**, puis **fusion dans `main`**
+   (l'utilisateur a autorisé la fusion directe) ; vérifier la version en ligne sur GitHub Pages.
 5. Répondre à l'utilisateur en français, court, en commençant par le résultat.
 6. Pour une relecture approfondie, l'utilisateur apprécie des **agents à rôle** (expert UX, designer UI,
    maçon expérimenté, plaquiste-carreleur) qui analysent sans modifier, puis on applique.
@@ -104,6 +113,7 @@
 | 4.4.1 | #12 | Aide « tour » : indique quels côtés vérifier si le tour ne se referme pas |
 | 4.4.2 | #13 | Explications sur ~40 champs (d'où à où mesurer), alignement des champs |
 | 4.5.0 | #15 | Maison : surface habitable sans doublage ni cloisons (détail affiché) ; menuiseries en liste avec tailles libres |
+| 4.6.0 | #16 | Architecture : calculateurs découpés par famille, tests des écrans (Playwright) et de la PWA, tests sur GitHub à chaque PR, hébergement GitHub Pages |
 
 Projet en cours chez l'utilisateur : maison en Z (plan ≈ 58 m de tour, 134 m² au sol, 8 angles,
 2 blocs de toit, ailes ≈ 7,5 m).

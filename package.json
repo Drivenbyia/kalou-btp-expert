@@ -4,6 +4,7 @@
   "type": "module",
   "description": "PWA de métré chantier (maçonnerie) — aucune dépendance, aucun build.",
   "scripts": {
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "test:ecrans": "node --test tests/ecrans.e2e.js"
   }
 }
