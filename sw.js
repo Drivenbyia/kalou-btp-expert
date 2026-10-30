@@ -2,7 +2,7 @@
 // Stratégie « réseau d'abord » : dès qu'il y a du réseau, on prend la dernière
 // version publiée (mises à jour immédiates) ; sinon on sert la copie en cache.
 
-const CACHE = 'kalou-btp-v4.5.0';
+const CACHE = 'kalou-btp-v4.6.0';
 const FICHIERS = [
     './',
     './index.html',
@@ -17,6 +17,15 @@ const FICHIERS = [
     './js/calc/materiaux.js',
     './js/calc/base.js',
     './js/calc/ouvrages.js',
+    './js/calc/ouvrages/commun.js',
+    './js/calc/ouvrages/beton.js',
+    './js/calc/ouvrages/murs.js',
+    './js/calc/ouvrages/enduits.js',
+    './js/calc/ouvrages/toiture.js',
+    './js/calc/ouvrages/interieur.js',
+    './js/calc/ouvrages/exterieur.js',
+    './js/calc/ouvrages/renovation.js',
+    './js/calc/ouvrages/reseaux.js',
     './js/calc/maison.js',
     './js/calc/cout.js',
     './js/ui/dom.js',
@@ -34,10 +43,11 @@ self.addEventListener('install', e => {
     e.waitUntil(caches.open(CACHE).then(c => c.addAll(FICHIERS)).then(() => self.skipWaiting()));
 });
 
+// Seulement nos anciens caches : sur github.io, l'adresse est partagée avec d'autres sites.
 self.addEventListener('activate', e => {
     e.waitUntil(
         caches.keys()
-            .then(cles => Promise.all(cles.filter(k => k !== CACHE).map(k => caches.delete(k))))
+            .then(cles => Promise.all(cles.filter(k => k.startsWith('kalou-btp-') && k !== CACHE).map(k => caches.delete(k))))
             .then(() => self.clients.claim())
     );
 });
