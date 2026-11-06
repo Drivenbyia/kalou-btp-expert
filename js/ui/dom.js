@@ -163,6 +163,26 @@ export async function partager(titre, texte) {
     }
 }
 
+/**
+ * Envoie un fichier (PDF, sauvegarde…). Téléphone : menu de partage (WhatsApp,
+ * mail, Fichiers…). Ordinateur, ou partage impossible : téléchargement.
+ * À appeler directement dans le clic (le navigateur l'exige pour le partage).
+ */
+export async function partagerFichier(fichier, titre, { telecharge = 'Fichier téléchargé', toujoursPartager = false } = {}) {
+    const tactile = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+    if ((tactile || toujoursPartager) && navigator.canShare && navigator.canShare({ files: [fichier] })) {
+        try { await navigator.share({ files: [fichier], title: titre }); return 'partage'; }
+        catch (e) { if (e && e.name === 'AbortError') return 'annule'; }
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(fichier);
+    a.download = fichier.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    toast(telecharge);
+    return 'telechargement';
+}
+
 export function dateCourte(ts) {
     if (!ts) return '';
     const d = new Date(ts);
