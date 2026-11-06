@@ -5,10 +5,11 @@ import { OUVRAGES_PAR_ID, calculer } from '../calc/ouvrages.js';
 import { calculerMaison } from '../calc/maison.js';
 import {
     listeChantiers, getChantier, creerChantier, majChantier, supprimerChantier, supprimerItem, ctxCalcul,
-    restaurerItem, restaurerChantier, ajouterItem, ajouterLibre, supprimerLibre, derniereSauvegarde
+    restaurerItem, restaurerChantier, ajouterItem, ajouterLibre, supprimerLibre, derniereSauvegarde, getReglages
 } from '../core/store.js';
 import { quantiteAchat, affichage, MATERIAUX } from '../calc/materiaux.js';
-import { ICONES, toast, partager, confirmer, demanderTexte, ouvrirFeuille, fermerFeuille, apresFeuille, dateCourte } from '../ui/dom.js';
+import { ICONES, toast, partager, partagerFichier, confirmer, demanderTexte, ouvrirFeuille, fermerFeuille, apresFeuille, dateCourte } from '../ui/dom.js';
+import { pdfListe } from '../ui/liste-pdf.js';
 import { htmlKpis, htmlLignes, htmlCout, consolider, parCategorie, htmlLigne, texteListe } from '../ui/resultats.js';
 import { aller, entete } from '../app.js';
 import { barreActions } from './commun.js';
@@ -68,6 +69,24 @@ export function calculerItem(item, ctx) {
     };
 }
 
+/**
+ * Ouvrages recalculés + liste de courses consolidée d'un chantier.
+ * achete[cle] = quantité achetée (en unités d'achat). Si la quantité nécessaire
+ * augmente ensuite (nouvel ouvrage), la ligne se décoche et affiche le reste à prendre.
+ */
+function donneesListe(ch, ctx) {
+    const calc = ch.items.map(it => ({ it, ...calculerItem(it, ctx) }));
+    const toutes = consolider([...calc.flatMap(c => c.lignes), ...(ch.libres || []).map(a => ({ l: a.l, q: a.q, u: a.u }))]);
+    const achete = ch.achete || {};
+    const qAchat = li => (li.k && MATERIAUX[li.k]) ? quantiteAchat(li.k, li.q, ctx) : Math.round(li.q * 100) / 100;
+    const estFait = li => {
+        const a = achete[li.cle];
+        if (a === true) return true;
+        return typeof a === 'number' && qAchat(li) <= a + 1e-9;
+    };
+    return { calc, toutes, achete, qAchat, estFait };
+}
+
 // ─── Détail ─────────────────────────────────────────────────────────────────
 
 export function vueChantier(root, id, params) {
@@ -83,9 +102,8 @@ export function vueChantier(root, id, params) {
         action: { html: ICONES.more, onClick: () => menu(ch) }
     });
 
-    const calc = ch.items.map(it => ({ it, ...calculerItem(it, ctx) }));
+    const { calc, toutes, achete, qAchat, estFait } = donneesListe(ch, ctx);
     const libres = ch.libres || [];
-    const toutes = consolider([...calc.flatMap(c => c.lignes), ...libres.map(a => ({ l: a.l, q: a.q, u: a.u }))]);
     const heures = calc.reduce((s, c) => s + (c.h || 0), 0);
     const tva = calc.some(c => c.tva === 20) && calc.every(c => c.tva === 20) ? 20 : null;
 
@@ -167,15 +185,6 @@ export function vueChantier(root, id, params) {
     }
 
     // ── Liste de courses ──
-    // achete[cle] = quantité achetée (en unités d'achat). Si la quantité nécessaire
-    // augmente ensuite (nouvel ouvrage), la ligne se décoche et affiche le reste à prendre.
-    const achete = ch.achete || {};
-    const qAchat = li => (li.k && MATERIAUX[li.k]) ? quantiteAchat(li.k, li.q, ctx) : Math.round(li.q * 100) / 100;
-    const estFait = li => {
-        const a = achete[li.cle];
-        if (a === true) return true;
-        return typeof a === 'number' && qAchat(li) <= a + 1e-9;
-    };
     const resteTxt = li => {
         const a = achete[li.cle];
         if (typeof a !== 'number' || estFait(li)) return '';
@@ -233,7 +242,7 @@ export function vueChantier(root, id, params) {
     const bar = barreActions(`<button class="btn btn-primary" data-act="partager">${ICONES.share}<span>Envoyer la liste</span></button>`);
     bar.addEventListener('click', e => {
         if (!e.target.closest('[data-act]')) return;
-        envoyerListe(ch, toutes, l => !estFait(l), ctx);
+        envoyerListe(ch.id);
     });
 }
 
@@ -273,25 +282,64 @@ function ajouterArticle(ch) {
     });
 }
 
-// ─── Envoi de la liste : tout, ou seulement ce qui reste ─────────────────────
+// ─── Envoi de la liste : en PDF ou en message, tout ou ce qui reste ─────────
 
-function envoyerListe(ch, toutes, pasFait, ctx) {
+function envoyerListe(id) {
+    const ch = getChantier(id);
+    if (!ch) return;
+    const ctx = ctxCalcul();
+    const { calc, toutes, estFait } = donneesListe(ch, ctx);
     if (!toutes.length) { toast('La liste est vide', true); return; }
-    const titre = `🧱 Commande — ${ch.nom}`;
-    const reste = toutes.filter(pasFait);
-    const tout = () => partager(`Commande — ${ch.nom}`, texteListe(titre, toutes, ctx));
-    if (reste.length === toutes.length || reste.length === 0) { tout(); return; }
+    const reste = toutes.filter(l => !estFait(l));
+    const choix = reste.length > 0 && reste.length < toutes.length;
+    const notes = (ch.notes || '').trim();
+    const r = getReglages();
+    let quoi = choix ? 'reste' : 'tout';
+    let avecNotes = false;
     ouvrirFeuille(`
         <h2>Envoyer la liste</h2>
-        <p style="color:var(--muted);font-size:15px">${toutes.length - reste.length} article(s) déjà coché(s).</p>
-        <button class="opt" data-e="reste"><span style="font-size:22px">🛒</span><span><b>Seulement ce qui reste (${reste.length})</b><small>Pour la prochaine commande</small></span></button>
-        <button class="opt" data-e="tout"><span style="font-size:22px">📋</span><span><b>Toute la liste (${toutes.length})</b><small>Commande complète du chantier</small></span></button>
+        ${choix ? `<p style="color:var(--muted);font-size:15px;margin-bottom:8px">${toutes.length - reste.length} article(s) déjà coché(s).</p>
+        <div class="seg" id="env-quoi"><button type="button" data-q="reste" class="on">Ce qui reste (${reste.length})</button><button type="button" data-q="tout">Tout (${toutes.length})</button></div>` : ''}
+        ${notes ? `<button type="button" class="switch" id="env-notes" role="switch" aria-checked="false" style="margin-top:6px"><span>Mettre mes notes du chantier sur le PDF</span><i></i></button>` : ''}
+        <button class="opt" data-e="pdf"><span style="font-size:22px">📄</span><span><b>En PDF</b><small>Propre et rangé, pour faire un devis ou commander</small></span></button>
+        <button class="opt" data-e="texte"><span style="font-size:22px">💬</span><span><b>En message</b><small>SMS, WhatsApp, mail…</small></span></button>
+        ${!r.nom && !r.tel ? '<p class="hint" style="font-size:13.5px;margin-top:10px;color:var(--muted)">Astuce : mets ton nom et ton téléphone dans Réglages, ils seront écrits sur le PDF.</p>' : ''}
     `, root => {
-        root.querySelector('[data-e="reste"]').addEventListener('click', () => {
-            fermerFeuille();
-            apresFeuille(() => partager(`Commande — ${ch.nom}`, texteListe(titre, reste, ctx, { sousTitre: '(articles pas encore achetés)' })));
+        const seg = root.querySelector('#env-quoi');
+        if (seg) seg.addEventListener('click', e => {
+            const b = e.target.closest('[data-q]');
+            if (!b) return;
+            quoi = b.dataset.q;
+            seg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
         });
-        root.querySelector('[data-e="tout"]').addEventListener('click', () => { fermerFeuille(); apresFeuille(tout); });
+        const sw = root.querySelector('#env-notes');
+        if (sw) sw.addEventListener('click', () => {
+            avecNotes = !avecNotes;
+            sw.classList.toggle('on', avecNotes);
+            sw.setAttribute('aria-checked', String(avecNotes));
+        });
+        const lignes = () => quoi === 'reste' ? reste : toutes;
+        root.querySelector('[data-e="pdf"]').addEventListener('click', () => {
+            let doc;
+            try {
+                doc = pdfListe({
+                    nom: ch.nom, lignes: lignes(), ctx, id: ch.id,
+                    ouvrages: calc.map(c => ({ titre: c.titre, resume: c.resume })),
+                    auteur: r.nom, tel: r.tel, notes: avecNotes ? notes : '',
+                    partiel: quoi === 'reste', total: toutes.length
+                });
+            } catch (e) { console.error(e); toast('Impossible de créer le PDF', true); return; }
+            const fichier = new File([doc.octets], doc.nomFichier, { type: 'application/pdf' });
+            // Le partage doit partir tout de suite (dans le geste du doigt), avant de fermer la feuille.
+            partagerFichier(fichier, `Liste de matériaux — ${ch.nom}`, { telecharge: 'PDF enregistré dans Téléchargements' });
+            fermerFeuille();
+        });
+        root.querySelector('[data-e="texte"]').addEventListener('click', () => {
+            const titre = `🧱 Commande — ${ch.nom}`;
+            const txt = quoi === 'reste' ? texteListe(titre, reste, ctx, { sousTitre: '(articles pas encore achetés)' }) : texteListe(titre, toutes, ctx);
+            fermerFeuille();
+            apresFeuille(() => partager(`Commande — ${ch.nom}`, txt));
+        });
     });
 }
 
@@ -301,8 +349,7 @@ function menu(ch) {
     ouvrirFeuille(`
         <h2>${esc(ch.nom)}</h2>
         <button class="opt" data-m="renommer"><span style="font-size:22px">✏️</span><span><b>Renommer</b></span></button>
-        <button class="opt" data-m="partager"><span style="font-size:22px">📤</span><span><b>Envoyer la liste de courses</b><small>SMS, WhatsApp, mail…</small></span></button>
-        <button class="opt" data-m="imprimer"><span style="font-size:22px">🖨️</span><span><b>Imprimer / PDF</b></span></button>
+        <button class="opt" data-m="partager"><span style="font-size:22px">📤</span><span><b>Envoyer la liste de courses</b><small>En PDF ou par message (SMS, WhatsApp, mail…)</small></span></button>
         <button class="opt" data-m="supprimer" style="border-color:#F5C2C2"><span style="font-size:22px">🗑️</span><span><b style="color:var(--danger)">Supprimer le chantier</b></span></button>
     `, root => {
         root.querySelectorAll('[data-m]').forEach(b => b.addEventListener('click', async () => {
@@ -312,18 +359,7 @@ function menu(ch) {
                 const nom = await demanderTexte('Renommer le chantier', ch.nom, '', 'Renommer');
                 if (nom) { majChantier(ch.id, c => { c.nom = nom; }); aller(location.hash, { remplacer: true }); }
             } else if (m === 'partager') {
-                const ctx = ctxCalcul();
-                const toutes = consolider([...ch.items.flatMap(it => calculerItem(it, ctx).lignes), ...(ch.libres || []).map(a => ({ l: a.l, q: a.q, u: a.u }))]);
-                const a = ch.achete || {};
-                apresFeuille(() => envoyerListe(ch, toutes, li => {
-                    const x = a[li.cle];
-                    if (x === true) return false;
-                    const q = li.k && MATERIAUX[li.k] ? quantiteAchat(li.k, li.q, ctx) : li.q;
-                    return !(typeof x === 'number' && q <= x + 1e-9);
-                }, ctx));
-            } else if (m === 'imprimer') {
-                aller(`#/chantier/${ch.id}?vue=courses`, { remplacer: true });
-                setTimeout(() => window.print(), 300);
+                apresFeuille(() => envoyerListe(ch.id));
             } else if (m === 'supprimer') {
                 if (await confirmer('Supprimer ce chantier ?', `« ${ch.nom} » et ses ${ch.items.length} ouvrage(s) seront effacés.`, 'Supprimer', true)) {
                     const copie = getChantier(ch.id);

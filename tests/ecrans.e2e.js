@@ -104,3 +104,32 @@ test('enregistrer un calcul dans un nouveau chantier, puis voir la liste de cour
     assert.deepEqual(p.erreurs, []);
     await p.context().close();
 });
+
+test('liste de courses envoyée en PDF : le fichier est créé', async () => {
+    const p = await page();
+    await p.goto(base + '#/reglages');
+    await p.fill('#r-nom', 'Pascal');
+    await p.press('#r-nom', 'Tab');
+    await p.goto(base + '#/calc/dalle');
+    await p.waitForSelector('.line');
+    await p.click('#actionbar [data-act="ajouter"]');
+    await p.click('[data-new]');
+    await p.fill('#sheet-txt', 'Dalle garage');
+    await p.click('[data-r="1"]');
+    await p.click('#actionbar [data-act="voir-ch"]');
+    await p.waitForFunction(() => location.hash.startsWith('#/chantier/'), null, { timeout: 5000 });
+    await p.click('[data-onglet="courses"]');
+    await p.waitForSelector('.line.check');
+    await p.click('.line.check');                      // une ligne cochée → choix « ce qui reste / tout »
+    await p.click('#actionbar [data-act="partager"]');
+    await p.waitForSelector('#env-quoi');
+    assert.ok(await pasDeDebordement(p));
+    const [dl] = await Promise.all([p.waitForEvent('download'), p.click('[data-e="pdf"]')]);
+    assert.match(dl.suggestedFilename(), /^Liste materiaux - Dalle garage - \d{4}-\d\d-\d\d\.pdf$/);
+    const chemin = await dl.path();
+    const contenu = await readFile(chemin);
+    assert.equal(contenu.subarray(0, 8).toString('latin1'), '%PDF-1.4');
+    assert.ok(contenu.toString('latin1').includes(Buffer.from('Pascal', 'latin1').toString('hex').toUpperCase()));
+    assert.deepEqual(p.erreurs, []);
+    await p.context().close();
+});

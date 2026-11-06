@@ -55,8 +55,11 @@
 | `js/calc/cout.js` | estimation façon entreprise (option) |
 | `js/core/store.js` | localStorage : réglages, prix, chantiers, saisies, migration v3→v4, sauvegarde JSON |
 | `js/ui/` | `dom.js` (toast avec « Annuler », feuilles du bas liées à l'historique, partage), `form.js` (champs, demi-largeurs appariées), `resultats.js` (listes, consolidation, texte de partage), `contour.js` (aide « tour de la maison ») |
+| `js/core/pdf.js` | mini-générateur PDF maison (A4, Helvetica/WinAnsi, traits) — aucune dépendance |
+| `js/ui/liste-pdf.js` | liste de courses en PDF : en-tête (date, réf. `KB-AAMMJJ-xxxx`, nom/tél des Réglages), tableau par catégorie, lignes numérotées, colonnes prix/total vides pour devis |
 | `js/views/` | écrans Calculs, Maison, Chantiers, Réglages |
 | `tests/calculs.test.js` | `npm test` (node --test) : dosages, cohérence de tous les calculateurs, maison, forme libre |
+| `tests/pdf.test.js` | `npm test` : PDF valide (xref, flux), accents, pagination, nom de fichier |
 | `tests/pwa.test.js` | `npm test` : chaque fichier JS/CSS est dans `sw.js`, `APP_VERSION` = nom du cache |
 | `tests/ecrans.e2e.js` | `npm run test:ecrans` : Chromium à 360 px, tous les écrans et calculateurs, menuiseries, enregistrement d'un chantier, zéro erreur JS, pas de débordement |
 | `.github/workflows/ci.yml` | tests à chaque PR ; mise en ligne GitHub Pages depuis `main` |
@@ -114,6 +117,7 @@
 | 4.4.2 | #13 | Explications sur ~40 champs (d'où à où mesurer), alignement des champs |
 | 4.5.0 | #15 | Maison : surface habitable sans doublage ni cloisons (détail affiché) ; menuiseries en liste avec tailles libres |
 | 4.6.0 | #16 | Architecture : calculateurs découpés par famille, tests des écrans (Playwright) et de la PWA, tests sur GitHub à chaque PR, hébergement GitHub Pages |
+| 4.7.0 | #17 | Liste de courses **en PDF** (vrai fichier, partagé sur téléphone / téléchargé sur ordinateur) : rangé par catégorie, numéroté, prix à remplir pour devis ; nom + téléphone dans Réglages ; « Envoyer la liste » = PDF ou message |
 
 Projet en cours chez l'utilisateur : maison en Z (plan ≈ 58 m de tour, 134 m² au sol, 8 angles,
 2 blocs de toit, ailes ≈ 7,5 m).
@@ -122,4 +126,4 @@ Projet en cours chez l'utilisateur : maison en Z (plan ≈ 58 m de tour, 134 m²
 
 - Remplacer les emojis des tuiles par des pictos SVG cohérents (signalé par l'audit UI).
 - Synchronisation téléphone ↔ iMac (aujourd'hui : fichier de sauvegarde à importer).
-- Surfaces composées dans les calculateurs simples (dalle en L…), PDF propre de la liste de courses.
+- Surfaces composées dans les calculateurs simples (dalle en L…).

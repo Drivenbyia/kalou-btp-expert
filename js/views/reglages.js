@@ -3,7 +3,7 @@
 import { esc, fmt, num } from '../core/format.js';
 import { getReglages, setReglages, getPrix, setPrix, resetPrix, prixModifies, exporterDonnees, importerDonnees, listeChantiers, noterSauvegarde, derniereSauvegarde } from '../core/store.js';
 import { MATERIAUX, CATEGORIES, PRIX_DEFAUT, libelle, unitePrix } from '../calc/materiaux.js';
-import { toast, confirmer } from '../ui/dom.js';
+import { toast, confirmer, partagerFichier } from '../ui/dom.js';
 import { entete, aller, APP_VERSION } from '../app.js';
 
 export function vueReglages(root) {
@@ -23,6 +23,13 @@ export function vueReglages(root) {
             <span class="lab" style="font-weight:700;display:block;margin-bottom:8px">Je prends le ciment en sacs de</span>
             ${seg('sacCiment', [{ v: 35, l: '35 kg' }, { v: 25, l: '25 kg' }], r.sacCiment)}
             <p class="hint" style="margin-top:8px;font-size:13.5px">Tous les calculs comptent les sacs avec ce poids.</p>
+        </div>
+
+        <p class="section-title">Sur mes listes en PDF</p>
+        <div class="card">
+            <p class="hint" style="font-size:13.5px;margin-bottom:10px">Écrits en haut de la liste envoyée en PDF, pour que le négociant ou l'ami sache qui appeler. Facultatif.</p>
+            <div class="f" style="margin-bottom:12px"><label for="r-nom">Mon nom</label><input class="txt" id="r-nom" data-txt="nom" placeholder="ex : Pascal Durand" autocomplete="name" value="${esc(r.nom)}"></div>
+            <div class="f"><label for="r-tel">Mon téléphone</label><input class="txt" id="r-tel" data-txt="tel" placeholder="ex : 06 12 34 56 78" inputmode="tel" autocomplete="tel" value="${esc(r.tel)}"></div>
         </div>
 
         <p class="section-title">Estimation de coût</p>
@@ -91,6 +98,11 @@ export function vueReglages(root) {
         toast(on ? 'Estimation de coût activée' : 'Estimation de coût masquée');
         aller('#/reglages', { remplacer: true });
     });
+    // Nom, téléphone (PDF)
+    root.querySelectorAll('[data-txt]').forEach(inp => inp.addEventListener('change', () => {
+        setReglages({ [inp.dataset.txt]: inp.value.trim().slice(0, 80) });
+        toast('Enregistré');
+    }));
     // Taux, marge
     root.querySelectorAll('[data-num]').forEach(inp => inp.addEventListener('change', () => {
         const x = num(inp.value);
@@ -122,16 +134,7 @@ export function vueReglages(root) {
         const nom = `kalou-btp-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`;
         const fichier = new File([data], nom, { type: 'application/json' });
         noterSauvegarde();
-        if (navigator.canShare && navigator.canShare({ files: [fichier] })) {
-            try { await navigator.share({ files: [fichier], title: 'Sauvegarde Kalou BTP' }); return; }
-            catch (e) { if (e && e.name === 'AbortError') return; }
-        }
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(fichier);
-        a.download = nom;
-        document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-        toast('Fichier de sauvegarde téléchargé');
+        await partagerFichier(fichier, 'Sauvegarde Kalou BTP', { telecharge: 'Fichier de sauvegarde téléchargé', toujoursPartager: true });
     });
     const fichier = root.querySelector('#fichier');
     root.querySelector('#importer').addEventListener('click', () => fichier.click());

@@ -35,7 +35,9 @@ export const REGLAGES_DEFAUT = {
     estimation: false,    // option « estimation façon entreprise »
     taux: 45,             // € HT de l'heure (artisan maçon, Dordogne)
     margeMat: 15,         // % ajouté sur les matériaux par une entreprise
-    tva: 10               // % (rénovation 10, neuf 20 — la maison neuve force 20)
+    tva: 10,              // % (rénovation 10, neuf 20 — la maison neuve force 20)
+    nom: '',              // écrit sur la liste en PDF
+    tel: ''
 };
 
 export function getReglages() {
