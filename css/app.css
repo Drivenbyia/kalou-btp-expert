@@ -298,6 +298,11 @@ details.more[open] summary::before { transform: rotate(90deg); }
 .ch-card b { display: block; font-size: 17px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ch-card small { color: var(--muted); font-size: 14px; }
 .ch-card .chev { color: var(--soft); }
+.pp-calc { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pp-btn { min-height: 56px; padding: 8px 12px; border-radius: 14px; background: var(--card); box-shadow: var(--shadow); border: 2px solid var(--line); font-weight: 800; font-size: 15px; text-align: left; line-height: 1.25; color: var(--ink); }
+.pp-btn:active { border-color: var(--brand); background: var(--brand-soft); }
+.pp-btn.fait { background: #DCFCE7; border-color: #86EFAC; color: #14532D; }
+@media (min-width: 760px) { .pp-calc { grid-template-columns: repeat(3, 1fr); } }
 
 .tabs2 { display: flex; background: #E4E7EB; border-radius: 14px; padding: 4px; margin-bottom: 14px; }
 .tabs2 button { flex: 1; min-height: 52px; border-radius: 11px; font-weight: 800; font-size: 15.5px; color: #3A4048; }
@@ -427,6 +432,7 @@ body:has(#actionbar:not(.hidden)) .toast { bottom: calc(var(--nav-h) + var(--saf
 .f.liste-titre .aide { margin-top: 0; }
 .f.liste-ligne { border: 2px solid var(--edge); border-radius: 14px; padding: 10px; }
 .f.liste-ligne.ko { border-color: var(--danger); }
+.ll-nom { display: block; font-size: 15px; font-weight: 900; margin: 0 2px 6px; }
 .ll-haut { display: flex; gap: 6px; align-items: center; }
 .ll-haut .sel { flex: 1; min-width: 0; }
 .inp.sel select {

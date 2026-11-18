@@ -124,6 +124,7 @@ function validerListe(ch, rows, erreurs) {
     return (Array.isArray(rows) ? rows : []).map((r, i) => {
         const t = ch.types[r && r.t] ? r.t : types[0];
         const o = { t };
+        if (r && typeof r.nom === 'string' && r.nom.trim()) o.nom = r.nom.trim().slice(0, 40);    // nom repris d'une pièce du chantier
         ch.cols.forEach(col => {
             const d = (ch.types[t].def && ch.types[t].def[col.id]) ?? col.def;
             if (col.options) { o[col.id] = col.options.some(x => x.v === String(r[col.id])) ? String(r[col.id]) : String(d); return; }

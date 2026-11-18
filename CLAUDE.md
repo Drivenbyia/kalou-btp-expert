@@ -107,6 +107,10 @@
   **2 différentiels 40 A mini**, 8 circuits maxi chacun, type A si plaque ou lave-linge, **20 % de réserve**.
   VMC : circuit dédié 2 A, bouches par pièce humide, Ø125 cuisine / Ø80 autres.
 - Béton de chanvre (sol, enduit) : ≈ 220 kg de liant formulé + 110 kg de chènevotte par m³ (ordre de grandeur, fiche fabricant).
+- **Pièces d'un chantier** (`js/calc/pieces.js`, écran `#/chantier/<id>?piece=<pid|nouvelle>`) : `ch.pieces[{ id, type, nom,
+  L, l, h, portes, fen, fenT }]`. `POUR_PIECE` = ce qu'on calcule pour une pièce (variante `pre` → calculateur + valeurs
+  reprises). Un ouvrage lancé depuis une pièce garde `piece` + `pre` ; quand on change les mesures de la pièce, ses
+  ouvrages sont mis à jour. Électricité / VMC : `?depuis=pieces` construit la saisie à partir de toutes les pièces.
 - Ordinateur ≥ 1100 px : `.calc-grid` = saisie à gauche, résultat collé à droite (calculateurs et Maison).
 
 ### Données (localStorage)
@@ -147,6 +151,7 @@
 | 4.9.0 | #19 | Lot 2 : conditionnements du rayon (pots combinés, paquets, barres, rouleaux, big bags), saisie directe en m², accueil (carte, récents, recherche mot par mot), barre du bas sur une ligne, lisibilité |
 | 5.1.0 | #21 | **Électricité** (prises, lumières, tableau, terre ; relu par un électricien) et **VMC** ; version **iMac** en 2 colonnes, puces de familles, tuiles compactes, **pictos SVG** ; bâti ancien (sol et enduit chaux-chanvre, agrafage, injection), tranchée EU/EP, pavage, portes, OSB, lambris ; carreaux en taille exacte ; laine en paquets |
 | 5.2.0 | #23 | **Plomberie appareil par appareil** et **électricité pièce par pièce** (chacun sa distance, détail des longueurs affiché), clim, pompe à chaleur, prise voiture, chauffe-eau ; anciennes saisies converties ; **accueil par familles** (9 lignes au lieu de 48 tuiles, la recherche cherche partout) |
+| 5.3.0 | #24 | **Pièces dans le chantier** (rénovation) : on mesure chaque pièce une fois, puis sol, murs, plafond, portes calculés avec ses mesures ; les calculs suivent si on change les mesures ; électricité et VMC à partir des pièces |
 | 5.0.0 | #20 | Lot 3 : **Isoler un mur ou des rampants** (R visé, 6 isolants comparés, bâti ancien), **Douche à l'italienne**, **Plomberie** par appareil, **Pièce complète** (une saisie → murs, plafond, sol, plinthes) |
 
 Projet en cours chez l'utilisateur : maison en Z (plan ≈ 58 m de tour, 134 m² au sol, 8 angles,

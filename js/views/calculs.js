@@ -5,6 +5,7 @@ import { OUVRAGES, OUV_CATS, OUVRAGES_PAR_ID, calculer, valeursDefaut, migrer } 
 import { getSaisie, setSaisie, getChantier, ajouterItem, remplacerItem, ctxCalcul, getRecents, accueilVu, fermerAccueil, listeChantiers } from '../core/store.js';
 import { ICONES, toast, partager, confirmer } from '../ui/dom.js';
 import { picto } from '../ui/pictos.js';
+import { POUR_PIECE_PAR_PRE, valeursPiece, nomPiece, resumePiece, piecesVersElec, piecesVersVmc } from '../calc/pieces.js';
 import { htmlChamps, brancherForm, afficherErreurs } from '../ui/form.js';
 import { htmlKpis, htmlLignes, htmlRecette, htmlInfos, htmlCout, texteListe, htmlComparatif } from '../ui/resultats.js';
 import { aller, entete, retourVers, garderSortie, armerGarde } from '../app.js';
@@ -136,16 +137,28 @@ export function vueCalcul(root, id, params) {
     const item = ch && params.item ? ch.items.find(x => x.id === params.item) : null;
     const ctx = ctxCalcul();
 
-    const valeurs = versSaisie(def, { ...valeursDefaut(def), ...migrer(def, item ? item.valeurs : (getSaisie(id) || {})) });
+    // Calcul lancé depuis une pièce du chantier : ses mesures remplacent celles de la dernière saisie
+    const pieceId = item ? item.piece : params.piece;
+    const piece = ch && pieceId ? (ch.pieces || []).find(x => x.id === pieceId) : null;
+    const pre = item ? item.pre : params.pre;
+    const variante = piece && POUR_PIECE_PAR_PRE[pre] && POUR_PIECE_PAR_PRE[pre].ouv === id ? POUR_PIECE_PAR_PRE[pre] : null;
+    let depart0 = migrer(def, item ? item.valeurs : (getSaisie(id) || {}));
+    if (!item && variante) depart0 = { ...depart0, ...valeursPiece(pre, piece) };
+    const depuisPieces = !item && ch && params.depuis === 'pieces' && (ch.pieces || []).length;
+    if (depuisPieces && id === 'electricite') depart0 = { ...depart0, pieces: piecesVersElec(ch.pieces, def.champs.find(x => x.id === 'pieces').types) };
+    if (depuisPieces && id === 'vmc') depart0 = { ...depart0, ...piecesVersVmc(ch.pieces) };
+    const valeurs = versSaisie(def, { ...valeursDefaut(def), ...depart0 });
 
     entete({
         titre: def.nom,
         sous: ch ? `Chantier : ${ch.nom}` : def.desc,
-        parent: ch ? (item ? `#/chantier/${ch.id}` : `#/?ch=${ch.id}`) : '#/'
+        parent: ch ? (item ? `#/chantier/${ch.id}` : variante ? `#/chantier/${ch.id}?piece=${piece.id}` : depuisPieces ? `#/chantier/${ch.id}` : `#/?ch=${ch.id}`) : '#/'
     });
 
     // Ordinateur (iMac) : saisie à gauche, résultat collé à droite (voir .calc-grid dans app.css)
-    root.innerHTML = `<div class="calc-grid">
+    const bandeau = variante ? `<div class="banner">📍 <span><b>${esc(nomPiece(piece))} : ${esc(variante.l.toLowerCase())}</b>Mesures reprises de la pièce (${esc(resumePiece(piece))}).${variante.note ? ` ${esc(variante.note)}` : ''}${item ? ' Si tu changes les mesures de la pièce, ce calcul suit.' : ''}</span></div>`
+        : depuisPieces ? `<div class="banner">📍 <span><b>Les ${ch.pieces.length} pièces du chantier</b>${id === 'electricite' ? 'Prises, lampes et distances proposées selon le type : corrige pièce par pièce.' : 'Bouches et entrées d\'air comptées d\'après les pièces.'}</span></div>` : '';
+    root.innerHTML = `${bandeau}<div class="calc-grid">
         <div class="col-saisie">
             <div class="card"><div class="form" id="form"></div></div>
             <button class="btn btn-light btn-block no-print" id="reset" style="margin-top:14px">Remettre les valeurs par défaut</button>
@@ -214,14 +227,19 @@ export function vueCalcul(root, id, params) {
     const enregistrer = cible => {
         const r = dernier;
         const donnees = { ouvrage: def.id, titre: r.titre, valeurs: r.v, lignes: r.lignes, mesure: r.mesure };
-        if (item) {
+        if (variante && !item) { donnees.piece = piece.id; donnees.pre = pre; }
+        if (variante && !item) {
+            ajouterItem(cible.id, donnees);
+            toast(`Ajouté à « ${nomPiece(piece)} »`);
+            retourVers(`#/chantier/${cible.id}?piece=${piece.id}`, 1);
+        } else if (item) {
             remplacerItem(cible.id, item.id, donnees);
             toast('Modifications enregistrées');
             retourVers(`#/chantier/${cible.id}`, 1);
         } else if (ch) {
             ajouterItem(cible.id, donnees);
             toast(`Ajouté à « ${cible.nom} »`);
-            retourVers(`#/chantier/${cible.id}`, 2);
+            retourVers(`#/chantier/${cible.id}`, depuisPieces ? 1 : 2);
         } else {
             ajouterItem(cible.id, donnees);
             toast(`Ajouté à « ${cible.nom} »`);

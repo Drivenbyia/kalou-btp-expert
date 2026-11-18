@@ -89,9 +89,10 @@ function htmlListe(ch, rows) {
             const t = ch.types[r.t] ? r.t : types[0][0];
             vu[t] = (vu[t] || 0) + 1;
             const nb = rows.filter(x => x.t === t).length;
-            const nom = ch.types[t].l + (nb > 1 ? ` ${vu[t]}` : '');
+            const nom = r.nom || (ch.types[t].l + (nb > 1 ? ` ${vu[t]}` : ''));
             const cols = ch.cols.filter(col => !col.si || col.si(t));
             return `<div class="f liste-ligne" data-f="${ch.id}-${i}" data-liste="${ch.id}" data-li="${i}">
+                ${r.nom ? `<b class="ll-nom">${esc(r.nom)}</b>` : ''}
                 <div class="ll-haut">
                     <div class="inp sel"><select data-lt aria-label="Type">${types.map(([k, o]) =>
                         `<option value="${esc(k)}"${k === t ? ' selected' : ''}>${esc(o.l)}${k === t && nb > 1 ? ` ${vu[t]}` : ''}</option>`).join('')}</select></div>

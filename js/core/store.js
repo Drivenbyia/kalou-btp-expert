@@ -160,6 +160,24 @@ export function restaurerChantier(chantier) {
     liste.unshift(chantier);
     sauverTous(liste);
 }
+// ─── Pièces d'un chantier (rénovation) : { id, type, nom, L, l, h, portes, fen, fenT } ──
+// Un ouvrage calculé pour une pièce garde `piece` (id) et `pre` (variante, ex. 'faience').
+export function enregistrerPiece(chantierId, piece) {
+    let p = null;
+    majChantier(chantierId, c => {
+        c.pieces = c.pieces || [];
+        const i = piece.id ? c.pieces.findIndex(x => x.id === piece.id) : -1;
+        if (i >= 0) { p = { ...c.pieces[i], ...piece }; c.pieces[i] = p; } else { p = { ...piece, id: uid() }; c.pieces.push(p); }
+    });
+    return p;
+}
+export function supprimerPiece(chantierId, pieceId) {
+    majChantier(chantierId, c => {
+        c.pieces = (c.pieces || []).filter(x => x.id !== pieceId);
+        c.items.forEach(it => { if (it.piece === pieceId) { delete it.piece; delete it.pre; } });
+    });
+}
+
 export function supprimerItem(chantierId, itemId) {
     majChantier(chantierId, c => { c.items = c.items.filter(x => x.id !== itemId); });
 }
