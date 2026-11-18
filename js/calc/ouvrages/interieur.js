@@ -92,7 +92,8 @@ export const INTERIEUR = [
             n('ouv', 'Fenêtres / ouvertures à déduire', 'm²', 0, { zero: true, si: v => v.type !== 'plafond' }),
             c('plaque', 'Plaques', [{ v: 'std', l: 'Standard' }, { v: 'h1', l: 'Hydro H1 (salle de bain)' }, { v: 'phon', l: 'Phonique' }], 'std', { si: v => v.type !== 'colle' }),
             n('angles', 'Angles sortants (bande armée)', 'm', 0, { zero: true, max: 200, aide: 'Longueur totale des angles saillants et tableaux.' }),
-            oui('isolant', 'Avec isolant (et pare-vapeur)', true, { si: v => v.type !== 'colle' })
+            oui('isolant', 'Avec isolant (et pare-vapeur)', true, { si: v => v.type !== 'colle' }),
+            n('paquetLaine', 'Surface d\'un paquet de laine', 'm²', 0, { zero: true, max: 20, si: v => v.type === 'appuis' && v.isolant, aide: 'Écrite sur le paquet. 0 = compter en m².' })
         ],
         mots: 'placo plaque de plâtre ba13 doublage collé placomur doublissimo cloison plafond rail montant fourrure suspente optima map h1 hydrofuge',
         verifier: v => {
@@ -113,6 +114,7 @@ export const INTERIEUR = [
                 cloison: v.cloison, plaque: v.type === 'colle' ? 'std' : v.plaque, isolant: v.isolant, ouv: v.type === 'plafond' ? 0 : v.ouv,
                 portes: v.portes, laine: +v.laine, complexe: v.complexe, angles: v.angles
             });
+            if (v.paquetLaine > 0) r.lignes = r.lignes.map(li => (li.k === 'laine_mur' ? { ...li, pk: v.paquetLaine } : li));
             const infos = [...r.infos,
                 'Poser hors d\'eau et hors d\'air. Plaques stockées à plat au sec, surélevées de 1 cm en pied, joints décalés de 40 cm mini.',
                 'Enduit à joint en 3 passes (24 h entre passes). Salle de bain, cuisine : plaques H1.',
@@ -136,7 +138,8 @@ export const INTERIEUR = [
             c('ep', 'Épaisseur', [{ v: '200', l: '200 mm' }, { v: '300', l: '300 mm' }, { v: '400', l: '400 mm' }], '300', { si: v => v.type === 'rouleau' }),
             c('lambda', 'Lambda (λ) de la laine', [{ v: '0.032', l: '0,032' }, { v: '0.035', l: '0,035' }, { v: '0.040', l: '0,040' }], '0.040', { si: v => v.type === 'rouleau', aide: 'Écrit sur le paquet. Plus il est petit, plus ça isole.' }),
             c('plaque', 'Plaques', [{ v: 'std', l: 'Standard' }, { v: 'h1', l: 'Hydro H1' }], 'std', { si: v => v.type === 'rampants' }),
-            oui('pv', 'Pare-vapeur', true, { si: v => v.type !== 'rampants' })
+            oui('pv', 'Pare-vapeur', true, { si: v => v.type !== 'rampants' }),
+            n('paquetLaine', 'Surface d\'un rouleau', 'm²', 0, { zero: true, max: 30, si: v => v.type === 'rouleau', aide: 'Écrite sur le rouleau. 0 = compter en m².' })
         ],
         mots: 'isolation laine combles grenier soufflé soufflage ouate rampants pare-vapeur',
         titre: v => `Isolation ${v.type === 'rampants' ? 'sous rampants' : 'combles'} ${fm(v.L * v.l)} m²`,
@@ -153,7 +156,7 @@ export const INTERIEUR = [
                     'Écart au feu du conduit de fumée, capots sur les spots, gaines de VMC posées sur l\'isolant (jamais enfouies).'].filter(Boolean);
             } else if (v.type === 'rouleau') {
                 R = (+v.ep) / 1000 / (+v.lambda);
-                lignes = [L('laine_combles', S * 1.05, { ref: `${v.ep} mm λ ${String(v.lambda).replace('.', ',')}`, d: `R ${fmtSmart(R, 1)}` })];
+                lignes = [L('laine_combles', S * 1.05, { ref: `${v.ep} mm λ ${String(v.lambda).replace('.', ',')}`, d: `R ${fmtSmart(R, 1)}`, pk: v.paquetLaine > 0 ? v.paquetLaine : undefined })];
                 if (v.pv) lignes.push(...lignesPareVapeur(S, 2 * (v.L + v.l)));
                 h = S * 0.15;
                 infos = [`R = épaisseur ÷ λ = ${fmtSmart(R, 1)}. En 2 couches croisées si possible. +5 % de coupes.`];
@@ -181,7 +184,9 @@ export const INTERIEUR = [
             dim(n('L', 'Longueur', 'm', 4, { demi: true, labelSi: v => v.support === 'mur' ? 'Tour des murs carrelés' : 'Longueur', aide: '' })),
             dim(n('l', 'Largeur', 'm', 3, { demi: true, labelSi: v => v.support === 'mur' ? 'Hauteur' : 'Largeur', aide: '' })),
             champSurface(12, 'Surface à carreler, portes et fenêtres déduites.'),
-            c('format', 'Format des carreaux', [{ v: 'petit', l: 'Jusqu\'à 30 cm' }, { v: 'moyen', l: '30 à 45 cm' }, { v: 'grand', l: '45 à 60 cm' }, { v: 'tgf', l: 'Plus de 60 cm' }], 'moyen'),
+            c('format', 'Format des carreaux', [{ v: 'petit', l: 'Jusqu\'à 30 cm' }, { v: 'moyen', l: '30 à 45 cm' }, { v: 'grand', l: '45 à 60 cm' }, { v: 'tgf', l: 'Plus de 60 cm' }, { v: 'exact', l: 'Taille exacte' }], 'moyen'),
+            n('cL', 'Longueur du carreau', 'cm', 60, { demi: true, max: 320, bas: 5, si: v => v.format === 'exact' }),
+            n('cl', 'Largeur du carreau', 'cm', 30, { demi: true, max: 160, bas: 2, si: v => v.format === 'exact' }),
             c('joint', 'Largeur de joint', [{ v: '2', l: '2 mm' }, { v: '3', l: '3 mm' }, { v: '5', l: '5 mm' }], '3', { aide: '2 mm mini en rectifié, 3 mm en non rectifié.' }),
             c('pose', 'Pose', [{ v: 'droite', l: 'Droite' }, { v: 'diag', l: 'Diagonale' }], 'droite'),
             n('sDouche', 'Surface de douche à protéger (SPEC)', 'm²', 0, { zero: true, max: 50, aide: 'Murs de douche sur 2 m de haut + sol. 0 si pas de douche.' }),
@@ -201,22 +206,32 @@ export const INTERIEUR = [
             const P = v.saisie === 'surf' ? 4 * Math.sqrt(S) : 2 * (v.L + v.l);     // tour de la pièce (estimé si surface seule)
             const marge = v.pose === 'diag' ? 1.15 : 1.10;
             const mur = v.support === 'mur', ext = v.support === 'ext';
-            const dim = { petit: 0.2, moyen: 0.4, grand: 0.6, tgf: 0.9 }[v.format];          // côté représentatif (m)
-            const epC = { petit: 8, moyen: 9, grand: 10, tgf: 10 }[v.format];                 // épaisseur du carreau (mm)
-            const double = v.format === 'grand' || v.format === 'tgf' || (ext && v.format !== 'petit') || (mur && v.format !== 'petit' && v.format !== 'moyen');
+            // Taille du carreau (cm) : exacte, ou côté représentatif de la tranche choisie
+            const exact = v.format === 'exact';
+            const [cA, cB] = exact ? [v.cL, v.cl] : ({ petit: [20, 20], moyen: [40, 40], grand: [60, 60], tgf: [90, 90] }[v.format]);
+            const aire = cA * cB;                                                             // cm²
+            const grand = Math.max(cA, cB);
+            // Tranche équivalente (pour la colle) : par surface du carreau
+            const tranche = exact ? (aire <= 900 ? 'petit' : aire < 2200 ? 'moyen' : aire <= 3600 ? 'grand' : 'tgf') : v.format;
+            const dim = Math.sqrt(aire) / 100;                                                // côté représentatif (m)
+            const epC = grand <= 30 ? 8 : grand <= 45 ? 9 : 10;                               // épaisseur du carreau (mm)
+            // Double encollage (DTU 52.2) : sol intérieur dès 2 200 cm², extérieur dès 30 cm, mur au-delà de 45 cm
+            const double = exact
+                ? (ext ? grand > 30 : mur ? grand > 45 : aire >= 2200)
+                : (v.format === 'grand' || v.format === 'tgf' || (ext && v.format !== 'petit') || (mur && v.format !== 'petit' && v.format !== 'moyen'));
             // Extérieur : double encollage dès 30 cm, donc plus de colle qu'en intérieur
-            const colle = mur ? (double ? 6 : 3.5) : ext ? ({ petit: 5, moyen: 7, grand: 8, tgf: 9 }[v.format]) : ({ petit: 3.5, moyen: 5, grand: 7, tgf: 8 }[v.format]);
-            const nomFormat = { petit: 'jusqu\'à 30 cm', moyen: '30 à 45 cm', grand: '45 à 60 cm', tgf: 'plus de 60 cm' }[v.format];
+            const colle = mur ? (double ? 6 : 3.5) : ext ? ({ petit: 5, moyen: 7, grand: 8, tgf: 9 }[tranche]) : ({ petit: 3.5, moyen: 5, grand: 7, tgf: 8 }[tranche]);
+            const nomFormat = exact ? `${fmtSmart(cA, 1)} × ${fmtSmart(cB, 1)} cm` : { petit: 'jusqu\'à 30 cm', moyen: '30 à 45 cm', grand: '45 à 60 cm', tgf: 'plus de 60 cm' }[v.format];
             const refCarreau = `${mur ? 'faïence murale' : ext ? 'sol extérieur' : 'sol intérieur'} · ${nomFormat}`;
-            const A = dim * 1000;
-            const jointKg = (2 * A) / (A * A) * epC * (+v.joint) * 1.6 * 1.10;
+            const A = cA * 10, B = cB * 10;                                                   // mm
+            const jointKg = (A + B) / (A * B) * epC * (+v.joint) * 1.6 * 1.10;
             const lignes = [
                 L('carrelage', S * marge, { ref: refCarreau }),
                 L('colle_carrelage', S * colle),
                 L('joint_carrelage', S * jointKg),
                 L('croisillon', Math.ceil(S * 1.1 / (dim * dim)))
             ];
-            if (dim >= 0.45) lignes.push(L('cale_nivel', Math.ceil(S * 4.4 / (dim * dim))));
+            if (grand >= 45) lignes.push(L('cale_nivel', Math.ceil(S * 4.4 / (dim * dim))));
             if (v.sDouche > 0) lignes.push(L('spec', v.sDouche * 1.5), L('primaire', v.sDouche * 0.10), L('bande_spec', v.sDouche * 1.1), L('silicone', 2));
             if (v.primaire) lignes.push(L('primaire', S * 0.15));
             if (v.natte && v.support === 'sol') lignes.push(L('natte_desol', S * 1.05));
@@ -229,7 +244,7 @@ export const INTERIEUR = [
                 'Support : dalle d\'1 mois, chape de 15 jours mini. Plancher chauffant mis en chauffe puis arrêté 48 h avant.'
             ];
             if (!mur && v.plinthes && v.saisie === 'surf') infos.push('Plinthes estimées pour une pièce à peu près carrée : passe en dimensions pour un compte exact.');
-            if (v.format === 'tgf') infos.splice(1, 0, 'Plus de 60 × 60 : hors DTU courant, colle C2 S1 et notice du fabricant.');
+            if (tranche === 'tgf' || grand > 60) infos.splice(1, 0, 'Plus de 60 × 60 : hors DTU courant, colle C2 S1 et notice du fabricant.');
             if (v.sDouche > 0) infos.push(`SPEC sur ${fm(v.sDouche)} m² : 2 couches croisées (≈ 1,5 kg/m²) sur primaire, bandes dans les angles, manchettes aux tuyaux. Faïence de douche sur 2 m de haut mini.`,
                 'Douche à l\'italienne : le SPEC seul ne suffit pas au sol. Il faut un receveur à carreler ou une forme de pente (1 à 2 %) avec natte d\'étanchéité (SEL).');
             if (mur) infos.push('Faïence sur plaque de plâtre : 30 kg/m² maxi (carreau + colle). Plaques H1 dans la salle de bain.');

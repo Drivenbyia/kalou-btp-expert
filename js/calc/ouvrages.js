@@ -19,6 +19,8 @@ import { RESEAUX } from './ouvrages/reseaux.js';
 import { ISOLER } from './ouvrages/isoler.js';
 import { PIECE } from './ouvrages/piece.js';
 import { EAU } from './ouvrages/eau.js';
+import { ELEC } from './ouvrages/elec.js';
+import { COMPLEMENTS } from './ouvrages/complements.js';
 import { fmtSmart } from '../core/format.js';
 export { CONSEILS } from './ouvrages/commun.js';
 
@@ -30,11 +32,12 @@ export const OUV_CATS = [
     { id: 'toiture',   l: 'Toiture & conduit' },
     { id: 'interieur', l: 'Intérieur' },
     { id: 'eau',       l: 'Salle d\'eau & plomberie' },
+    { id: 'elec',      l: 'Électricité & ventilation' },
     { id: 'exterieur', l: 'Extérieur & terrassement' }
 ];
 
 // Les calculateurs, rangés par familles dans js/calc/ouvrages/ (même ordre d'affichage qu'avant).
-export const OUVRAGES = [...BETON, ...MURS, ...ENDUITS, ...TOITURE, ...PIECE, ...INTERIEUR, ...ISOLER, ...EAU, ...EXTERIEUR, ...RENOVATION, ...RESEAUX];
+export const OUVRAGES = [...BETON, ...MURS, ...ENDUITS, ...TOITURE, ...PIECE, ...INTERIEUR, ...ISOLER, ...EAU, ...ELEC, ...EXTERIEUR, ...RENOVATION, ...RESEAUX, ...COMPLEMENTS];
 
 
 // ─── Explications des champs : d'où à où mesurer, ce qui est compris ─────────

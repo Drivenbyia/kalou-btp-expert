@@ -72,11 +72,17 @@ export function vueMaison(root, params) {
     });
 
     root.innerHTML = `
-        <p class="lead">Renseigne les dimensions et tes choix : tout se recalcule en direct. Le résultat est en bas, lot par lot.</p>
-        <div id="etapes"></div>
-        <p class="section-title" id="ancre-res">Résultat</p>
-        <div id="res" aria-live="polite"></div>
-        <button class="btn btn-light btn-block" id="reset" style="margin-top:14px">Remettre les valeurs par défaut</button>`;
+        <p class="lead">Renseigne les dimensions et tes choix : tout se recalcule en direct. Le résultat se met à jour à chaque saisie, lot par lot.</p>
+        <div class="calc-grid">
+            <div class="col-saisie">
+                <div id="etapes"></div>
+                <button class="btn btn-light btn-block" id="reset" style="margin-top:14px">Remettre les valeurs par défaut</button>
+            </div>
+            <div class="col-res">
+                <p class="section-title" id="ancre-res">Résultat</p>
+                <div id="res" aria-live="polite"></div>
+            </div>
+        </div>`;
 
     const etapes = root.querySelector('#etapes');
     const res = root.querySelector('#res');

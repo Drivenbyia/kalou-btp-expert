@@ -2,7 +2,7 @@
 // Stratégie « réseau d'abord » : dès qu'il y a du réseau, on prend la dernière
 // version publiée (mises à jour immédiates) ; sinon on sert la copie en cache.
 
-const CACHE = 'kalou-btp-v5.0.0';
+const CACHE = 'kalou-btp-v5.1.0';
 const FICHIERS = [
     './',
     './index.html',
@@ -30,6 +30,8 @@ const FICHIERS = [
     './js/calc/ouvrages/isoler.js',
     './js/calc/ouvrages/piece.js',
     './js/calc/ouvrages/eau.js',
+    './js/calc/ouvrages/elec.js',
+    './js/calc/ouvrages/complements.js',
     './js/calc/maison.js',
     './js/calc/cout.js',
     './js/ui/dom.js',
@@ -37,6 +39,7 @@ const FICHIERS = [
     './js/ui/resultats.js',
     './js/ui/liste-pdf.js',
     './js/ui/contour.js',
+    './js/ui/pictos.js',
     './js/views/commun.js',
     './js/views/calculs.js',
     './js/views/maison.js',
