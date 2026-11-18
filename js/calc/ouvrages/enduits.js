@@ -2,15 +2,17 @@
 
 import { L, fusion, lignesMortier, recetteMortier, PERTE_MORTIER } from '../base.js';
 import { fmtSmart } from '../../core/format.js';
-import { n, c, fm, CONSEILS, surfNette, verifOuv } from './commun.js';
+import { n, c, fm, CONSEILS, verifOuv, SAISIE, champSurface, dim, surfaceDe } from './commun.js';
 export const ENDUITS = [
     // ════════════════ ENDUITS & JOINTS ════════════════
     {
         id: 'enduit', cat: 'enduits', ic: '🖌️', nom: 'Enduit de façade',
         desc: 'Monocouche ou traditionnel 3 couches (agglo, brique)',
         champs: [
-            n('L', 'Longueur', 'm', 10, { demi: true }),
-            n('h', 'Hauteur', 'm', 3, { demi: true, max: 20 }),
+            SAISIE,
+            dim(n('L', 'Longueur', 'm', 10, { demi: true })),
+            dim(n('h', 'Hauteur', 'm', 3, { demi: true, max: 20 })),
+            champSurface(),
             n('ouv', 'Ouvertures à déduire', 'm²', 0, { zero: true }),
             c('type', 'Type d\'enduit', [{ v: 'mono', l: 'Monocouche' }, { v: 'trad', l: 'Traditionnel 3 couches' }], 'mono'),
             c('liant', 'Mortier', [{ v: 'batard', l: 'Bâtard (ciment + chaux)' }, { v: 'ciment', l: 'Ciment' }], 'batard', { si: v => v.type === 'trad' }),
@@ -20,9 +22,9 @@ export const ENDUITS = [
         ],
         mots: 'crépi façade monocouche gobetis bâtard enduit ciment',
         verifier: verifOuv(),
-        titre: v => `Enduit ${v.type === 'mono' ? 'monocouche' : 'traditionnel'} ${fm(surfNette(v.L, v.h, v.ouv))} m²`,
+        titre: v => `Enduit ${v.type === 'mono' ? 'monocouche' : 'traditionnel'} ${fm(surfaceDe(v))} m²`,
         calcul(v, ctx) {
-            const S = surfNette(v.L, v.h, v.ouv);
+            const S = surfaceDe(v);
             const lignes = [];
             const infos = [];
             let recette = null;
@@ -44,7 +46,7 @@ export const ENDUITS = [
                 recette = recetteMortier(400, ctx.sacCiment || 35, l);
             }
             infos.push(CONSEILS.pierreCiment);
-            if (v.angles > 0) lignes.push(L('baguette', Math.ceil(v.angles * v.h / 3 - 1e-9)));
+            if (v.angles > 0) lignes.push(L('baguette', Math.ceil(v.angles * (v.saisie === 'surf' ? 3 : v.h) / 3 - 1e-9)));
             return {
                 resume: [{ l: 'Surface', v: `${fm(S)} m²` }],
                 lignes: fusion(lignes), infos, recette,
@@ -56,16 +58,18 @@ export const ENDUITS = [
         id: 'chaux', cat: 'enduits', ic: '🎨', nom: 'Enduit à la chaux',
         desc: 'Gobetis, corps d\'enduit, finition',
         champs: [
-            n('L', 'Longueur', 'm', 8, { demi: true }),
-            n('h', 'Hauteur', 'm', 2.5, { demi: true, max: 20 }),
+            SAISIE,
+            dim(n('L', 'Longueur', 'm', 8, { demi: true })),
+            dim(n('h', 'Hauteur', 'm', 2.5, { demi: true, max: 20 })),
+            champSurface(),
             n('ouv', 'Ouvertures à déduire', 'm²', 0, { zero: true }),
-            n('ep', 'Épaisseur totale', 'cm', 2.5, { max: 6, bas: 1, aide: 'Gobetis 5 mm + corps 15 mm + finition 5 mm.' })
+            n('ep', 'Épaisseur totale', 'cm', 2.5, { max: 6, bas: 1, aide: 'Gobetis 5 mm + corps 15 mm + finition 5 mm. Mur épais : les tableaux (tour des fenêtres × épaisseur) s\'ajoutent à la surface.' })
         ],
         mots: 'enduit chaux nhl gobetis corps finition bâti ancien pierre talochée grattée',
         verifier: verifOuv(),
-        titre: v => `Enduit chaux ${fm(surfNette(v.L, v.h, v.ouv))} m²`,
+        titre: v => `Enduit chaux ${fm(surfaceDe(v))} m²`,
         calcul(v, ctx) {
-            const S = surfNette(v.L, v.h, v.ouv);
+            const S = surfaceDe(v);
             const ep = v.ep / 100;
             const gob = Math.min(0.005, ep / 3), fin = Math.min(0.005, ep / 3), corps = Math.max(0, ep - gob - fin);
             const lignes = [
@@ -92,17 +96,19 @@ export const ENDUITS = [
         id: 'rejoint', cat: 'enduits', ic: '🧽', nom: 'Rejointoiement à la chaux',
         desc: 'Joints de pierre apparente',
         champs: [
-            n('L', 'Longueur', 'm', 5, { demi: true }),
-            n('h', 'Hauteur', 'm', 2.5, { demi: true, max: 20 }),
+            SAISIE,
+            dim(n('L', 'Longueur', 'm', 5, { demi: true })),
+            dim(n('h', 'Hauteur', 'm', 2.5, { demi: true, max: 20 })),
+            champSurface(),
             n('ouv', 'Ouvertures à déduire', 'm²', 0, { zero: true }),
             c('joint', 'Joints', [{ v: '8', l: 'Fins' }, { v: '15', l: 'Moyens' }, { v: '25', l: 'Larges / profonds' }], '15',
                 { aide: 'Fins ≈ 8 L/m² · moyens ≈ 15 L/m² · larges ≈ 25 L/m².' })
         ],
         mots: 'joint rejointoiement dégarnissage pierre apparente chaux bâti ancien',
         verifier: verifOuv(),
-        titre: v => `Rejointoiement chaux ${fm(surfNette(v.L, v.h, v.ouv))} m²`,
+        titre: v => `Rejointoiement chaux ${fm(surfaceDe(v))} m²`,
         calcul(v, ctx) {
-            const S = surfNette(v.L, v.h, v.ouv);
+            const S = surfaceDe(v);
             const vol = S * (+v.joint) / 1000 * PERTE_MORTIER;
             return {
                 resume: [{ l: 'Surface', v: `${fm(S)} m²` }, { l: 'Mortier', v: `${fmtSmart(vol * 1000, 0)} L` }],

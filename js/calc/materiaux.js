@@ -159,20 +159,21 @@ export const MATERIAUX = {
     natte_desol:{ l: 'Natte de désolidarisation',         cat: 'revetement', base: 'm2', prix: 18 },
     croisillon: { l: 'Croisillons',                       cat: 'revetement', base: 'u', pack: { taille: 250, nom: 'sachet', noms: 'sachets', label: 'de 250' }, prix: 4 },
     cale_nivel: { l: 'Cales autonivelantes',              cat: 'revetement', base: 'u', pack: { taille: 100, nom: 'sachet', noms: 'sachets', label: 'de 100' }, prix: 15 },
-    bande_spec: { l: 'Bande d\'angle SPEC',              cat: 'revetement', base: 'ml', prix: 3 },
+    bande_spec: { l: 'Bande d\'angle SPEC',              cat: 'revetement', base: 'ml', pack: { taille: 10, nom: 'rouleau', noms: 'rouleaux', label: 'de 10 m' }, prix: 25 },
     silicone:   { l: 'Mastic silicone sanitaire (310 ml)', cat: 'revetement', base: 'u', prix: 8 },
     acrylique:  { l: 'Mastic acrylique (310 ml)',          cat: 'revetement', base: 'u', prix: 4 },
     carrelage:  { l: 'Carrelage',                         cat: 'revetement', base: 'm2', prix: 30 },
-    plinthe:    { l: 'Plinthes (carrelage ou bois)',                          cat: 'revetement', base: 'ml', prix: 4 },
+    plinthe:    { l: 'Plinthes carrelage (pièces de 60 cm)', cat: 'revetement', base: 'ml', pack: { taille: 0.6, nom: 'pièce', noms: 'pièces', label: 'de 60 cm' }, prix: 2.5 },
+    plinthe_bois: { l: 'Plinthes bois / MDF (barres de 2,40 m)', cat: 'revetement', base: 'ml', pack: { taille: 2.4, nom: 'barre', noms: 'barres', label: 'de 2,40 m' }, prix: 8 },
     parquet:    { l: 'Parquet contrecollé ou stratifié',                   cat: 'revetement', base: 'm2', prix: 28 },
-    sous_couche:{ l: 'Sous-couche parquet',               cat: 'revetement', base: 'm2', prix: 3.5 },
+    sous_couche:{ l: 'Sous-couche parquet',               cat: 'revetement', base: 'm2', pack: { taille: 15, nom: 'rouleau', noms: 'rouleaux', label: 'de 15 m²' }, prix: 45 },
     polyane200: { l: 'Film polyane 200 µm (sous parquet)', cat: 'revetement', base: 'm2', prix: 0.9 },
     barre_seuil:{ l: 'Barre de seuil',                    cat: 'revetement', base: 'u', prix: 12 },
-    peinture:   { l: 'Peinture de finition murs (velours / satin)', cat: 'revetement', base: 'L', pack: { taille: 10, nom: 'pot', noms: 'pots', label: 'de 10 L' }, prix: 75 },
-    peinture_plafond: { l: 'Peinture de finition plafonds (mat)', cat: 'revetement', base: 'L', pack: { taille: 10, nom: 'pot', noms: 'pots', label: 'de 10 L' }, prix: 65 },
+    peinture:   { l: 'Peinture de finition murs (velours / satin)', cat: 'revetement', base: 'L', pots: true, prix: 7.5 },
+    peinture_plafond: { l: 'Peinture de finition plafonds (mat)', cat: 'revetement', base: 'L', pots: true, prix: 6.5 },
     ruban:      { l: 'Ruban de masquage',                 cat: 'revetement', base: 'ml', pack: { taille: 50, nom: 'rouleau', noms: 'rouleaux', label: 'de 50 m' }, prix: 5 },
-    bache:      { l: 'Bâche de protection',               cat: 'revetement', base: 'm2', prix: 0.5 },
-    impression: { l: 'Impression acrylique (plaques, plâtre)',         cat: 'revetement', base: 'L', pack: { taille: 10, nom: 'pot', noms: 'pots', label: 'de 10 L' }, prix: 50 },
+    bache:      { l: 'Bâche de protection 4 × 5 m',       cat: 'revetement', base: 'm2', pack: { taille: 20, nom: 'bâche', noms: 'bâches', label: 'de 20 m²' }, prix: 8 },
+    impression: { l: 'Impression acrylique (plaques, plâtre)',         cat: 'revetement', base: 'L', pots: true, prix: 5 },
 
     // ── Divers ───────────────────────────────────────────────────────────
     arase:      { l: 'Arase étanche (bande bitumineuse ou mortier hydrofuge)', cat: 'divers', base: 'ml', prix: 2.5 },
@@ -222,10 +223,31 @@ export function libelle(k, ctx = {}) {
     return m.l;
 }
 
+// Pots du commerce (litres) et prix relatif d'un pot (repère : 1 L ≈ 15 €, 2,5 L ≈ 30 €, 5 L ≈ 45 €, 10 L ≈ 75 €).
+// On prend la combinaison la moins chère ; à prix égal, le moins de pots.
+const COUT_POT = { 10: 7.5, 5: 4.5, 2.5: 3, 1: 1.5 };
+
+/** Pots à acheter pour q litres : { pots: [[taille, nombre]…], litres }. */
+export function combinaisonPots(q) {
+    let best = null;
+    const n10max = Math.ceil(q / 10 - 1e-9);
+    for (let a = 0; a <= n10max; a++) for (let b = 0; b <= 2; b++) for (let c = 0; c <= 2; c++) for (let d = 0; d <= 3; d++) {
+        const L = a * 10 + b * 5 + c * 2.5 + d;
+        if (L + 1e-9 < q) continue;
+        const nb = a + b + c + d;
+        const cout = a * COUT_POT[10] + b * COUT_POT[5] + c * COUT_POT[2.5] + d * COUT_POT[1];
+        const mieux = !best || cout < best.cout - 1e-9 || (Math.abs(cout - best.cout) < 1e-9 && (nb < best.nb || (nb === best.nb && L < best.litres)));
+        if (mieux) best = { litres: L, nb, cout, comp: [[10, a], [5, b], [2.5, c], [1, d]] };
+    }
+    return { litres: best.litres, pots: best.comp.filter(x => x[1] > 0) };
+}
+const textePots = pots => pots.map(([t, n]) => `${n} pot${n > 1 ? 's' : ''} de ${fmtSmart(t, 1)} L`).join(' + ');
+
 /** Quantité à acheter, en unités d'achat (celles du prix). */
 export function quantiteAchat(k, q, ctx = {}) {
     const m = MATERIAUX[k];
     if (!m || !(q > 0)) return 0;
+    if (m.pots) return combinaisonPots(q).litres;                       // prix au litre
     const t = taillePack(m, ctx);
     if (t) return Math.ceil(q / t - 1e-9);
     if (m.base === 'u' || m.base === 'm2' || m.base === 'jour' || m.base === 'L') return Math.ceil(q - 1e-9);
@@ -234,13 +256,31 @@ export function quantiteAchat(k, q, ctx = {}) {
     return Math.round(q * 100) / 100;                                  // tonnes
 }
 
+/** Nombre affiché à l'achat (pots, paquets, sacs…), pour cocher « acheté » dans la même unité. */
+export function nbAchat(k, q, ctx = {}, pk = 0) {
+    const m = MATERIAUX[k];
+    if (!m || !(q > 0)) return 0;
+    if (pk > 0) return Math.ceil(q / pk - 1e-6);
+    if (m.pots) return combinaisonPots(q).pots.reduce((s, [, n]) => s + n, 0);
+    return quantiteAchat(k, q, ctx);
+}
+
 /**
  * Affichage d'une quantité : { v, u, d }
  *  v = valeur principale (« 12 »), u = unité (« sacs »), d = précision (« de 35 kg · 420 kg »).
  */
-export function affichage(k, q, ctx = {}) {
+export function affichage(k, q, ctx = {}, pk = 0) {
     const m = MATERIAUX[k];
     if (!m) return { v: fmtSmart(q, 2), u: '', d: '' };
+    if (pk > 0 && q > 0) {                                              // conditionnement saisi (ex. paquet de parquet)
+        const nb = Math.ceil(q / pk - 1e-6);
+        return { v: fmt(nb), u: nb > 1 ? 'paquets' : 'paquet', d: `${fmtSmart(nb * pk, 2)} m²` };
+    }
+    if (m.pots && q > 0) {
+        const c = combinaisonPots(q);
+        const nb = c.pots.reduce((s, [, n]) => s + n, 0);
+        return { v: fmt(nb), u: nb > 1 ? 'pots' : 'pot', d: `${textePots(c.pots)} · besoin ${fmtSmart(q, 1)} L` };
+    }
     const t = taillePack(m, ctx);
     if (t) {
         const n = quantiteAchat(k, q, ctx);
@@ -253,6 +293,7 @@ export function affichage(k, q, ctx = {}) {
             const d = [];
             if (m.dens && q / m.dens >= 0.1) d.push(`≈ ${fmtSmart(q / m.dens, 1)} m³`);
             if (q < 0.5 && k !== 'moellon') { const s = Math.ceil(q * 1000 / 35); d.push(`ou ${s} sac${s > 1 ? 's' : ''} de 35 kg`); }
+            else if (q <= 3.5 && m.cat === 'granulats') { const bb = Math.ceil(q - 0.05); d.push(`ou ${bb} big bag${bb > 1 ? 's' : ''} d'1 T`); }
             return { v: fmt(Math.max(q, 0.01), 2), u: 'T', d: d.join(' · ') };
         }
         case 'm3': {
@@ -272,8 +313,8 @@ export function affichage(k, q, ctx = {}) {
 }
 
 /** Texte court « 12 sacs (de 35 kg) » pour le partage. */
-export function texteQuantite(k, q, ctx = {}) {
-    const a = affichage(k, q, ctx);
+export function texteQuantite(k, q, ctx = {}, pk = 0) {
+    const a = affichage(k, q, ctx, pk);
     return `${a.v} ${a.u}`.trim() + (a.d ? ` (${a.d})` : '');
 }
 

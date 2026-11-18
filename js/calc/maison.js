@@ -449,7 +449,7 @@ export function calculerMaison(brut, ctx = {}) {
             const plinthes = Math.max(0, perimFin * niv + mlCloisons * 2 - 0.9 * 2 * nbPortes);
             lignes.push(L('carrelage', Shab * 1.10, { ref: 'sol intérieur · 60 × 60' }), L('colle_carrelage', Shab * 7), L('joint_carrelage', Shab * 0.18),
                 L('croisillon', Math.ceil(Shab * 1.1 / 0.36)), L('cale_nivel', Math.ceil(Shab * 4.4 / 0.36)),
-                L('plinthe', plinthes * 1.10, { ref: 'carrelage' }), L('spec', 4 * 1.5, { d: 'douche ≈ 4 m²' }), L('bande_spec', 4.4), L('silicone', 3));
+                L('plinthe', plinthes * 1.10), L('spec', 4 * 1.5, { d: 'douche ≈ 4 m²' }), L('bande_spec', 4.4), L('silicone', 3));
             h += Shab * 0.8;
             infos.push(`Carrelage : ${fm(Shab)} m², 60×60 en double encollage (≈ 7 kg de colle/m²), joint 3 mm. SPEC pour une douche.`);
         }

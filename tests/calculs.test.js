@@ -349,3 +349,44 @@ test('maison 10 × 8 : moins d\'agglos (rangs de chaînage déduits)', () => {
     const murs = r.lots.find(l => l.id === 'murs');
     assert.ok(murs.infos.some(t => t.includes('rangs de chaînage')));
 });
+
+// ─── Lot 2 (4.9.0) : conditionnements, saisie en m², recherche ───
+import { combinaisonPots, affichage, nbAchat } from '../js/calc/materiaux.js';
+import { motsRecherche, correspond, norm } from '../js/core/format.js';
+import { OUV_CATS } from '../js/calc/ouvrages.js';
+
+test('peinture : pots combinés au plus juste', () => {
+    assert.deepEqual(combinaisonPots(1.2).pots, [[2.5, 1]]);
+    assert.deepEqual(combinaisonPots(11).pots, [[10, 1], [1, 1]]);
+    assert.deepEqual(combinaisonPots(7).pots, [[10, 1]]);
+    assert.deepEqual(combinaisonPots(3).pots, [[5, 1]]);
+    const a = affichage('peinture', 12.3);
+    assert.match(a.d, /pot de 10 L \+/);
+    assert.equal(nbAchat('peinture', 12.3), a.v * 1);
+});
+
+test('conditionnements : plinthes en barres, parquet en paquets, big bags', () => {
+    assert.equal(affichage('plinthe_bois', 13).v, '6');                 // 13 m / 2,40 m
+    const r = calculer('parquet', { L: 4, l: 3.5, paquet: 2.13 }, ctx);
+    const pq = r.lignes.find(l => l.k === 'parquet');
+    assert.equal(affichage('parquet', pq.q, ctx, pq.pk).v, '8');         // 14 m² × 1,07 = 15 m² → 8 paquets
+    assert.match(affichage('sable04', 1.3).d, /2 big bags/);
+});
+
+test('saisie directe en m²', () => {
+    const r = calculer('rejoint', { saisie: 'surf', S: 15 }, ctx);
+    assert.deepEqual(r.erreurs, {});
+    assert.equal(r.resume[0].v, '15 m²');
+    assert.ok(calculer('chaux', { saisie: 'surf', S: 10, ouv: 12 }, ctx).erreurs.ouv);
+    const c = calculer('carrelage', { saisie: 'surf', S: 16 }, ctx);
+    assert.ok(q(c.lignes, 'plinthe') > 0);
+});
+
+test('recherche : plusieurs mots, catégories, terminaisons', () => {
+    const textes = OUVRAGES.map(o => ({ id: o.id, t: norm(`${o.nom} ${o.desc} ${o.mots || ''} ${OUV_CATS.find(c => c.id === o.cat).l}`) }));
+    const trouve = q => textes.filter(x => correspond(x.t, motsRecherche(q))).map(x => x.id);
+    assert.ok(trouve('joint pierre').includes('rejoint'));
+    assert.ok(trouve('rejointoyer').includes('rejoint'));
+    assert.ok(trouve('renovation').includes('demolition'));
+    assert.ok(trouve('parpaings').includes('mur'));
+});

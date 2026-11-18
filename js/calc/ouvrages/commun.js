@@ -37,6 +37,21 @@ export function aideBeton(vol, dosage, mode, ctx, infos) {
 }
 
 export const surfNette = (Lg, h, o) => Math.max(0, Lg * h - (o || 0));
+
+// ─── « Je connais la surface » : saisie directe en m² au lieu de longueur × hauteur ──
+const parSurf = v => v.saisie === 'surf';
+/** Choix du mode de saisie, à mettre en tête des champs. */
+export const SAISIE = c('saisie', 'Je connais', [{ v: 'dim', l: 'Dimensions' }, { v: 'surf', l: 'Surface en m²' }], 'dim');
+/** Champ surface (visible seulement en saisie directe). */
+export const champSurface = (def = 20, aide = 'Surface totale, déjà mesurée ou lue sur le plan.') =>
+    n('S', 'Surface', 'm²', def, { si: parSurf, aide });
+/** Rend un champ de dimension invisible en saisie directe. */
+export const dim = ch => ({ ...ch, si: v => !parSurf(v) && (!ch.si || ch.si(v)) });
+/** Surface brute selon le mode de saisie. */
+export const surfaceBrute = (v, a = 'L', b = 'h') => (parSurf(v) ? v.S : v[a] * v[b]);
+/** Surface nette (ouvertures déduites) selon le mode de saisie. */
+export const surfaceDe = (v, a = 'L', b = 'h') => Math.max(0, surfaceBrute(v, a, b) - (v.ouv || 0));
+
 /** Contrôle : les ouvertures ne peuvent pas dépasser la surface du mur. */
-export const verifOuv = (a = 'L', b = 'h') => v => (v.ouv > 0 && v.ouv >= v[a] * v[b] ? { ouv: `Plus grand que le mur (${fm(v[a] * v[b])} m²) : vérifie` } : {});
+export const verifOuv = (a = 'L', b = 'h') => v => (v.ouv > 0 && v.ouv >= surfaceBrute(v, a, b) ? { ouv: `Plus grand que le mur (${fm(surfaceBrute(v, a, b))} m²) : vérifie` } : {});
 

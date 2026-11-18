@@ -69,9 +69,19 @@ export function vueReglages(root) {
             <input type="file" id="fichier" accept="application/json,.json" class="hidden">
         </div>
 
+        <p class="section-title">Mettre l'appli sur le téléphone</p>
+        <div class="card">
+            <ul class="infos" style="margin:0">
+                <li>iPhone (Safari) : bouton Partager, puis « Sur l'écran d'accueil ».</li>
+                <li>Android (Chrome) : menu ⋮, puis « Installer l'application » ou « Ajouter à l'écran d'accueil ».</li>
+                <li>Ensuite elle marche sans réseau (au magasin, au fond du chantier). Les chantiers restent dans ce téléphone : pour les passer sur un autre appareil, « Sauvegarder » puis « Restaurer » le fichier.</li>
+            </ul>
+        </div>
+
         <p class="section-title">Comment sont faits les calculs</p>
         <div class="card">
             <ul class="infos" style="margin:0">
+                <li>D'où viennent les chiffres : règles de l'art du bâtiment (DTU 13.1 fondations, 20.1 maçonnerie, 21 béton, 26.1 enduits, 26.2 chapes, 25.41-25.42 plâtrerie, 45.11 isolation, 52.2 carrelage, 51.2 parquet, 59.1 peinture, 64.1 assainissement) et notices des fabricants. Relu par des gens du métier (maçon, plaquiste-carreleur, rénovateur).</li>
                 <li>Béton : par m³, le dosage en ciment (350 kg = 10 sacs de 35 kg, béton toupie C25/30), ≈ 400 L de sable 0/4 (0,65 T) et ≈ 800 L de gravillon 4/20 (1,15 T), ≈ 175 L d'eau. Remplissage de blocs et chaînages : gravillon 4/10.</li>
                 <li>Mortier : par m³, le dosage en liant et ≈ 1 m³ de sable (1,5 T). Hourdage parpaing 20 : ≈ 20 L de mortier par m².</li>
                 <li>Agglos : 10 au m² (+5 % de casse). Brique rectifiée de 20 : 6,4 au m². Monomur 30 : 16,2 au m². Treillis 2,40×3,60 : 6,9 m² utiles (2 mailles de recouvrement).</li>
@@ -83,7 +93,7 @@ export function vueReglages(root) {
                 <li>Ce sont des ordres de grandeur pour commander : vérifier sur les notices des fabricants et faire valider les éléments de structure (IPN, charpente, planchers).</li>
             </ul>
         </div>
-        <p style="text-align:center;color:var(--soft);font-size:13px;margin-top:18px">Kalou BTP · version ${APP_VERSION} · ${listeChantiers().length} chantier(s) enregistré(s)</p>`;
+        <p style="text-align:center;color:var(--muted);font-size:14px;margin-top:18px">Kalou BTP · version ${APP_VERSION} · ${listeChantiers().length} chantier(s) enregistré(s)</p>`;
 
     // Choix (sac ciment, TVA)
     root.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click', () => {

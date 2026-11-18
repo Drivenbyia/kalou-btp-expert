@@ -23,7 +23,7 @@ COLS.reduce((x, [k, , w]) => { X[k] = { x, w }; return x + w; }, M);
 /** Une ligne de la liste → { nom, detail, qte, unite }. */
 export function ligneDoc(li, ctx = {}) {
     if (li.k && MATERIAUX[li.k]) {
-        const a = affichage(li.k, li.q, ctx);
+        const a = affichage(li.k, li.q, ctx, li.pk);
         const nom = li.l || libelle(li.k, ctx);
         return { nom: li.ref ? `${nom} — ${li.ref}` : nom, detail: [li.d, a.d].filter(Boolean).join(' · '), qte: a.v, unite: a.u };
     }
