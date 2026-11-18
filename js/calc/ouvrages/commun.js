@@ -6,6 +6,7 @@ import { fmtSmart } from '../../core/format.js';
 export const n = (id, l, u, def, o = {}) => ({ id, type: 'num', l, u, def, ...o });
 export const c = (id, l, options, def, o = {}) => ({ id, type: 'choix', l, options, def, ...o });
 export const oui = (id, l, def = true, o = {}) => ({ id, type: 'oui', l, def, ...o });
+export const texte = (id, l, def = '', o = {}) => ({ id, type: 'texte', l, def, ...o });
 
 export const MODE = c('mode', 'Le béton', [
     { v: 'betonniere', l: 'Bétonnière' },

@@ -47,10 +47,10 @@
 |---|---|
 | `index.html`, `css/app.css`, `manifest.webmanifest`, `sw.js`, `icons/` | coquille, style, PWA |
 | `js/app.js` | routeur `#/…`, en-tête, historique (retour du téléphone), garde « Quitter sans enregistrer ? », `APP_VERSION` |
-| `js/calc/materiaux.js` | catalogue (~150 articles) : libellé négoce, catégorie, unité d'achat (sac, T, rouleau…), prix indicatif |
+| `js/calc/materiaux.js` | catalogue (~190 articles) : libellé négoce, catégorie, unité d'achat (sac, T, rouleau, barre, couronne…), prix indicatif ; pots de peinture combinés (`combinaisonPots`), `nbAchat` = nombre affiché à l'achat |
 | `js/calc/base.js` | **dosages de référence** et briques de calcul : béton, mortier (ciment/chaux/bâtard), blocs, chaînages, plancher, toiture (rectangle **et forme libre**), placo (DTU 25.41/25.42), soufflage, drainage, échafaudage |
-| `js/calc/ouvrages.js` | assemble les **33 calculateurs**, catégories `OUV_CATS`, table `AIDES`, validation (erreurs bloquantes + alertes douces), `calculer()` |
-| `js/calc/ouvrages/*.js` | les calculateurs **par famille** (`beton`, `murs`, `enduits`, `toiture`, `interieur`, `exterieur`, `renovation`, `reseaux`) ; `commun.js` = constructeurs de champs, choix béton, `CONSEILS` |
+| `js/calc/ouvrages.js` | assemble les **37 calculateurs**, catégories `OUV_CATS`, table `AIDES`, validation (erreurs bloquantes + alertes douces), `calculer()` |
+| `js/calc/ouvrages/*.js` | les calculateurs **par famille** (`beton`, `murs`, `enduits`, `toiture`, `interieur`, `isoler`, `piece`, `eau`, `exterieur`, `renovation`, `reseaux`) ; `commun.js` = constructeurs de champs (dont `texte`), choix béton, `CONSEILS`, saisie « je connais la surface » (`SAISIE`, `champSurface`, `dim`, `surfaceDe`) |
 | `js/calc/maison.js` | assistant **Maison neuve** lot par lot ; rectangle ou **forme libre** (périmètre, surface, angles, blocs de toit, largeur) |
 | `js/calc/cout.js` | estimation façon entreprise (option) |
 | `js/core/store.js` | localStorage : réglages, prix, chantiers, saisies, migration v3→v4, sauvegarde JSON |
@@ -83,6 +83,15 @@
   aucun si monomur) − cloisons 7,2 cm × ml − trémie 3 m² en R+1. Le détail s'affiche dans « À savoir ».
 - Menuiseries (maison) : liste `menuiseries[{ t, nb, larg, haut }]` (cm), une ligne par taille ;
   anciennes saisies `porte/fenetre/baie/garage` converties par `menuiseriesDe()`.
+- **Lignes de matériaux** `{ k, q, ref?, d?, pk? }` : `ref` = la référence à acheter (épaisseur, longueur, format,
+  faïence/sol, classe de béton) → **une ligne par ref** dans la liste de courses (`consolider`) ; `d` = simple
+  précision (fusionnée) ; `pk` = conditionnement saisi (m² par paquet) → affichage en paquets.
+- Chaînage en blocs U : **le dernier rang est retiré des agglos** (`RANG_CHAINAGE` = 0,20 m). Barres de 6 m :
+  `barresPour(nb, lg)` (morceaux, on ne raboute pas les chutes). Chaux : `chaux` (NHL 3,5), `chaux_nhl2`, `chaux_nhl5`, `chaux_cl90`.
+- Isolation (`isoler.js`) : épaisseur = R × λ arrondie aux épaisseurs vendues (2 couches au-delà de 200 mm mur /
+  240 mm rampants) ; mur ancien ou isolant biosourcé → **frein-vapeur hygro** ; PU interdit sur mur ancien.
+- Plomberie (`eau.js`) : un circuit PER Ø16 par appareil (froid) + un par appareil à eau chaude, évacuation Ø40 / Ø100 (WC),
+  pente 1-3 %. Pas de débit ni de chauffe-eau (plombier).
 
 ### Données (localStorage)
 
@@ -118,12 +127,20 @@
 | 4.5.0 | #15 | Maison : surface habitable sans doublage ni cloisons (détail affiché) ; menuiseries en liste avec tailles libres |
 | 4.6.0 | #16 | Architecture : calculateurs découpés par famille, tests des écrans (Playwright) et de la PWA, tests sur GitHub à chaque PR, hébergement GitHub Pages |
 | 4.7.0 | #17 | Liste de courses **en PDF** (vrai fichier, partagé sur téléphone / téléchargé sur ordinateur) : rangé par catégorie, numéroté, prix à remplir pour devis ; nom + téléphone dans Réglages ; « Envoyer la liste » = PDF ou message |
+| 4.8.0 | #18 | Relecture croisée (maçon, plaquiste, UX, UI, rénovateur) — lot 1 : liste par référence (épaisseur, longueur, faïence/sol), chaux choisie, rang de chaînage, barres en morceaux, colle extérieure, garde-fous, avertissements amiante/plomb/pierre |
+| 4.9.0 | #19 | Lot 2 : conditionnements du rayon (pots combinés, paquets, barres, rouleaux, big bags), saisie directe en m², accueil (carte, récents, recherche mot par mot), barre du bas sur une ligne, lisibilité |
+| 5.0.0 | #20 | Lot 3 : **Isoler un mur ou des rampants** (R visé, 6 isolants comparés, bâti ancien), **Douche à l'italienne**, **Plomberie** par appareil, **Pièce complète** (une saisie → murs, plafond, sol, plinthes) |
 
 Projet en cours chez l'utilisateur : maison en Z (plan ≈ 58 m de tour, 134 m² au sol, 8 angles,
 2 blocs de toit, ailes ≈ 7,5 m).
 
 ## Idées non faites (si on reprend)
 
+- **Électricité** en quantités (gaines ICTA, fils, boîtes, appareillage, tableau) : demandée, reportée (à faire relire, sécurité).
+- Mise en page **iMac** en 2 colonnes (formulaire | résultat collé), puces de catégories collées, tuiles compactes.
 - Remplacer les emojis des tuiles par des pictos SVG cohérents (signalé par l'audit UI).
+- Ouvrages bâti ancien : sol chaux-chanvre, enduit correcteur chaux-chanvre, agrafage de fissures, injection, tranchée EU/EP, pavage.
+- Portes intérieures (bloc-porte), plancher OSB, lambris, faux plafond sous solives, VMC.
+- Format réel des carreaux (L × l cm) au lieu de 4 tranches ; paquets de laine dans tous les calculateurs.
 - Synchronisation téléphone ↔ iMac (aujourd'hui : fichier de sauvegarde à importer).
 - Surfaces composées dans les calculateurs simples (dalle en L…).

@@ -44,6 +44,19 @@ export function htmlInfos(infos, titre = 'Comment c\'est calculé') {
     return `<details class="more"><summary>${esc(titre)}</summary><ul class="infos">${infos.map(i => `<li>${esc(i)}</li>`).join('')}</ul></details>`;
 }
 
+/** Comparaison (ex. autres isolants pour le même R) : cartes, toucher une carte = la choisir. */
+export function htmlComparatif(cmp) {
+    if (!cmp || !cmp.options || !cmp.options.length) return '';
+    return `<p class="section-title" style="margin:16px 2px 6px">${esc(cmp.titre)}</p>
+        <div class="cmp">${cmp.options.map(o => `
+            <button class="cmp-carte" data-cmp="${esc(cmp.champ)}" data-v="${esc(o.v)}">
+                <b>${esc(o.titre)}</b>
+                ${o.badge ? `<span class="badge ${o.badge.ok === true ? 'ok' : o.badge.ok === false ? 'ko' : 'moy'}">${esc(o.badge.t)}</span>` : ''}
+                <small>${o.lignes.map(esc).join(' · ')}</small>
+                <em>Choisir celui-ci</em>
+            </button>`).join('')}</div>`;
+}
+
 /** Bloc « Si c'était fait par une entreprise » (seulement si l'option est activée). */
 export function htmlCout(lignes, heures, ctx, tva = null) {
     const r = getReglages();

@@ -16,6 +16,9 @@ import { INTERIEUR } from './ouvrages/interieur.js';
 import { EXTERIEUR } from './ouvrages/exterieur.js';
 import { RENOVATION } from './ouvrages/renovation.js';
 import { RESEAUX } from './ouvrages/reseaux.js';
+import { ISOLER } from './ouvrages/isoler.js';
+import { PIECE } from './ouvrages/piece.js';
+import { EAU } from './ouvrages/eau.js';
 import { fmtSmart } from '../core/format.js';
 export { CONSEILS } from './ouvrages/commun.js';
 
@@ -26,11 +29,12 @@ export const OUV_CATS = [
     { id: 'renovation', l: 'Rénovation & démolition' },
     { id: 'toiture',   l: 'Toiture & conduit' },
     { id: 'interieur', l: 'Intérieur' },
+    { id: 'eau',       l: 'Salle d\'eau & plomberie' },
     { id: 'exterieur', l: 'Extérieur & terrassement' }
 ];
 
 // Les calculateurs, rangés par familles dans js/calc/ouvrages/ (même ordre d'affichage qu'avant).
-export const OUVRAGES = [...BETON, ...MURS, ...ENDUITS, ...TOITURE, ...INTERIEUR, ...EXTERIEUR, ...RENOVATION, ...RESEAUX];
+export const OUVRAGES = [...BETON, ...MURS, ...ENDUITS, ...TOITURE, ...PIECE, ...INTERIEUR, ...ISOLER, ...EAU, ...EXTERIEUR, ...RENOVATION, ...RESEAUX];
 
 
 // ─── Explications des champs : d'où à où mesurer, ce qui est compris ─────────
@@ -66,7 +70,7 @@ const AIDES = {
     },
     ragreage: { ep: 'Moyenne entre le point haut et le point bas du sol.' },
     placo: { a: 'Longueur du mur ou de la pièce.', b: 'Du sol jusqu\'au plafond (ou largeur de la pièce pour un plafond).' },
-    isolation: { L: 'Surface du plancher des combles (= surface du plafond en dessous).' },
+    isolation: { L: 'Combles perdus : longueur du plancher des combles. Rampants : longueur du toit.' },
     peinture: { ouv: 'Total des portes et fenêtres (porte ≈ 1,7 m², fenêtre ≈ 1,5 m²).' },
     terrassement: { p: 'Profondeur moyenne à creuser.' },
     piscine: { p: 'Profondeur d\'eau moyenne, intérieur du bassin.', L: 'Dimensions intérieures du bassin.' },
@@ -125,6 +129,8 @@ export function valider(def, brut) {
             if (ch.u === 'cm' && x > 0 && x < 1) alertes[ch.id] = `Tu as mis des mètres ? Ici c'est en cm (${fmtSmart(x, 2)} m = ${fmtSmart(x * 100, 0)} cm).`;
             else if (ch.bas && x > 0 && x < ch.bas) alertes[ch.id] = `Valeur faible (souvent ${fmtSmart(ch.bas)} ${ch.u} ou plus) : vérifie.`;
             v[ch.id] = x;
+        } else if (ch.type === 'texte') {
+            v[ch.id] = String(v[ch.id] ?? '').trim().slice(0, 40) || ch.def;
         } else if (ch.type === 'oui') {
             v[ch.id] = v[ch.id] === true || v[ch.id] === 'true';
         } else if (ch.type === 'choix') {
