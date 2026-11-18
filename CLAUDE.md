@@ -34,9 +34,9 @@
 - **Hébergement : GitHub Pages** (dépôt public, gratuit), publié par `.github/workflows/ci.yml`
   à chaque push sur `main`, **seulement si les tests passent** →
   https://drivenbyia.github.io/kalou-btp-expert/ (vérifier : `curl -s …/js/app.js | grep APP_VERSION`).
-  Ancien hébergement Netlify (https://kalou-btp-expert.netlify.app) abandonné : crédits de l'équipe
-  « Comparateur d'Energie » épuisés en oct. 2026. L'adresse github.io est partagée avec les autres
-  sites Pages du compte : le `sw.js` ne supprime que les caches `kalou-btp-*`.
+  Ancien hébergement Netlify **supprimé** (nov. 2026, site et application GitHub retirés) : ne plus
+  l'utiliser ni le citer. L'adresse github.io est partagée avec les autres sites Pages du compte :
+  le `sw.js` ne supprime que les caches `kalou-btp-*`.
 - **Tests automatiques sur GitHub** (même workflow, à chaque PR) : `npm test` puis `npm run test:ecrans`.
 - Données **uniquement dans le navigateur** (localStorage), sauvegarde/restauration en fichier JSON
   (Réglages). Téléphone et iMac ne partagent pas leurs données.
