@@ -120,12 +120,20 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px calc(var(--nav-h) + 
 /* ── Grille des ouvrages ───────────────────────────────────────── */
 .tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 @media (min-width: 560px) { .tiles { grid-template-columns: repeat(3, 1fr); } }
-/* Puces des familles : on saute directement à la bonne catégorie */
-.puces { position: sticky; top: calc(60px + var(--safe-t)); z-index: 30; display: flex; gap: 8px; overflow-x: auto; padding: 8px 0; margin: 0 -16px; padding-inline: 16px; background: var(--bg); scrollbar-width: none; }
-.puces::-webkit-scrollbar { display: none; }
-.puces button { flex: none; min-height: 44px; padding: 0 14px; border-radius: 22px; background: var(--card); border: 2px solid var(--line); font-weight: 800; font-size: 14.5px; color: var(--ink); white-space: nowrap; }
-.puces button:active { background: var(--brand-soft); border-color: var(--brand); }
-section[data-cat] { scroll-margin-top: calc(124px + var(--safe-t)); }
+/* Accueil : les familles d'abord (9 grosses lignes), les calculs ensuite */
+.familles { display: grid; gap: 8px; }
+.famille {
+    display: grid; grid-template-columns: 48px 1fr 24px; align-items: center; column-gap: 12px; width: 100%; text-align: left;
+    background: var(--card); border-radius: 16px; box-shadow: var(--shadow); padding: 12px; min-height: 72px; border: 2px solid transparent;
+}
+.famille:active { transform: scale(.985); border-color: var(--brand); }
+.famille .ic.pic { width: 48px; height: 48px; }
+.famille b { display: block; font-size: 17px; font-weight: 900; line-height: 1.2; }
+.famille small { display: block; font-size: 14px; color: var(--muted); line-height: 1.3; margin-top: 2px; }
+.famille .nb { font-weight: 800; color: var(--brand-dark); }
+.famille .go { color: var(--soft); width: 22px; height: 22px; }
+@media (min-width: 760px) { .familles { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1100px) { .familles { grid-template-columns: repeat(3, 1fr); } }
 /* Téléphone : tuiles en liste compacte (icône à gauche) pour diviser la hauteur de l'accueil */
 @media (max-width: 559px) {
     .tiles { grid-template-columns: 1fr; gap: 8px; }
@@ -415,4 +423,20 @@ body:has(#actionbar:not(.hidden)) .toast { bottom: calc(var(--nav-h) + var(--saf
 .men-dims > div { min-width: 0; }
 .men-lab { display: block; font-size: 13px; font-weight: 700; color: var(--muted); margin: 0 2px 4px; }
 .men .inp input { height: 54px; font-size: 19px; padding: 0 34px 0 10px; }
+/* Listes (une ligne par pièce, par appareil…) */
+.f.liste-titre .aide { margin-top: 0; }
+.f.liste-ligne { border: 2px solid var(--edge); border-radius: 14px; padding: 10px; }
+.f.liste-ligne.ko { border-color: var(--danger); }
+.ll-haut { display: flex; gap: 6px; align-items: center; }
+.ll-haut .sel { flex: 1; min-width: 0; }
+.inp.sel select {
+    appearance: none; -webkit-appearance: none; height: 52px; font-size: 17px; padding: 0 38px 0 12px; text-overflow: ellipsis;
+    background: var(--field) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234A5059' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center / 20px;
+}
+.ll-cols .inp.sel select { height: 54px; font-size: 17px; padding: 0 30px 0 10px; background-position: right 6px center; background-size: 16px; }
+.ll-cols { display: grid; grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.ll-cols > div { min-width: 0; }
+.liste-ligne .inp input { height: 54px; font-size: 19px; padding: 0 28px 0 10px; }
+.liste-ligne .inp .u { right: 8px; font-size: 14px; }
+.liste-ligne .men-lab { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .men .inp .u { right: 9px; font-size: 14px; }

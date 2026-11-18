@@ -408,12 +408,32 @@ test('isolation : épaisseur pour le R visé, membrane adaptée au mur ancien', 
 });
 
 test('salle d\'eau : plomberie par appareil et douche à l\'italienne', () => {
-    const p = calculer('plomberie', { wc: 1, lavabo: 1, douche: 1, dAlim: 5, dEvac: 3 }, ctx);
-    const per = p.lignes.filter(l => l.k === 'per16');
-    assert.equal(per.length, 2);                                        // bleu + rouge
-    assert.ok(Math.abs(q(p.lignes, 'per16') - 5 * 5 * 1.15) < 1e-9);   // 3 froids + 2 chauds
-    assert.ok(q(p.lignes, 'pvc100b') > 0 && q(p.lignes, 'pvc40') > 0 && q(p.lignes, 'bati_wc') === 1);
-    assert.ok(calculer('plomberie', { wc: 0, lavabo: 0, douche: 0 }, ctx).erreurs.wc);
+    // Une ligne par appareil, chacun avec ses distances
+    const app = [{ t: 'wc', alim: 4, evac: 1 }, { t: 'lavabo', alim: 5, evac: 2.5 }, { t: 'douche', alim: 6, evac: 2 }];
+    const p = calculer('plomberie', { app }, ctx);
+    assert.deepEqual(p.erreurs, {});
+    assert.equal(p.lignes.filter(l => l.k === 'per16').length, 2);     // bleu + rouge
+    assert.ok(Math.abs(q(p.lignes, 'pvc40') - (2.5 + 2) * 1.1) < 1e-9, 'PVC Ø40 = évacuations réelles du lavabo et de la douche');
+    assert.ok(Math.abs(q(p.lignes, 'pvc100b') - 1 * 1.1) < 1e-9, 'PVC Ø100 = évacuation du WC');
+    assert.ok(q(p.lignes, 'bati_wc') === 1 && q(p.lignes, 'culotte') === 3);
+    const lg = x => x * 1.1 + 0.5;
+    assert.equal(p.resume[1].v, `${Math.round(lg(4) + 2 * lg(5) + 2 * lg(6))} m de PER`);
+    assert.match(p.infos[0], /WC : PER 4 m, évacuation Ø100 1 m/);
+    // Un appareil plus loin = plus de tuyau
+    const loin = calculer('plomberie', { app: [{ t: 'lavabo', alim: 18, evac: 6 }] }, ctx);
+    assert.ok(q(loin.lignes, 'pvc40') > q(calculer('plomberie', { app: [{ t: 'lavabo', alim: 3, evac: 1 }] }, ctx).lignes, 'pvc40'));
+    // Couronnes de 25 m : 3 circuits de 11,5 m ne tiennent pas dans une seule
+    const cour = calculer('plomberie', { app: [{ t: 'wc', alim: 10, evac: 1 }, { t: 'll', alim: 10, evac: 1 }, { t: 'lv', alim: 10, evac: 1 }] }, ctx);
+    assert.ok(q(cour.lignes, 'per16') > 25 * 1.5, '2 couronnes');
+    // Robinet extérieur : pas d'évacuation ; chauffe-eau : groupe de sécurité
+    const ext = calculer('plomberie', { app: [{ t: 'ext', alim: 6 }], ce: true, dCE: 3, dArr: 10 }, ctx);
+    assert.ok(q(ext.lignes, 'robinet_ext') === 1 && q(ext.lignes, 'groupe_secu') === 1 && q(ext.lignes, 'per20') > 10 + 6);
+    assert.equal(q(ext.lignes, 'pvc40'), 1, 'seulement la vidange du groupe de sécurité');
+    assert.ok(calculer('plomberie', { app: [] }, ctx).erreurs.app);
+    // Ancienne saisie (nombres + distances moyennes) convertie en lignes
+    const ancien = calculer('plomberie', { wc: 1, lavabo: 2, douche: 0, dAlim: 5, dEvac: 3 }, ctx);
+    assert.equal(ancien.v.app.length, 3);
+    assert.ok(q(ancien.lignes, 'pvc40') > 0 && q(ancien.lignes, 'pvc100b') > 0);
     const d = calculer('douche', { L: 120, l: 90, fond: 'pente' }, ctx);
     assert.ok(q(d.lignes, 'natte_etanche') > 0 && q(d.lignes, 'ciment') > 0 && q(d.lignes, 'siphon_douche') === 1);
 });
@@ -442,7 +462,34 @@ test('électricité : circuits, différentiels, réserve du tableau, pose appare
     const a = calculer('electricite', { pose: 'apparent', plaque: true }, ctx);
     assert.equal(q(a.lignes, 'icta_6') + q(a.lignes, 'icta_15') + q(a.lignes, 'icta_25'), 0);
     assert.ok(q(a.lignes, 'cable_6') > 0 && q(a.lignes, 'boitier_saillie') > 0);
-    assert.ok(calculer('electricite', { radiateurs: 3, watts: 0 }, ctx).erreurs.watts);
+});
+
+test('électricité pièce par pièce : distances propres, cuisine à part, gros appareils', () => {
+    const pieces = [
+        { t: 'cuisine', prises: 6, points: 2, inter: 1, dist: 5 },
+        { t: 'sejour', prises: 5, points: 2, inter: 2, dist: 4 },
+        { t: 'chambre', prises: 3, points: 1, inter: 1, dist: 10 }
+    ];
+    const r = calculer('electricite', { pieces, appareils: [], tableau: true }, ctx);
+    assert.deepEqual(r.erreurs, {});
+    assert.equal(q(r.lignes, 'disj20'), 2, 'séjour + chambre (8 prises) et la cuisine sur son propre circuit');
+    // Une pièce plus loin du tableau = plus de gaine
+    const loin = calculer('electricite', { pieces: [{ ...pieces[2], dist: 25 }], appareils: [] }, ctx);
+    const pres = calculer('electricite', { pieces: [{ ...pieces[2], dist: 2 }], appareils: [] }, ctx);
+    assert.ok(Math.abs(q(loin.lignes, 'icta_25') - q(pres.lignes, 'icta_25') - 23 * 1.15) < 1e-9);
+    // Pompe à chaleur loin : section au-dessus, câble R2V dehors, coupure près de l'unité
+    const pac = calculer('electricite', { pieces: [], appareils: [{ t: 'pac', dist: 55, cal: '32' }], tableau: true }, ctx);
+    assert.ok(q(pac.lignes, 'cable_10') > 55 && q(pac.lignes, 'sectionneur') === 1 && q(pac.lignes, 'disj32') === 1);
+    assert.match(pac.infos.join(' '), /section au-dessus/);
+    // Clim : câble de liaison ; prise voiture : différentiel type A réservé
+    const cv = calculer('electricite', { pieces: [], appareils: [{ t: 'clim', dist: 10, cal: '16', lien: 4 }, { t: 've', dist: 15 }], tableau: true }, ctx);
+    assert.ok(q(cv.lignes, 'cable_liaison') > 4 && q(cv.lignes, 'prise_ve') === 1);
+    assert.equal(q(cv.lignes, 'diff_a'), 2, 'clim (type A) + prise voiture');
+    // Radiateurs : 3 500 W maxi par circuit
+    const rad = calculer('electricite', { pieces: [], appareils: [1500, 1500, 1500].map(w => ({ t: 'radiateur', dist: 8, w })), tableau: true }, ctx);
+    assert.equal(q(rad.lignes, 'disj16'), 2);
+    assert.ok(q(rad.lignes, 'icta_fp') > 0);
+    assert.ok(calculer('electricite', { pieces: [], appareils: [] }, ctx).erreurs.pieces);
 });
 
 test('VMC : bouches par pièce, circuit dédié 2 A', () => {

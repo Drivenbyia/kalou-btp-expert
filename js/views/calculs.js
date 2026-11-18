@@ -1,7 +1,7 @@
 // Écran « Calculs » : liste des ouvrages + calculateur en direct.
 
 import { esc, norm, motsRecherche, correspond } from '../core/format.js';
-import { OUVRAGES, OUV_CATS, OUVRAGES_PAR_ID, calculer, valeursDefaut } from '../calc/ouvrages.js';
+import { OUVRAGES, OUV_CATS, OUVRAGES_PAR_ID, calculer, valeursDefaut, migrer } from '../calc/ouvrages.js';
 import { getSaisie, setSaisie, getChantier, ajouterItem, remplacerItem, ctxCalcul, getRecents, accueilVu, fermerAccueil, listeChantiers } from '../core/store.js';
 import { ICONES, toast, partager, confirmer } from '../ui/dom.js';
 import { picto } from '../ui/pictos.js';
@@ -17,49 +17,78 @@ const tuile = (o, suffixe, cat) => `
     </button>`;
 
 // ─── Liste des ouvrages ─────────────────────────────────────────────────────
+// Accueil : les familles (9 lignes) plutôt que les 48 calculs d'un coup ; la recherche
+// cherche dans tous les calculs. Une famille ouverte = #/?f=<famille> (retour du téléphone).
+
+const FAMILLES = {
+    beton:      { pic: 'fondation',    ex: 'Dalle, fondation, poteau, chaînage, escalier' },
+    murs:       { pic: 'mur',          ex: 'Agglos, pierre, muret, ouverture, linteau' },
+    enduits:    { pic: 'enduit',       ex: 'Enduit, chaux, rejointoiement, chaux-chanvre' },
+    renovation: { pic: 'demolition',   ex: 'Démolition, sous-œuvre, fissures, humidité' },
+    toiture:    { pic: 'toiture',      ex: 'Charpente, tuiles, conduit de cheminée' },
+    interieur:  { pic: 'placo',        ex: 'Pièce complète, placo, isolation, carrelage, peinture' },
+    eau:        { pic: 'douche',       ex: 'Douche à l\'italienne, plomberie appareil par appareil' },
+    elec:       { pic: 'electricite',  ex: 'Prises et lumières pièce par pièce, clim, PAC, VMC' },
+    exterieur:  { pic: 'terrassement', ex: 'Terrassement, drainage, fosse, pavage, piscine' }
+};
 
 export function vueListe(root, params) {
     const ch = params.ch ? getChantier(params.ch) : null;
     const suffixe = ch ? `?ch=${encodeURIComponent(ch.id)}` : '';
-    if (ch) entete({ titre: 'Ajouter un ouvrage', sous: ch.nom, parent: `#/chantier/${ch.id}` });
+    const fam = OUV_CATS.find(c => c.id === params.f);
+    const accueil = `#/${suffixe}`;
+    const versFamille = id => `#/?${ch ? `ch=${encodeURIComponent(ch.id)}&` : ''}f=${id}`;
+    if (fam) entete({ titre: fam.l, sous: ch ? `Chantier : ${ch.nom}` : '', parent: accueil });
+    else if (ch) entete({ titre: 'Ajouter un ouvrage', sous: ch.nom, parent: `#/chantier/${ch.id}` });
     else entete({});
 
     // Première visite : une petite carte qui dit à quoi sert l'appli (disparaît au premier chantier)
-    const montrerAccueil = !ch && !accueilVu() && !listeChantiers().length;
-    const recents = ch ? [] : getRecents().map(id => OUVRAGES_PAR_ID[id]).filter(Boolean).slice(0, 4);
+    const montrerAccueil = !fam && !ch && !accueilVu() && !listeChantiers().length;
+    const recents = ch || fam ? [] : getRecents().map(id => OUVRAGES_PAR_ID[id]).filter(Boolean).slice(0, 4);
+    const sections = cats => cats.map(cat => `
+        <section data-cat="${cat.id}"${fam ? '' : ' class="hidden"'}>
+            ${fam ? '' : `<p class="section-title">${esc(cat.l)}</p>`}
+            <div class="tiles">${OUVRAGES.filter(o => o.cat === cat.id).map(o => tuile(o, suffixe, cat)).join('')}</div>
+        </section>`).join('');
     root.innerHTML = `
-        ${ch ? `<div class="banner">➕ <span><b>Ajout au chantier « ${esc(ch.nom)} »</b>Choisis l'ouvrage, règle les dimensions, puis « Ajouter ».</span></div>` : ''}
+        ${ch && !fam ? `<div class="banner">➕ <span><b>Ajout au chantier « ${esc(ch.nom)} »</b>Choisis l'ouvrage, règle les dimensions, puis « Ajouter ».</span></div>` : ''}
         ${montrerAccueil ? `<div class="card accueil" id="accueil">
             <button class="x" id="accueil-x" aria-label="Fermer">×</button>
             <b>Calcule tes matériaux, fais ta liste pour le magasin.</b>
-            <p>Gratuit, sans compte, marche sans réseau. Tape tes mesures : les quantités (pertes comprises) s'affichent tout de suite.</p>
+            <p>Gratuit, sans compte, marche sans réseau. Choisis une famille ou cherche un mot, tape tes mesures : les quantités (pertes comprises) s'affichent tout de suite.</p>
             <button class="btn btn-ghost" data-go="#/calc/dalle">Essayer : une dalle de 5 × 4 m</button>
         </div>` : ''}
-        <div class="search">${ICONES.search}<input id="q" type="search" placeholder="Chercher : dalle, joint pierre, placo…" autocomplete="off" aria-label="Chercher un ouvrage"></div>
-        <nav class="puces" id="puces" aria-label="Familles d'ouvrages">${OUV_CATS.map(cat => `<button data-puce="${cat.id}">${esc(cat.l)}</button>`).join('')}</nav>
+        <div class="search">${ICONES.search}<input id="q" type="search" placeholder="${fam ? `Chercher dans ${esc(fam.l.toLowerCase())}…` : 'Chercher : dalle, joint pierre, placo…'}" autocomplete="off" aria-label="Chercher un ouvrage"></div>
         <div id="liste">
-            ${recents.length ? `<div id="recents"><p class="section-title">Utilisés récemment</p>
+            ${fam ? `<p class="lead" style="margin:4px 2px 12px">${esc(FAMILLES[fam.id]?.ex || '')}</p>${sections([fam])}` : `
+            ${recents.length ? `<div class="hors-recherche"><p class="section-title">Utilisés récemment</p>
                 <div class="tiles">${recents.map(o => tuile(o, suffixe)).join('')}</div></div>` : ''}
-            <p class="section-title">Projet complet</p>
-            <button class="hero" data-go="#/maison${suffixe}${ch ? '&via=liste' : ''}">
-                <span class="ic pic">${picto('maison')}</span>
-                <span><b>Maison neuve</b><small>Fondations, murs, charpente, toiture, intérieur : tout d'un coup</small></span>
-                <span class="go">${ICONES.chev}</span>
-            </button>
-            ${OUV_CATS.map(cat => `
-                <section data-cat="${cat.id}">
-                    <p class="section-title">${esc(cat.l)}</p>
-                    <div class="tiles">
-                        ${OUVRAGES.filter(o => o.cat === cat.id).map(o => tuile(o, suffixe, cat)).join('')}
-                    </div>
-                </section>`).join('')}
-            <p class="empty-res hidden" id="rien">Rien trouvé. Essaie un seul mot : dalle, mur, joint, placo, peinture…</p>
+            <div id="bloc-maison">
+                <p class="section-title">Projet complet</p>
+                <button class="hero" data-go="#/maison${suffixe}${ch ? '&via=liste' : ''}">
+                    <span class="ic pic">${picto('maison')}</span>
+                    <span><b>Maison neuve</b><small>Fondations, murs, charpente, toiture, intérieur : tout d'un coup</small></span>
+                    <span class="go">${ICONES.chev}</span>
+                </button>
+            </div>
+            <div class="hors-recherche">
+                <p class="section-title">Par famille de travaux</p>
+                <div class="familles">${OUV_CATS.map(cat => {
+                    const nb = OUVRAGES.filter(o => o.cat === cat.id).length;
+                    const f = FAMILLES[cat.id] || {};
+                    return `<button class="famille" data-go="${versFamille(cat.id)}">
+                        <span class="ic pic">${picto(f.pic)}</span>
+                        <span><b>${esc(cat.l)}</b><small><span class="nb">${nb} calcul${nb > 1 ? 's' : ''}</span> · ${esc(f.ex || '')}</small></span>
+                        <span class="go">${ICONES.chev}</span>
+                    </button>`;
+                }).join('')}</div>
+            </div>
+            ${sections(OUV_CATS)}`}
+            <p class="empty-res hidden" id="rien">Rien trouvé. Essaie un seul mot : dalle, mur, joint, placo, prise…</p>
         </div>`;
 
     root.addEventListener('click', e => {
         if (e.target.closest('#accueil-x')) { fermerAccueil(); root.querySelector('#accueil').remove(); return; }
-        const puce = e.target.closest('[data-puce]');
-        if (puce) { root.querySelector(`section[data-cat="${puce.dataset.puce}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
         const b = e.target.closest('[data-go]');
         if (b) aller(b.dataset.go);
     });
@@ -67,9 +96,8 @@ export function vueListe(root, params) {
     q.addEventListener('input', () => {
         const mots = motsRecherche(q.value);
         const t = mots.join(' ');
-        const rec = root.querySelector('#recents');
-        if (rec) rec.classList.toggle('hidden', !!t);
-        root.querySelector('#puces').classList.toggle('hidden', !!t);
+        // Accueil : pendant la recherche, on cache les familles et on montre les calculs trouvés
+        root.querySelectorAll('.hors-recherche').forEach(el => el.classList.toggle('hidden', !!t));
         let total = 0;
         root.querySelectorAll('section[data-cat]').forEach(sec => {
             let n = 0;
@@ -78,12 +106,12 @@ export function vueListe(root, params) {
                 tl.classList.toggle('hidden', !ok);
                 if (ok) n++;
             });
-            sec.classList.toggle('hidden', n === 0);
+            sec.classList.toggle('hidden', fam ? n === 0 : (!t || n === 0));
             total += n;
         });
-        root.querySelector('.hero').classList.toggle('hidden', !!t && !correspond('maison neuve construction pavillon complete projet', mots));
-        root.querySelectorAll('#liste > .section-title').forEach(s => s.classList.toggle('hidden', !!t));
-        root.querySelector('#rien').classList.toggle('hidden', total > 0 || !root.querySelector('.hero').classList.contains('hidden'));
+        const maison = !fam && !!t && correspond('maison neuve construction pavillon complete projet', mots);
+        root.querySelector('#bloc-maison')?.classList.toggle('hidden', !!t && !maison);
+        root.querySelector('#rien').classList.toggle('hidden', !t || total > 0 || maison);
     });
 }
 
@@ -94,6 +122,9 @@ export function versSaisie(def, v) {
     const out = { ...v };
     def.champs.forEach(ch => {
         if (ch.type === 'num' && typeof out[ch.id] === 'number') out[ch.id] = String(out[ch.id]).replace('.', ',');
+        // Listes : copie des lignes (on ne modifie pas l'ouvrage enregistré), nombres à la virgule
+        if (ch.type === 'liste') out[ch.id] = (Array.isArray(out[ch.id]) ? out[ch.id] : []).map(r => Object.fromEntries(
+            Object.entries(r).map(([k, x]) => [k, typeof x === 'number' ? String(x).replace('.', ',') : x])));
     });
     return out;
 }
@@ -105,7 +136,7 @@ export function vueCalcul(root, id, params) {
     const item = ch && params.item ? ch.items.find(x => x.id === params.item) : null;
     const ctx = ctxCalcul();
 
-    const valeurs = versSaisie(def, { ...valeursDefaut(def), ...(item ? item.valeurs : (getSaisie(id) || {})) });
+    const valeurs = versSaisie(def, { ...valeursDefaut(def), ...migrer(def, item ? item.valeurs : (getSaisie(id) || {})) });
 
     entete({
         titre: def.nom,
@@ -246,6 +277,7 @@ export function vueCalcul(root, id, params) {
 
     let avant = { ...valeurs };
     brancherForm(form, valeurs, {
+        champs: def.champs,
         onInput: () => { calculerEtAfficher(); apresChangement(); },
         onStruct: () => {
             if (def.surChoix) def.surChoix(valeurs, avant);
