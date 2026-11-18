@@ -126,7 +126,7 @@ export const INTERIEUR = [
     },
     {
         id: 'isolation', cat: 'interieur', ic: '🧶', nom: 'Isolation des combles',
-        desc: 'Laine soufflée, rouleaux, ou rampants aménagés',
+        desc: 'Combles perdus : soufflé ou rouleaux (rampants : voir « Isoler un mur ou des rampants »)',
         champs: [
             c('type', 'Combles', [{ v: 'souffle', l: 'Perdus : soufflé' }, { v: 'rouleau', l: 'Perdus : rouleaux' }, { v: 'rampants', l: 'Aménagés (rampants)' }], 'souffle'),
             n('L', 'Longueur', 'm', 10, { demi: true }),

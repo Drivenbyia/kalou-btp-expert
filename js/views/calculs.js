@@ -5,7 +5,7 @@ import { OUVRAGES, OUV_CATS, OUVRAGES_PAR_ID, calculer, valeursDefaut } from '..
 import { getSaisie, setSaisie, getChantier, ajouterItem, remplacerItem, ctxCalcul, getRecents, accueilVu, fermerAccueil, listeChantiers } from '../core/store.js';
 import { ICONES, toast, partager, confirmer } from '../ui/dom.js';
 import { htmlChamps, brancherForm, afficherErreurs } from '../ui/form.js';
-import { htmlKpis, htmlLignes, htmlRecette, htmlInfos, htmlCout, texteListe } from '../ui/resultats.js';
+import { htmlKpis, htmlLignes, htmlRecette, htmlInfos, htmlCout, texteListe, htmlComparatif } from '../ui/resultats.js';
 import { aller, entete, retourVers, garderSortie, armerGarde } from '../app.js';
 import { choisirChantier, barreActions, BTN_PARTAGER } from './commun.js';
 
@@ -137,6 +137,7 @@ export function vueCalcul(root, id, params) {
             <p class="note-pertes">Pertes et coupes comprises, arrondi au sac, au paquet ou à la pièce. Le détail est dans « Comment c'est calculé ».</p>
             ${htmlLignes(r.lignes, ctx)}
             ${htmlRecette(r.recette)}
+            ${htmlComparatif(r.comparatif)}
             ${htmlCout(r.lignes, r.mesure && r.mesure.h, ctx)}
             ${htmlInfos(r.infos)}
             <button class="btn btn-light btn-block no-print" data-act="partager" style="margin-top:12px">${ICONES.share}<span>Envoyer ce calcul (SMS, mail…)</span></button>`;
@@ -190,6 +191,14 @@ export function vueCalcul(root, id, params) {
     };
 
     const agir = async e => {
+        const cmp = e.target.closest('[data-cmp]');
+        if (cmp) {
+            valeurs[cmp.dataset.cmp] = cmp.dataset.v;
+            dessinerForm(); calculerEtAfficher(); apresChangement();
+            res.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            toast('Isolant changé : la liste est recalculée');
+            return;
+        }
         const b = e.target.closest('[data-act]');
         if (!b) return;
         if (b.dataset.act === 'voir-res') { res.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }

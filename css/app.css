@@ -340,6 +340,17 @@ body:has(#actionbar:not(.hidden)) .toast { bottom: calc(var(--nav-h) + var(--saf
 .accueil b { display: block; font-size: 17px; font-weight: 900; padding-right: 44px; }
 .accueil p { font-size: 15px; margin: 6px 0 10px; }
 .accueil .x { position: absolute; top: 4px; right: 4px; width: 52px; height: 52px; font-size: 28px; font-weight: 700; color: var(--ink); }
+.cmp { display: grid; gap: 10px; }
+@media (min-width: 600px) { .cmp { grid-template-columns: 1fr 1fr; } }
+.cmp-carte { text-align: left; background: var(--card); border: 2px solid var(--line); border-radius: 14px; padding: 12px 14px; min-height: 52px; display: flex; flex-direction: column; gap: 4px; }
+.cmp-carte b { font-size: 16px; font-weight: 900; }
+.cmp-carte small { font-size: 14px; color: var(--muted); }
+.cmp-carte em { font-style: normal; font-weight: 800; color: var(--brand-dark); font-size: 14px; }
+.cmp-carte:active { background: var(--brand-soft); }
+.badge { align-self: flex-start; font-size: 13.5px; font-weight: 800; padding: 2px 8px; border-radius: 8px; }
+.badge.ok { background: #DCFCE7; color: #14532D; }
+.badge.ko { background: #FEE2E2; color: #7F1D1D; }
+.badge.moy { background: #FEF3C7; color: #713F12; }
 .note-pertes { font-size: 14px; color: var(--muted); margin: 2px 2px 4px; }
 
 /* ── Réglages ──────────────────────────────────────────────────── */

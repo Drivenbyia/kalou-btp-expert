@@ -390,3 +390,39 @@ test('recherche : plusieurs mots, catégories, terminaisons', () => {
     assert.ok(trouve('renovation').includes('demolition'));
     assert.ok(trouve('parpaings').includes('mur'));
 });
+
+// ─── Lot 3 (5.0.0) : isolation, salle d'eau, pièce complète ───
+import { couchesPour } from '../js/calc/ouvrages/isoler.js';
+
+test('isolation : épaisseur pour le R visé, membrane adaptée au mur ancien', () => {
+    assert.deepEqual(couchesPour(3.7, 0.038), [145]);                    // 141 mm → 145
+    assert.equal(couchesPour(7.5, 0.038, 200).length, 2);               // 285 mm → 2 couches
+    const bois = calculer('isoler', { paroi: 'mur', support: 'ancien', isolant: 'bois', L: 4, h: 2.5 }, ctx);
+    assert.ok(q(bois.lignes, 'frein_vapeur') > 0 && q(bois.lignes, 'pare_vapeur') === 0);
+    assert.equal(bois.comparatif.options.length, 5);
+    const pu = calculer('isoler', { support: 'ancien', isolant: 'pu' }, ctx);
+    assert.match(pu.infos.join(' '), /proscrire/);
+    const ramp = calculer('isoler', { paroi: 'rampants', support: 'recent', isolant: 'verre', R: '6', L: 9, h: 9 }, ctx);
+    assert.ok(q(ramp.lignes, 'pare_vapeur') > 0);
+    assert.ok(ramp.resume.find(k => k.l === 'R obtenu').v.replace(',', '.') >= 6);
+});
+
+test('salle d\'eau : plomberie par appareil et douche à l\'italienne', () => {
+    const p = calculer('plomberie', { wc: 1, lavabo: 1, douche: 1, dAlim: 5, dEvac: 3 }, ctx);
+    const per = p.lignes.filter(l => l.k === 'per16');
+    assert.equal(per.length, 2);                                        // bleu + rouge
+    assert.ok(Math.abs(q(p.lignes, 'per16') - 5 * 5 * 1.15) < 1e-9);   // 3 froids + 2 chauds
+    assert.ok(q(p.lignes, 'pvc100b') > 0 && q(p.lignes, 'pvc40') > 0 && q(p.lignes, 'bati_wc') === 1);
+    assert.ok(calculer('plomberie', { wc: 0, lavabo: 0, douche: 0 }, ctx).erreurs.wc);
+    const d = calculer('douche', { L: 120, l: 90, fond: 'pente' }, ctx);
+    assert.ok(q(d.lignes, 'natte_etanche') > 0 && q(d.lignes, 'ciment') > 0 && q(d.lignes, 'siphon_douche') === 1);
+});
+
+test('pièce complète : une saisie, toutes les lignes', () => {
+    const r = calculer('piece', { nom: 'Chambre 1', L: 4, l: 3.5, h: 2.5, sol: 'parquet', murs: 'peinture', plafond: 'peinture' }, ctx);
+    assert.equal(r.titre, 'Chambre 1 4 × 3,5 m');
+    assert.ok(q(r.lignes, 'peinture') > 0 && q(r.lignes, 'peinture_plafond') > 0 && q(r.lignes, 'parquet') > 0 && q(r.lignes, 'plinthe_bois') > 0);
+    const seule = calculer('peinture', { L: 4, l: 3.5, h: 2.5, ouv: 1.7 + 1.5, lissage: 'B' }, ctx);
+    assert.ok(Math.abs(q(r.lignes, 'peinture') - q(seule.lignes, 'peinture')) < 1e-9, 'mêmes formules que le calculateur Peinture');
+    assert.ok(calculer('piece', { fen: 20, fenT: 5 }, ctx).erreurs.fen);
+});

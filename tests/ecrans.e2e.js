@@ -54,7 +54,7 @@ test('accueil, chantiers, réglages : affichage sans erreur', async () => {
     await p.context().close();
 });
 
-test('les 33 calculateurs donnent un résultat avec les valeurs par défaut', async () => {
+test('tous les calculateurs donnent un résultat avec les valeurs par défaut', async () => {
     const p = await page();
     for (const o of OUVRAGES) {
         await p.goto(base + '#/calc/' + o.id);
@@ -130,6 +130,25 @@ test('liste de courses envoyée en PDF : le fichier est créé', async () => {
     const contenu = await readFile(chemin);
     assert.equal(contenu.subarray(0, 8).toString('latin1'), '%PDF-1.4');
     assert.ok(contenu.toString('latin1').includes(Buffer.from('Pascal', 'latin1').toString('hex').toUpperCase()));
+    assert.deepEqual(p.erreurs, []);
+    await p.context().close();
+});
+
+test('isoler un mur ancien : comparer puis choisir un autre isolant ; pièce complète', async () => {
+    const p = await page();
+    await p.goto(base + '#/calc/isoler');
+    await p.waitForSelector('.cmp-carte');
+    assert.ok((await p.textContent('#res')).includes('Fibre de bois'));
+    await p.click('.cmp-carte[data-v="chanvre"]');
+    await p.waitForFunction(() => document.querySelector('[data-choix="isolant"][data-v="chanvre"]').classList.contains('on'));
+    assert.ok((await p.textContent('#res')).includes('chanvre'));
+    assert.ok(await pasDeDebordement(p));
+    // Pièce complète : le nom tapé arrive dans le titre
+    await p.goto(base + '#/calc/piece');
+    await p.waitForSelector('.line');
+    await p.fill('#in-nom', 'Chambre 2');
+    await p.waitForFunction(() => document.querySelector('#res h2').textContent.includes('Chambre 2'));
+    assert.ok(await pasDeDebordement(p));
     assert.deepEqual(p.erreurs, []);
     await p.context().close();
 });

@@ -33,6 +33,13 @@ export function htmlChamp(ch, valeurs, vues, demiForce) {
             <p class="err"></p><p class="warn"></p>${aide}
         </div>`;
     }
+    if (ch.type === 'texte') {
+        return `<div class="${cls}" data-f="${ch.id}">
+            <label for="in-${ch.id}">${esc(label)}</label>
+            <div class="inp"><input id="in-${ch.id}" data-id="${ch.id}" type="text" autocomplete="off" maxlength="40"
+                enterkeyhint="next" value="${esc(val ?? '')}" placeholder="${esc(ch.ph || '')}"></div>${aide}
+        </div>`;
+    }
     if (ch.type === 'choix') {
         return `<div class="${cls}" data-f="${ch.id}">
             <span class="lab">${esc(label)}</span>
