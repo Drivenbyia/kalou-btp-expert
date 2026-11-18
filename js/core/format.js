@@ -38,3 +38,20 @@ export function esc(s) {
 }
 
 export const r2 = x => Math.round(x * 100) / 100;
+
+// ─── Recherche d'ouvrages ───────────────────────────────────────────────────
+
+/** Minuscules sans accents. */
+export const norm = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+/**
+ * Mots cherchés : chaque mot doit se retrouver (dans n'importe quel ordre).
+ * Pluriels et terminaisons tolérés : « joints » trouve « joint », « rejointoyer » trouve « rejointoiement ».
+ */
+export function motsRecherche(q) {
+    return norm(q).split(/[^a-z0-9]+/).filter(m => m.length > 1).map(m => {
+        const t = m.length > 3 ? m.replace(/[sx]$/, '') : m;
+        return t.length > 6 ? t.slice(0, 6) : t;
+    });
+}
+export const correspond = (texte, mots) => mots.every(m => texte.includes(m));

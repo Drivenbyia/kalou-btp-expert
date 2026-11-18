@@ -11,7 +11,9 @@ const K = {
     chantiers: 'kalou_chantiers_v4',
     saisies:   'kalou_saisies_v4',
     migre:     'kalou_migre_v4',
-    sauvegarde:'kalou_derniere_sauvegarde'
+    sauvegarde:'kalou_derniere_sauvegarde',
+    recents:   'kalou_recents_v4',
+    accueil:   'kalou_accueil_vu'
 };
 const ANCIENS = { historique: 'kalou_btp_v3', devis: 'kalou_devis_v1' };
 
@@ -71,7 +73,22 @@ export function setSaisie(id, valeurs) {
     const s = lire(K.saisies, {});
     s[id] = valeurs;
     ecrire(K.saisies, s);
+    noterRecent(id);
 }
+
+// ─── Calculateurs utilisés récemment (accueil) ───────────────────────────────
+
+export const getRecents = () => lire(K.recents, []);
+export function noterRecent(id) {
+    const r = getRecents().filter(x => x !== id);
+    r.unshift(id);
+    ecrire(K.recents, r.slice(0, 6));
+}
+
+// ─── Carte d'accueil (première visite) ───────────────────────────────────────
+
+export const accueilVu = () => !!lire(K.accueil, false);
+export const fermerAccueil = () => ecrire(K.accueil, true);
 
 // ─── Chantiers ───────────────────────────────────────────────────────────────
 // chantier : { id, nom, notes, cree, maj, items: [item], achete: { cléMatériau: true } }

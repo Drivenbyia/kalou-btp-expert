@@ -7,7 +7,7 @@ import {
     listeChantiers, getChantier, creerChantier, majChantier, supprimerChantier, supprimerItem, ctxCalcul,
     restaurerItem, restaurerChantier, ajouterItem, ajouterLibre, supprimerLibre, derniereSauvegarde, getReglages
 } from '../core/store.js';
-import { quantiteAchat, affichage, MATERIAUX } from '../calc/materiaux.js';
+import { nbAchat, affichage, MATERIAUX } from '../calc/materiaux.js';
 import { ICONES, toast, partager, partagerFichier, confirmer, demanderTexte, ouvrirFeuille, fermerFeuille, apresFeuille, dateCourte } from '../ui/dom.js';
 import { pdfListe } from '../ui/liste-pdf.js';
 import { htmlKpis, htmlLignes, htmlCout, consolider, parCategorie, htmlLigne, texteListe } from '../ui/resultats.js';
@@ -22,7 +22,7 @@ export function vueChantiers(root) {
     const dS = derniereSauvegarde();
     const rappel = liste.length && (!dS || Date.now() - dS > 30 * 864e5);
     root.innerHTML = `
-        ${rappel ? `<button class="banner" id="rappel" style="width:100%;text-align:left">💾 <span><b>Pense à sauvegarder tes chantiers</b>${dS ? 'Dernière copie il y a plus d\'un mois.' : 'Aucune copie pour l\'instant : si le téléphone casse, tout est perdu.'} Touche ici.</span></button>` : ''}
+        ${rappel ? `<button class="banner" id="rappel" style="width:100%;text-align:left">💾 <span><b>Pense à sauvegarder tes chantiers</b>${dS ? 'Dernière copie il y a plus d\'un mois.' : 'Tes chantiers sont gardés dans ce téléphone. Fais une copie de temps en temps.'} Touche ici.</span></button>` : ''}
         <p class="section-title">Mes chantiers</p>
         ${liste.length ? liste.map(c => `
             <button class="card ch-card" data-id="${esc(c.id)}">
@@ -78,7 +78,7 @@ function donneesListe(ch, ctx) {
     const calc = ch.items.map(it => ({ it, ...calculerItem(it, ctx) }));
     const toutes = consolider([...calc.flatMap(c => c.lignes), ...(ch.libres || []).map(a => ({ l: a.l, q: a.q, u: a.u }))]);
     const achete = ch.achete || {};
-    const qAchat = li => (li.k && MATERIAUX[li.k]) ? quantiteAchat(li.k, li.q, ctx) : Math.round(li.q * 100) / 100;
+    const qAchat = li => (li.k && MATERIAUX[li.k]) ? nbAchat(li.k, li.q, ctx, li.pk) : Math.round(li.q * 100) / 100;
     const estFait = li => {
         const a = achete[li.cle];
         if (a === true) return true;
@@ -189,7 +189,7 @@ export function vueChantier(root, id, params) {
         const a = achete[li.cle];
         if (typeof a !== 'number' || estFait(li)) return '';
         if (li.k && MATERIAUX[li.k]) {
-            const unite = affichage(li.k, li.q, ctx).u;
+            const unite = affichage(li.k, li.q, ctx, li.pk).u;
             return `Déjà pris ${String(a).replace('.', ',')} ${unite}, reste ${String(Math.round((qAchat(li) - a) * 100) / 100).replace('.', ',')} à prendre`;
         }
         return `Déjà pris ${String(a).replace('.', ',')}, reste ${String(Math.round((qAchat(li) - a) * 100) / 100).replace('.', ',')}`;
@@ -200,7 +200,7 @@ export function vueChantier(root, id, params) {
             <div class="card">
                 <div class="res-head"><h2>À commander</h2><small style="color:var(--muted);font-weight:700">${fait} / ${toutes.length} ✔</small></div>
                 <div class="progress"><i style="width:${Math.round(fait / toutes.length * 100)}%"></i></div>
-                <p class="hint" style="margin:6px 0 4px;font-size:13.5px;color:var(--muted)">Touche une ligne pour la cocher quand c'est acheté.</p>
+                <p class="hint" style="margin:6px 0 4px;font-size:14px;color:var(--muted)">Touche une ligne pour la cocher quand c'est acheté. Quantités pertes comprises, arrondies au conditionnement du magasin.</p>
                 ${parCategorie(toutes).map(g => `<p class="cat-title">${esc(g.l)}</p><ul class="lines">${g.lignes.map(li => htmlLigne(li, ctx, { check: true, cle: li.cle, done: estFait(li), reste: resteTxt(li) })).join('')}</ul>`).join('')}
             </div>
             <button class="btn btn-ghost btn-block" id="ajout-libre" style="margin-top:12px">${ICONES.plus}<span>Ajouter un article à la main</span></button>
@@ -298,7 +298,7 @@ function envoyerListe(id) {
     let avecNotes = false;
     ouvrirFeuille(`
         <h2>Envoyer la liste</h2>
-        ${choix ? `<p style="color:var(--muted);font-size:15px;margin-bottom:8px">${toutes.length - reste.length} article(s) déjà coché(s).</p>
+        ${choix ? `<p style="color:var(--muted);font-size:15px;margin-bottom:8px">${toutes.length - reste.length} article${toutes.length - reste.length > 1 ? 's' : ''} déjà coché${toutes.length - reste.length > 1 ? 's' : ''}.</p>
         <div class="seg" id="env-quoi"><button type="button" data-q="reste" class="on">Ce qui reste (${reste.length})</button><button type="button" data-q="tout">Tout (${toutes.length})</button></div>` : ''}
         ${notes ? `<button type="button" class="switch" id="env-notes" role="switch" aria-checked="false" style="margin-top:6px"><span>Mettre mes notes du chantier sur le PDF</span><i></i></button>` : ''}
         <button class="opt" data-e="pdf"><span style="font-size:22px">📄</span><span><b>En PDF</b><small>Propre et rangé, pour faire un devis ou commander</small></span></button>

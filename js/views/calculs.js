@@ -1,15 +1,19 @@
 // Écran « Calculs » : liste des ouvrages + calculateur en direct.
 
-import { esc } from '../core/format.js';
+import { esc, norm, motsRecherche, correspond } from '../core/format.js';
 import { OUVRAGES, OUV_CATS, OUVRAGES_PAR_ID, calculer, valeursDefaut } from '../calc/ouvrages.js';
-import { getSaisie, setSaisie, getChantier, ajouterItem, remplacerItem, ctxCalcul } from '../core/store.js';
-import { ICONES, toast, partager } from '../ui/dom.js';
+import { getSaisie, setSaisie, getChantier, ajouterItem, remplacerItem, ctxCalcul, getRecents, accueilVu, fermerAccueil, listeChantiers } from '../core/store.js';
+import { ICONES, toast, partager, confirmer } from '../ui/dom.js';
 import { htmlChamps, brancherForm, afficherErreurs } from '../ui/form.js';
 import { htmlKpis, htmlLignes, htmlRecette, htmlInfos, htmlCout, texteListe } from '../ui/resultats.js';
 import { aller, entete, retourVers, garderSortie, armerGarde } from '../app.js';
 import { choisirChantier, barreActions, BTN_PARTAGER } from './commun.js';
 
-const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+const tuile = (o, suffixe, cat) => `
+    <button class="tile" data-go="#/calc/${o.id}${suffixe}" data-txt="${esc(norm(o.nom + ' ' + o.desc + ' ' + (o.mots || '') + ' ' + (cat ? cat.l : '')))}">
+        <span class="ic">${o.ic}</span><b>${esc(o.nom)}</b><small>${esc(o.desc)}</small>
+    </button>`;
 
 // ─── Liste des ouvrages ─────────────────────────────────────────────────────
 
@@ -19,10 +23,21 @@ export function vueListe(root, params) {
     if (ch) entete({ titre: 'Ajouter un ouvrage', sous: ch.nom, parent: `#/chantier/${ch.id}` });
     else entete({});
 
+    // Première visite : une petite carte qui dit à quoi sert l'appli (disparaît au premier chantier)
+    const montrerAccueil = !ch && !accueilVu() && !listeChantiers().length;
+    const recents = ch ? [] : getRecents().map(id => OUVRAGES_PAR_ID[id]).filter(Boolean).slice(0, 4);
     root.innerHTML = `
         ${ch ? `<div class="banner">➕ <span><b>Ajout au chantier « ${esc(ch.nom)} »</b>Choisis l'ouvrage, règle les dimensions, puis « Ajouter ».</span></div>` : ''}
-        <div class="search">${ICONES.search}<input id="q" type="search" placeholder="Chercher : dalle, mur, enduit…" autocomplete="off"></div>
+        ${montrerAccueil ? `<div class="card accueil" id="accueil">
+            <button class="x" id="accueil-x" aria-label="Fermer">×</button>
+            <b>Calcule tes matériaux, fais ta liste pour le magasin.</b>
+            <p>Gratuit, sans compte, marche sans réseau. Tape tes mesures : les quantités (pertes comprises) s'affichent tout de suite.</p>
+            <button class="btn btn-ghost" data-go="#/calc/dalle">Essayer : une dalle de 5 × 4 m</button>
+        </div>` : ''}
+        <div class="search">${ICONES.search}<input id="q" type="search" placeholder="Chercher : dalle, joint pierre, placo…" autocomplete="off" aria-label="Chercher un ouvrage"></div>
         <div id="liste">
+            ${recents.length ? `<div id="recents"><p class="section-title">Utilisés récemment</p>
+                <div class="tiles">${recents.map(o => tuile(o, suffixe)).join('')}</div></div>` : ''}
             <p class="section-title">Projet complet</p>
             <button class="hero" data-go="#/maison${suffixe}${ch ? '&via=liste' : ''}">
                 <span class="ic">🏡</span>
@@ -33,34 +48,35 @@ export function vueListe(root, params) {
                 <section data-cat="${cat.id}">
                     <p class="section-title">${esc(cat.l)}</p>
                     <div class="tiles">
-                        ${OUVRAGES.filter(o => o.cat === cat.id).map(o => `
-                            <button class="tile" data-go="#/calc/${o.id}${suffixe}" data-txt="${esc(norm(o.nom + ' ' + o.desc + ' ' + (o.mots || '')))}">
-                                <span class="ic">${o.ic}</span><b>${esc(o.nom)}</b><small>${esc(o.desc)}</small>
-                            </button>`).join('')}
+                        ${OUVRAGES.filter(o => o.cat === cat.id).map(o => tuile(o, suffixe, cat)).join('')}
                     </div>
                 </section>`).join('')}
-            <p class="empty-res hidden" id="rien">Aucun ouvrage ne correspond.</p>
+            <p class="empty-res hidden" id="rien">Rien trouvé. Essaie un seul mot : dalle, mur, joint, placo, peinture…</p>
         </div>`;
 
     root.addEventListener('click', e => {
+        if (e.target.closest('#accueil-x')) { fermerAccueil(); root.querySelector('#accueil').remove(); return; }
         const b = e.target.closest('[data-go]');
         if (b) aller(b.dataset.go);
     });
     const q = root.querySelector('#q');
     q.addEventListener('input', () => {
-        const t = norm(q.value.trim());
+        const mots = motsRecherche(q.value);
+        const t = mots.join(' ');
+        const rec = root.querySelector('#recents');
+        if (rec) rec.classList.toggle('hidden', !!t);
         let total = 0;
         root.querySelectorAll('section[data-cat]').forEach(sec => {
             let n = 0;
             sec.querySelectorAll('.tile').forEach(tl => {
-                const ok = !t || tl.dataset.txt.includes(t);
+                const ok = !t || correspond(tl.dataset.txt, mots);
                 tl.classList.toggle('hidden', !ok);
                 if (ok) n++;
             });
             sec.classList.toggle('hidden', n === 0);
             total += n;
         });
-        root.querySelector('.hero').classList.toggle('hidden', !!t && !'maison neuve construction pavillon complete'.includes(t));
+        root.querySelector('.hero').classList.toggle('hidden', !!t && !correspond('maison neuve construction pavillon complete projet', mots));
         root.querySelectorAll('#liste > .section-title').forEach(s => s.classList.toggle('hidden', !!t));
         root.querySelector('#rien').classList.toggle('hidden', total > 0 || !root.querySelector('.hero').classList.contains('hidden'));
     });
@@ -118,22 +134,25 @@ export function vueCalcul(root, id, params) {
             ${Object.keys(r.alertes || {}).length ? '<p class="banner" style="margin:6px 0 10px">⚠️ <span>Vérifie les valeurs signalées en orange.</span></p>' : ''}
             ${htmlKpis(r.resume)}
             <p class="section-title" style="margin:14px 2px 2px">À acheter</p>
+            <p class="note-pertes">Pertes et coupes comprises, arrondi au sac, au paquet ou à la pièce. Le détail est dans « Comment c'est calculé ».</p>
             ${htmlLignes(r.lignes, ctx)}
             ${htmlRecette(r.recette)}
             ${htmlCout(r.lignes, r.mesure && r.mesure.h, ctx)}
-            ${htmlInfos(r.infos)}`;
+            ${htmlInfos(r.infos)}
+            <button class="btn btn-light btn-block no-print" data-act="partager" style="margin-top:12px">${ICONES.share}<span>Envoyer ce calcul (SMS, mail…)</span></button>`;
         majBarre(true);
         if (!item) { clearTimeout(tSave); tSave = setTimeout(() => setSaisie(id, r.v), 400); }
     };
 
-    const libBouton = item ? 'Enregistrer' : ch ? 'Ajouter au chantier' : 'Ajouter à un chantier';
-    const bar = barreActions(`<button class="apercu" data-act="voir-res"><span id="apercu-txt">…</span><small>Voir ↓</small></button>
-        <div class="in">${BTN_PARTAGER}<button class="btn btn-primary" data-act="ajouter">${ICONES.plus}<span>${esc(libBouton)}</span></button></div>`);
+    const libBouton = item ? 'Enregistrer' : ch ? 'Ajouter' : 'Ajouter';
+    // Une seule ligne : l'aperçu du résultat (touche = voir le détail) + le bouton principal
+    const bar = barreActions(`<div class="in"><button class="apercu" data-act="voir-res"><span id="apercu-txt">…</span><small>Voir le détail ↓</small></button>
+        <button class="btn btn-primary" data-act="ajouter">${ICONES.plus}<span>${esc(libBouton)}</span></button></div>`);
     bar.classList.add('avec-apercu');
     const btnAjout = bar.querySelector('[data-act="ajouter"]');
     let ajouteA = null;                       // chantier où le calcul actuel vient d'être ajouté
     const majBarre = ok => {
-        bar.querySelectorAll('.in button').forEach(b => { b.disabled = !ok; });
+        btnAjout.disabled = !ok;
         if (ok && dernier) {
             const r = dernier;
             const premier = r.lignes[0];
@@ -166,11 +185,11 @@ export function vueCalcul(root, id, params) {
             ajouteA = cible;
             btnAjout.classList.add('fait');
             btnAjout.dataset.act = 'voir-ch';
-            btnAjout.innerHTML = `${ICONES.check}<span>Ajouté · voir le chantier</span>`;
+            btnAjout.innerHTML = `${ICONES.check}<span>Voir le chantier</span>`;
         }
     };
 
-    bar.addEventListener('click', e => {
+    const agir = async e => {
         const b = e.target.closest('[data-act]');
         if (!b) return;
         if (b.dataset.act === 'voir-res') { res.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
@@ -180,10 +199,15 @@ export function vueCalcul(root, id, params) {
             const r = dernier;
             partager(r.titre, texteListe(r.titre, r.lignes, ctx, { cats: false, sousTitre: r.resume.map(k => `${k.l} : ${k.v}`).join(' · ') }));
         } else if (b.dataset.act === 'ajouter') {
+            // Valeur signalée en orange : on fait confirmer avant d'enregistrer
+            const al = Object.values(dernier.alertes || {});
+            if (al.length && !(await confirmer('Valeur inhabituelle', al.join(' '), 'Ajouter quand même'))) return;
             if (ch) enregistrer(ch);
             else choisirChantier(enregistrer);
         }
-    });
+    };
+    bar.addEventListener('click', agir);
+    res.addEventListener('click', agir);
 
     // Modification d'un ouvrage enregistré : on prévient avant de perdre les changements
     const depart = JSON.stringify(valeurs);
@@ -191,9 +215,13 @@ export function vueCalcul(root, id, params) {
     const apresChangement = () => { remettreBouton(); if (item) armerGarde(); };
 
     root.querySelector('#reset').addEventListener('click', () => {
+        const avantReset = { ...valeurs };
         Object.assign(valeurs, versSaisie(def, valeursDefaut(def)));
-        dessinerForm(); calculerEtAfficher();
-        toast('Valeurs par défaut remises');
+        dessinerForm(); calculerEtAfficher(); apresChangement();
+        toast('Valeurs par défaut remises', { action: 'Annuler', onAction: () => {
+            Object.assign(valeurs, avantReset);
+            dessinerForm(); calculerEtAfficher();
+        } });
     });
 
     let avant = { ...valeurs };

@@ -2,7 +2,7 @@
 
 import { L, fusion, lignesMortier, recetteMortier, calcPlaco, PERTE_BETON, LIMITES_CLOISON, DOUBLAGE_COLLE, SOUFFLAGE, calcSoufflage, calcRampants, lignesPareVapeur } from '../base.js';
 import { fmtSmart } from '../../core/format.js';
-import { n, c, oui, fm, verifOuv } from './commun.js';
+import { n, c, oui, fm, verifOuv, SAISIE, champSurface, dim, surfaceBrute } from './commun.js';
 export const INTERIEUR = [
     // ════════════════ INTÉRIEUR ════════════════
     {
@@ -52,15 +52,17 @@ export const INTERIEUR = [
         id: 'ragreage', cat: 'interieur', ic: '💧', nom: 'Ragréage',
         desc: 'Mise à niveau avant revêtement',
         champs: [
-            n('L', 'Longueur', 'm', 5, { demi: true }),
-            n('l', 'Largeur', 'm', 4, { demi: true }),
+            SAISIE,
+            dim(n('L', 'Longueur', 'm', 5, { demi: true })),
+            dim(n('l', 'Largeur', 'm', 4, { demi: true })),
+            champSurface(20, 'Surface du sol à ragréer.'),
             n('ep', 'Épaisseur moyenne', 'mm', 5, { max: 30, bas: 3 }),
             oui('primaire', 'Primaire d\'accrochage')
         ],
         mots: 'ragréage autolissant niveau sol primaire',
-        titre: v => `Ragréage ${fm(v.L * v.l)} m², ${fm(v.ep)} mm`,
+        titre: v => `Ragréage ${fm(surfaceBrute(v, 'L', 'l'))} m², ${fm(v.ep)} mm`,
         calcul(v) {
-            const S = v.L * v.l;
+            const S = surfaceBrute(v, 'L', 'l');
             const lignes = [L('ragreage', S * v.ep * 1.6 * PERTE_BETON)];
             if (v.primaire) lignes.push(L('primaire', S * 0.15));
             const infos = ['≈ 1,6 kg par m² et par mm d\'épaisseur. Primaire ≈ 0,15 kg/m², obligatoire selon la notice. 3 mm minimum.',
@@ -175,8 +177,10 @@ export const INTERIEUR = [
         desc: 'Carreaux, colle, joints, croisillons, douche',
         champs: [
             c('support', 'Où', [{ v: 'sol', l: 'Sol' }, { v: 'mur', l: 'Mur (faïence)' }, { v: 'ext', l: 'Sol extérieur' }], 'sol'),
-            n('L', 'Longueur', 'm', 4, { demi: true }),
-            n('l', 'Largeur', 'm', 3, { demi: true, labelSi: v => v.support === 'mur' ? 'Hauteur' : 'Largeur', aide: '' }),
+            SAISIE,
+            dim(n('L', 'Longueur', 'm', 4, { demi: true, labelSi: v => v.support === 'mur' ? 'Tour des murs carrelés' : 'Longueur', aide: '' })),
+            dim(n('l', 'Largeur', 'm', 3, { demi: true, labelSi: v => v.support === 'mur' ? 'Hauteur' : 'Largeur', aide: '' })),
+            champSurface(12, 'Surface à carreler, portes et fenêtres déduites.'),
             c('format', 'Format des carreaux', [{ v: 'petit', l: 'Jusqu\'à 30 cm' }, { v: 'moyen', l: '30 à 45 cm' }, { v: 'grand', l: '45 à 60 cm' }, { v: 'tgf', l: 'Plus de 60 cm' }], 'moyen'),
             c('joint', 'Largeur de joint', [{ v: '2', l: '2 mm' }, { v: '3', l: '3 mm' }, { v: '5', l: '5 mm' }], '3', { aide: '2 mm mini en rectifié, 3 mm en non rectifié.' }),
             c('pose', 'Pose', [{ v: 'droite', l: 'Droite' }, { v: 'diag', l: 'Diagonale' }], 'droite'),
@@ -191,9 +195,10 @@ export const INTERIEUR = [
             // La surface de douche saisie pour la faïence ne doit pas passer en silence dans le sol (et inversement)
             if (avant && v.support !== avant.support) v.sDouche = '0';
         },
-        titre: v => `${v.support === 'mur' ? 'Faïence' : 'Carrelage'} ${fm(v.L * v.l)} m²`,
+        titre: v => `${v.support === 'mur' ? 'Faïence' : 'Carrelage'} ${fm(surfaceBrute(v, 'L', 'l'))} m²`,
         calcul(v) {
-            const S = v.L * v.l;
+            const S = surfaceBrute(v, 'L', 'l');
+            const P = v.saisie === 'surf' ? 4 * Math.sqrt(S) : 2 * (v.L + v.l);     // tour de la pièce (estimé si surface seule)
             const marge = v.pose === 'diag' ? 1.15 : 1.10;
             const mur = v.support === 'mur', ext = v.support === 'ext';
             const dim = { petit: 0.2, moyen: 0.4, grand: 0.6, tgf: 0.9 }[v.format];          // côté représentatif (m)
@@ -215,14 +220,15 @@ export const INTERIEUR = [
             if (v.sDouche > 0) lignes.push(L('spec', v.sDouche * 1.5), L('primaire', v.sDouche * 0.10), L('bande_spec', v.sDouche * 1.1), L('silicone', 2));
             if (v.primaire) lignes.push(L('primaire', S * 0.15));
             if (v.natte && v.support === 'sol') lignes.push(L('natte_desol', S * 1.05));
-            if (!mur && v.plinthes) lignes.push(L('plinthe', Math.max(0, 2 * (v.L + v.l) - 0.9 * v.portes) * 1.10, { ref: 'carrelage' }));
-            if (!mur) lignes.push(L('acrylique', Math.ceil(2 * (v.L + v.l) / 10 - 1e-9), { d: 'joint périphérique' }));
+            if (!mur && v.plinthes) lignes.push(L('plinthe', Math.max(0, P - 0.9 * v.portes) * 1.10));
+            if (!mur) lignes.push(L('acrylique', Math.ceil(P / 10 - 1e-9), { d: 'joint périphérique' }));
             const infos = [
                 `Coupes : +${Math.round((marge - 1) * 100)} %. Colle C2 ≈ ${fmtSmart(colle, 1)} kg/m²${double ? ' (double encollage)' : ''}, joint ≈ ${fmtSmart(jointKg, 2)} kg/m² (joint de ${v.joint} mm).`,
                 'Dos du carreau couvert à 80 % mini (soulever un carreau pour vérifier). Jointoyer après 24 h. Joint périphérique de 5 mm au mastic.',
                 `Fractionnement : ${ext ? 'tous les 16-20 m² et 4-5 m en extérieur' : 'tous les 40 m² et 8 m'} (ou suivre ceux du support).`,
                 'Support : dalle d\'1 mois, chape de 15 jours mini. Plancher chauffant mis en chauffe puis arrêté 48 h avant.'
             ];
+            if (!mur && v.plinthes && v.saisie === 'surf') infos.push('Plinthes estimées pour une pièce à peu près carrée : passe en dimensions pour un compte exact.');
             if (v.format === 'tgf') infos.splice(1, 0, 'Plus de 60 × 60 : hors DTU courant, colle C2 S1 et notice du fabricant.');
             if (v.sDouche > 0) infos.push(`SPEC sur ${fm(v.sDouche)} m² : 2 couches croisées (≈ 1,5 kg/m²) sur primaire, bandes dans les angles, manchettes aux tuyaux. Faïence de douche sur 2 m de haut mini.`,
                 'Douche à l\'italienne : le SPEC seul ne suffit pas au sol. Il faut un receveur à carreler ou une forme de pente (1 à 2 %) avec natte d\'étanchéité (SEL).');
@@ -243,6 +249,7 @@ export const INTERIEUR = [
             n('l', 'Largeur', 'm', 3.5, { demi: true }),
             c('mode', 'Pose', [{ v: 'flottant', l: 'Flottante' }, { v: 'colle', l: 'Collée' }], 'flottant'),
             c('pose', 'Sens', [{ v: 'droite', l: 'Droite' }, { v: 'diag', l: 'Diagonale' }], 'droite'),
+            n('paquet', 'Surface d\'un paquet', 'm²', 2, { max: 10, aide: 'Écrite sur le paquet (souvent entre 1,5 et 2,5 m²).' }),
             oui('mineral', 'Sur dalle ou chape (film 200 µm)', true, { si: v => v.mode === 'flottant', aide: 'Inutile si la sous-couche a un pare-vapeur intégré.' }),
             n('portes', 'Portes', 'u', 1, { zero: true, max: 10 }),
             oui('plinthes', 'Plinthes')
@@ -251,18 +258,20 @@ export const INTERIEUR = [
         titre: v => `Parquet ${v.mode === 'colle' ? 'collé' : 'flottant'} ${fm(v.L * v.l)} m²`,
         calcul(v) {
             const S = v.L * v.l;
-            const lignes = [L('parquet', S * (v.pose === 'diag' ? 1.12 : 1.07))];
+            const besoin = S * (v.pose === 'diag' ? 1.12 : 1.07);
+            const paquets = Math.ceil(besoin / v.paquet - 1e-9);
+            const lignes = [L('parquet', paquets * v.paquet, { ref: `paquets de ${fmtSmart(v.paquet, 2)} m²`, pk: v.paquet })];
             if (v.mode === 'flottant') {
                 lignes.push(L('sous_couche', S * 1.05));
                 if (v.mineral) lignes.push(L('polyane200', S * 1.15));
             } else lignes.push(L('colle_parquet', S * 1.1 * 1.05), L('primaire', S * 0.15, { d: 'selon le support' }));
-            if (v.plinthes) lignes.push(L('plinthe', Math.max(0, 2 * (v.L + v.l) - 0.9 * v.portes) * 1.10, { ref: 'bois / MDF' }));
+            if (v.plinthes) lignes.push(L('plinthe_bois', Math.max(0, 2 * (v.L + v.l) - 0.9 * v.portes) * 1.10));
             if (v.portes > 0) lignes.push(L('barre_seuil', v.portes));
             return {
-                resume: [{ l: 'Surface', v: `${fm(S)} m²` }],
+                resume: [{ l: 'Surface', v: `${fm(S)} m²` }, { l: 'Paquets', v: `${paquets}` }],
                 lignes, recette: null,
                 infos: [
-                    'Coupes : +7 % en pose droite, +12 % en diagonale. Arrondir au paquet entier.',
+                    `Coupes : +7 % en pose droite, +12 % en diagonale, soit ${fm(besoin)} m² : ${paquets} paquets de ${fmtSmart(v.paquet, 2)} m².`,
                     v.mode === 'colle' ? 'Colle MS polymère ≈ 1,1 kg/m² (spatule B11). Chape sèche : ≈ 1 semaine par cm, 3 % d\'humidité maxi.' : 'Film 200 µm remonté de 20 cm sur support minéral. Jeu de 8 à 10 mm en périphérie.',
                     'Acclimater les paquets 48 h dans la pièce. Fractionner au-delà de 8 m de large ou 10 m de long, et à chaque porte.'
                 ],

@@ -16,7 +16,7 @@ export function htmlLigne(li, ctx, opts = {}) {
     let nom, v, u, d;
     const ref = li.ref ? `<span class="ref">${esc(li.ref)}</span>` : '';
     if (li.k && MATERIAUX[li.k]) {
-        const a = affichage(li.k, li.q, ctx);
+        const a = affichage(li.k, li.q, ctx, li.pk);
         nom = li.l || libelle(li.k, ctx); v = a.v; u = a.u; d = [li.d, a.d].filter(Boolean).join(' · ');
     } else {
         nom = li.l; v = fmt(li.q, Number.isInteger(li.q) ? 0 : 2); u = li.u || ''; d = li.d || '';
@@ -74,7 +74,7 @@ export function consolider(lignes) {
             // Anciennes lignes de toupie enregistrées avec la classe dans « d »
             const ref = li.ref || (li.k === 'bpe' ? li.d : undefined);
             cle = ref ? `${li.k}|${ref}` : li.k;
-            base = { k: li.k, ref };
+            base = { k: li.k, ref, pk: li.pk };
         } else {
             cle = `libre|${li.l}|${li.u || ''}`;
             base = { l: li.l, u: li.u };
@@ -101,7 +101,7 @@ export function parCategorie(lignes) {
 /** Texte prêt à envoyer (SMS / WhatsApp / mail). */
 export function texteListe(titre, lignes, ctx, { cats = true, sousTitre = '' } = {}) {
     const ligne = li => li.k && MATERIAUX[li.k]
-        ? `• ${li.l || libelle(li.k, ctx)}${li.ref ? ` — ${li.ref}` : ''} : ${texteQuantite(li.k, li.q, ctx)}`
+        ? `• ${li.l || libelle(li.k, ctx)}${li.ref ? ` — ${li.ref}` : ''} : ${texteQuantite(li.k, li.q, ctx, li.pk)}`
         : `• ${li.l} : ${fmt(li.q, Number.isInteger(li.q) ? 0 : 2)} ${li.u || ''}`.trim();
     let t = `${titre}\n`;
     if (sousTitre) t += `${sousTitre}\n`;
@@ -110,5 +110,5 @@ export function texteListe(titre, lignes, ctx, { cats = true, sousTitre = '' } =
     } else {
         t += '\n' + lignes.map(ligne).join('\n') + '\n';
     }
-    return t.trim() + '\n\n— Kalou BTP';
+    return t.trim() + '\n\nQuantités pertes comprises.\n— Kalou BTP · https://drivenbyia.github.io/kalou-btp-expert/';
 }
