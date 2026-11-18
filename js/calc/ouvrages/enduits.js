@@ -69,16 +69,17 @@ export const ENDUITS = [
             const ep = v.ep / 100;
             const gob = Math.min(0.005, ep / 3), fin = Math.min(0.005, ep / 3), corps = Math.max(0, ep - gob - fin);
             const lignes = [
-                ...lignesMortier(S * gob * PERTE_MORTIER, { liant: 'chaux', dosage: 450 }),
+                ...lignesMortier(S * gob * PERTE_MORTIER, { liant: 'chaux', dosage: 450, chaux: 'chaux_nhl5' }),
                 ...lignesMortier(S * corps * PERTE_MORTIER, { liant: 'chaux', dosage: 325 }),
-                ...lignesMortier(S * fin * PERTE_MORTIER, { liant: 'chaux', dosage: 275, sable: 'sable02' })
+                ...lignesMortier(S * fin * PERTE_MORTIER, { liant: 'chaux', dosage: 275, sable: 'sable02', chaux: 'chaux_nhl2' })
             ];
             const vol = S * ep * PERTE_MORTIER;
             return {
                 resume: [{ l: 'Surface', v: `${fm(S)} m²` }, { l: 'Mortier', v: `${fm(vol)} m³` }],
                 lignes: fusion(lignes),
                 infos: [
-                    'Dosages dégressifs : gobetis ≈ 450 kg/m³ (NHL 3,5 ou 5), corps ≈ 325 kg (NHL 3,5), finition ≈ 275 kg (NHL 2 ou chaux aérienne, sable fin 0/2). Pertes 10 % comprises.',
+                    'Dosages dégressifs : gobetis ≈ 450 kg/m³ en NHL 5, corps ≈ 325 kg en NHL 3,5, finition ≈ 275 kg en NHL 2 (ou chaux aérienne CL 90), sable fin 0/2. Pertes 10 % comprises.',
+                    'Sable : sable de carrière ou de rivière lavé, non calibré pour le corps (c\'est lui qui donne la teinte). Faire un essai de teinte sur 1 m².',
                     'Repère : 1 sac de 35 kg ≈ 55 L de chaux. Corps d\'enduit ≈ 1 volume de chaux pour 2 à 2,5 de sable.',
                     CONSEILS.chaux
                 ],

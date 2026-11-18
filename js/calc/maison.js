@@ -7,7 +7,7 @@
 import {
     L, fusion, lignesBeton, lignesMortier, lignesMurBlocs, lignesChainage, nbBarres6m,
     calcPlancher, calcToiture, calcPlaco, BLOCS, COUVERTURES, PERTE_BETON, PERTE_MORTIER,
-    lignesChainageVertical, TREILLIS_UTILE, calcDrainage, lignesEchafaudage, calcSoufflage
+    lignesChainageVertical, TREILLIS_UTILE, calcDrainage, lignesEchafaudage, calcSoufflage, RANG_CHAINAGE
 } from './base.js';
 import { valider as validerOuvrage, lireNombre } from './ouvrages.js';
 import { fmtSmart } from '../core/format.js';
@@ -148,7 +148,12 @@ export const MAISON_DEF = {
         : `Maison ${fm(v.L)}×${fm(v.l)} m ${v.niveaux === '2' ? 'R+1' : 'plain-pied'}`,
     // Cohérence d'une forme libre (maison à angles droits)
     verifier: v => {
-        if (v.forme !== 'autre') return {};
+        if (v.forme !== 'autre') {
+            if (v.L < 3) return { L: '3 m minimum' };
+            if (v.l < 3) return { l: '3 m minimum' };
+            return {};
+        }
+        if (v.largeur < 3) return { largeur: '3 m minimum' };
         if (v.nAngles < 4 || v.nAngles % 2) return { nAngles: 'Toujours un nombre pair, 4 au minimum (L = 6, T = 8, U = 8).' };
         if (v.P * v.P < 16 * v.S * 0.999) return { P: `Trop petit pour ${fmtSmart(v.S, 0)} m² (minimum ${fmtSmart(4 * Math.sqrt(v.S), 1)} m) : vérifie.` };
         if (v.largeur * v.largeur > v.S) return { largeur: 'Plus large que la maison : vérifie.' };
@@ -263,13 +268,13 @@ export function calculerMaison(brut, ctx = {}) {
     // 3. Soubassement
     const surfSoub = mlSemelles * hSoub;
     const lSoub = [
-        ...lignesMurBlocs(surfSoub, 'p20', nAngles, hSoub, mode),
+        ...lignesMurBlocs(surfSoub - mlSemelles * RANG_CHAINAGE, 'p20', nAngles, hSoub - RANG_CHAINAGE, mode),
         ...lignesChainage(mlSemelles, { mode, angles: nAngles + nbT }),
         L('arase', mlSemelles * 1.05)
     ];
     const infSoub = [
         `Hauteur de soubassement : ${fm(hSoub)} m (${Math.ceil(hSoub / 0.2 - 1e-9)} rangs d'agglo de 20), dont ${fm(hHorsSol)} m hors sol.`,
-        'Chaînage en tête de soubassement, puis arase étanche (coupure de capillarité) à 15 cm mini au-dessus du sol extérieur.',
+        'Chaînage en blocs U en tête de soubassement (déjà déduit des agglos), puis arase étanche (coupure de capillarité) à 15 cm mini au-dessus du sol extérieur.',
         'Les chaînages verticaux partent des attentes de la semelle : ils sont comptés dans le lot « Chaînages ».'
     ];
     if (vs) {
@@ -320,20 +325,25 @@ export function calculerMaison(brut, ctx = {}) {
     // 5. Élévation des murs
     const hMurs = v.hMur * niv;
     const surfMursBrute = perimAxe * hMurs + surfPignons;
+    if (surfOuv >= surfMursBrute * 0.8) return { erreurs: { menuiseries: `Les menuiseries (${fm(surfOuv)} m²) couvrent presque tous les murs (${fm(surfMursBrute)} m²) : vérifie le nombre et les tailles.` }, v };
     const surfMurs = Math.max(0, surfMursBrute - surfOuv);
     const surfRefend = v.refend * hMurs;
-    const lMurs = [...lignesMurBlocs(surfMurs, v.bloc, nAngles, hMurs, mode)];
-    if (surfRefend > 0) lMurs.push(...lignesMurBlocs(surfRefend, 'p20', 0, 0, mode));
+    // Le chaînage horizontal (blocs U) remplace le dernier rang de chaque niveau, et des pignons (rampants)
+    const mlRampantsCh = nbPignons * 2 * Math.sqrt(Math.pow(largeur / 2, 2) + hFaitage * hFaitage);
+    const sRangCh = perimAxe * niv * RANG_CHAINAGE + mlRampantsCh * RANG_CHAINAGE;
+    const lMurs = [...lignesMurBlocs(Math.max(0, surfMurs - sRangCh), v.bloc, nAngles, Math.max(0, hMurs - niv * RANG_CHAINAGE), mode)];
+    if (surfRefend > 0) lMurs.push(...lignesMurBlocs(Math.max(0, surfRefend - v.refend * niv * RANG_CHAINAGE), 'p20', 0, 0, mode));
     lot('murs', 'Élévation des murs', '🧱', lMurs, [
         `Murs : ${fm(perimAxe)} m × ${fm(hMurs)} m${pignons ? ` + ${nbPignons} pignons (${fm(surfPignons)} m²)` : ''} − ${fm(surfOuv)} m² d'ouvertures = ${fm(surfMurs)} m².`,
         surfRefend > 0 ? `Refends en parpaing 20 : ${fm(surfRefend)} m².` : null,
         b.mortierL ? `Hourdage au mortier dosé 350 : ≈ ${b.mortierL} L par m².` : `Joint mince : ≈ ${b.colleKg} kg de mortier-colle par m².`,
+        `Les rangs de chaînage (blocs U, ${fm(sRangCh)} m²) sont déduits : ils sont comptés dans le lot « Chaînages ».`,
         niv === 2 && v.hMur < 2.8 ? 'R+1 : avec 2,70 m par niveau, le plafond fini du rez-de-chaussée tombe vers 2,40 m. Compter plutôt 2,80 m.' : null
     ], (surfMurs + surfRefend) * 1.0);
 
     // 6. Chaînages & linteaux
     const mlChH = (perimAxe + v.refend) * niv;
-    const mlRampants = nbPignons * 2 * Math.sqrt(Math.pow(largeur / 2, 2) + hFaitage * hFaitage);
+    const mlRampants = mlRampantsCh;
     const hChV = hSoub + hMurs;                                       // de la semelle au chaînage haut, d'un seul tenant
     const mlChV = nbChV * hChV;
     const nbSeuils = nbType.porte + nbType.baie;
@@ -383,15 +393,15 @@ export function calculerMaison(brut, ctx = {}) {
         const lignes = v.enduit === 'mono'
             ? [L('enduit_mono', surfFacade * 1.5 * 17 * PERTE_MORTIER)]
             : [
-                ...lignesMortier(surfFacade * 0.005 * PERTE_MORTIER, { liant: 'chaux', dosage: 450 }),
+                ...lignesMortier(surfFacade * 0.005 * PERTE_MORTIER, { liant: 'chaux', dosage: 450, chaux: 'chaux_nhl5' }),
                 ...lignesMortier(surfFacade * 0.015 * PERTE_MORTIER, { liant: 'chaux', dosage: 325 }),
-                ...lignesMortier(surfFacade * 0.005 * PERTE_MORTIER, { liant: 'chaux', dosage: 275, sable: 'sable02' })
+                ...lignesMortier(surfFacade * 0.005 * PERTE_MORTIER, { liant: 'chaux', dosage: 275, sable: 'sable02', chaux: 'chaux_nhl2' })
             ];
         lignes.push(L('baguette', Math.ceil(4 * (hMurs + hHorsSol) / 3 - 1e-9) + nbOuvTotal * 2));
         lignes.push(...lEchaf);
         lot('facade', 'Façade & échafaudage', '🖌️', lignes, [
             `Surface enduite : ${fm(surfFacade)} m² (ouvertures déduites).`,
-            v.enduit === 'mono' ? 'Monocouche 15 mm : ≈ 25 kg/m², en 2 passes.' : 'Enduit chaux 3 couches (2,5 cm), dosages dégressifs 450 / 325 / 275 kg/m³.',
+            v.enduit === 'mono' ? 'Monocouche 15 mm : ≈ 25 kg/m², en 2 passes.' : 'Enduit chaux 3 couches (2,5 cm), dosages dégressifs 450 / 325 / 275 kg/m³ (NHL 5, NHL 3,5, NHL 2).',
             v.echafaudage ? `Échafaudage : tour de la maison sur ${fm(hMurs + hHorsSol + 1)} m de haut, ${fmtSmart(v.semEchaf, 0)} semaines.` : 'Échafaudage non compté.'
         ], surfFacade * (v.enduit === 'mono' ? 0.5 : 1.5) + (v.echafaudage ? (perimExt + 4) * (hMurs + 1) * 0.3 : 0));
     } else if (lEchaf.length) {
@@ -437,9 +447,9 @@ export function calculerMaison(brut, ctx = {}) {
         }
         if (v.carrelage) {
             const plinthes = Math.max(0, perimFin * niv + mlCloisons * 2 - 0.9 * 2 * nbPortes);
-            lignes.push(L('carrelage', Shab * 1.10), L('colle_carrelage', Shab * 7), L('joint_carrelage', Shab * 0.18),
+            lignes.push(L('carrelage', Shab * 1.10, { ref: 'sol intérieur · 60 × 60' }), L('colle_carrelage', Shab * 7), L('joint_carrelage', Shab * 0.18),
                 L('croisillon', Math.ceil(Shab * 1.1 / 0.36)), L('cale_nivel', Math.ceil(Shab * 4.4 / 0.36)),
-                L('plinthe', plinthes * 1.10), L('spec', 4 * 1.5, { d: 'douche ≈ 4 m²' }), L('bande_spec', 4), L('silicone', 3));
+                L('plinthe', plinthes * 1.10, { ref: 'carrelage' }), L('spec', 4 * 1.5, { d: 'douche ≈ 4 m²' }), L('bande_spec', 4.4), L('silicone', 3));
             h += Shab * 0.8;
             infos.push(`Carrelage : ${fm(Shab)} m², 60×60 en double encollage (≈ 7 kg de colle/m²), joint 3 mm. SPEC pour une douche.`);
         }
@@ -457,7 +467,7 @@ export function calculerMaison(brut, ctx = {}) {
     }
 
     // Résumé
-    const toutes = fusion(lots.flatMap(lt => lt.lignes.map(li => ({ k: li.k, q: li.q, d: li.k === 'bpe' ? li.d : undefined }))));
+    const toutes = fusion(lots.flatMap(lt => lt.lignes.map(li => ({ k: li.k, q: li.q, ref: li.ref }))));
     const heures = lots.reduce((s, lt) => s + (lt.heures || 0), 0);
     const rd = x => fmtSmart(x, x >= 50 ? 0 : 1);           // grandes valeurs arrondies à l'unité
     const resume = [

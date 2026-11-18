@@ -24,7 +24,8 @@ COLS.reduce((x, [k, , w]) => { X[k] = { x, w }; return x + w; }, M);
 export function ligneDoc(li, ctx = {}) {
     if (li.k && MATERIAUX[li.k]) {
         const a = affichage(li.k, li.q, ctx);
-        return { nom: li.l || libelle(li.k, ctx), detail: [li.d, a.d].filter(Boolean).join(' · '), qte: a.v, unite: a.u };
+        const nom = li.l || libelle(li.k, ctx);
+        return { nom: li.ref ? `${nom} — ${li.ref}` : nom, detail: [li.d, a.d].filter(Boolean).join(' · '), qte: a.v, unite: a.u };
     }
     return { nom: li.l, detail: li.d || '', qte: fmt(li.q, Number.isInteger(li.q) ? 0 : 2), unite: li.u || '' };
 }

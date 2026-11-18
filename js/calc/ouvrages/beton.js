@@ -1,6 +1,6 @@
 // Calculateurs « Fondations & béton ».
 
-import { L, fusion, lignesBeton, lignesMortier, recetteMortier, lignesChainage, lignesChainageVertical, nbBarres6m, calcPlancher, PERTE_BETON, PERTE_MORTIER, TREILLIS_UTILE } from '../base.js';
+import { L, fusion, lignesBeton, lignesMortier, recetteMortier, lignesChainage, lignesChainageVertical, nbBarres6m, calcPlancher, PERTE_BETON, PERTE_MORTIER, TREILLIS_UTILE, barresPour } from '../base.js';
 import { fmtSmart } from '../../core/format.js';
 import { n, c, oui, MODE, DOSAGE, fm, CONSEILS, aideBeton } from './commun.js';
 export const BETON = [
@@ -237,7 +237,8 @@ export const BETON = [
             const volMarches = girons * (g * h / 2) * w;
             const pail = Math.sqrt(Math.pow(girons * g, 2) + Math.pow(v.nb * h, 2));
             const vol = (volMarches + pail * w * e) * PERTE_BETON;
-            const mlFer = (Math.ceil(w / 0.15) + 1) * (pail + 0.6) + (Math.ceil(pail / 0.25) + 1) * w;
+            const nbPrinc = Math.ceil(w / 0.15) + 1, nbRep = Math.ceil(pail / 0.25) + 1;
+            const barres = barresPour(nbPrinc, pail + 0.6) + barresPour(nbRep, w);
             const blondel = 2 * v.hm + v.g;
             const infos = [
                 `Paillasse de ${fm(pail)} m de long. Ferraillage : HA10 tous les 15 cm + répartition tous les 25 cm.`,
@@ -250,8 +251,10 @@ export const BETON = [
                 resume: [{ l: 'Volume béton', v: `${fm(vol)} m³` }, { l: 'Longueur paillasse', v: `${fm(pail)} m` }],
                 lignes: fusion([
                     ...lignesBeton(vol, 350, v.mode),
-                    L('fer10', Math.ceil(mlFer * 1.1 / 6)),
-                    L('planche', v.nb * w + 2 * pail, { d: 'contremarches et joues' })
+                    L('fer10', barres, { d: `${nbPrinc} filants de ${fm(pail + 0.6)} m + ${nbRep} répartitions de ${fm(w)} m` }),
+                    L('planche', v.nb * w + 2 * pail, { d: 'contremarches et joues' }),
+                    L('contreplaque', pail * w * 1.10, { d: 'fond de coffrage de la paillasse' }),
+                    L('etai', 2 * (Math.ceil(girons * g / 1.0 - 1e-9) + 1))
                 ]),
                 infos, recette: aideBeton(vol, 350, v.mode, ctx, infos),
                 mesure: { q: v.nb, u: 'marche', h: v.nb * 4 }

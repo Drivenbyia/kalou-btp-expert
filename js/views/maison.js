@@ -104,7 +104,9 @@ export function vueMaison(root, params) {
         afficherErreurs(etapes, r.erreurs, r.alertes);
         majResumes();
         if (Object.keys(r.erreurs).length) {
-            res.innerHTML = `<div class="card"><p class="empty-res">✏️ Complète ou corrige les cases en rouge.</p></div>`;
+            // Erreurs sans case dédiée (ex. menuiseries trop grandes) : on les écrit en clair
+            const libres = Object.entries(r.erreurs).filter(([k]) => !etapes.querySelector(`[data-f="${k}"]`)).map(([, m]) => m);
+            res.innerHTML = `<div class="card"><p class="empty-res">✏️ ${libres.length ? esc(libres.join(' ')) : 'Complète ou corrige les cases en rouge.'}</p></div>`;
             majBarre(false);
             return;
         }
