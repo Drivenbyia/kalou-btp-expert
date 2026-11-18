@@ -183,6 +183,35 @@ test('accueil par familles, recherche ; listes par pièce et par appareil', asyn
     assert.deepEqual(p.erreurs, []);
 });
 
+test('rénovation : pièces du chantier, calcul repris, mesures qui suivent, électricité des pièces', async () => {
+    const p = await page();
+    await p.goto(base + '#/chantiers');
+    await p.click('[data-act="nouveau"]');
+    await p.fill('.sheet input', 'Réno');
+    await p.click('.sheet .btn-primary');
+    await p.click('text=Ajouter une pièce');
+    await p.waitForSelector('#form');
+    await p.fill('#in-nom', 'Chambre 1');
+    await p.fill('#in-L', '4');
+    await p.fill('#in-l', '3');
+    await p.click('[data-act="enreg"]');
+    await p.waitForSelector('.pp-btn');
+    await p.click('.pp-btn:has-text("Carrelage du sol")');
+    await p.waitForSelector('#res .res-head');
+    assert.equal(await p.inputValue('#in-L'), '4');
+    await p.click('[data-act="ajouter"]');
+    await p.waitForSelector('.pp-btn.fait');
+    await p.fill('#in-L', '5');
+    await p.click('[data-act="enreg"]');
+    await p.waitForSelector('text=Électricité des pièces');
+    assert.match(await p.locator('.item summary').first().innerText(), /15 m²/);
+    await p.click('text=Électricité des pièces');
+    await p.waitForSelector('.ll-nom');
+    assert.equal(await p.locator('.ll-nom').first().innerText(), 'Chambre 1');
+    assert.ok(await pasDeDebordement(p));
+    assert.deepEqual(p.erreurs, []);
+});
+
 test('ordinateur (1440 px) : saisie et résultat côte à côte, pas de débordement', async () => {
     const b = await chromium.launch();
     const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });

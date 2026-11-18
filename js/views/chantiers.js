@@ -5,13 +5,17 @@ import { OUVRAGES_PAR_ID, calculer } from '../calc/ouvrages.js';
 import { calculerMaison } from '../calc/maison.js';
 import {
     listeChantiers, getChantier, creerChantier, majChantier, supprimerChantier, supprimerItem, ctxCalcul,
-    restaurerItem, restaurerChantier, ajouterItem, ajouterLibre, supprimerLibre, derniereSauvegarde, getReglages
+    restaurerItem, restaurerChantier, ajouterItem, ajouterLibre, supprimerLibre, derniereSauvegarde, getReglages,
+    enregistrerPiece, supprimerPiece
 } from '../core/store.js';
+import { CHAMPS_PIECE, DEF_PIECE, POUR_PIECE, valeursPiece, nomPiece, resumePiece } from '../calc/pieces.js';
+import { valider, valeursDefaut } from '../calc/ouvrages.js';
+import { htmlChamps, brancherForm, afficherErreurs } from '../ui/form.js';
 import { nbAchat, affichage, MATERIAUX } from '../calc/materiaux.js';
 import { ICONES, toast, partager, partagerFichier, confirmer, demanderTexte, ouvrirFeuille, fermerFeuille, apresFeuille, dateCourte } from '../ui/dom.js';
 import { pdfListe } from '../ui/liste-pdf.js';
 import { htmlKpis, htmlLignes, htmlCout, consolider, parCategorie, htmlLigne, texteListe } from '../ui/resultats.js';
-import { aller, entete } from '../app.js';
+import { aller, entete, retourVers, garderSortie, armerGarde } from '../app.js';
 import { barreActions } from './commun.js';
 
 // ─── Liste ──────────────────────────────────────────────────────────────────
@@ -92,7 +96,10 @@ function donneesListe(ch, ctx) {
 export function vueChantier(root, id, params) {
     const ch = getChantier(id);
     if (!ch) { aller('#/chantiers', { remplacer: true }); return; }
+    if (params.piece) { vuePiece(root, ch, params.piece); return; }
     const ctx = ctxCalcul();
+    const pieces = ch.pieces || [];
+    const nomDe = pid => { const p = pieces.find(x => x.id === pid); return p ? nomPiece(p) : ''; };
     const onglet = params.vue === 'courses' ? 'courses' : 'ouvrages';
 
     entete({
@@ -121,9 +128,24 @@ export function vueChantier(root, id, params) {
 
     if (onglet === 'ouvrages') {
         contenu.innerHTML = `
+            <p class="section-title">Pièces${pieces.length ? ` (${pieces.length})` : ''}</p>
+            ${pieces.length ? pieces.map(p => {
+                const nb = ch.items.filter(it => it.piece === p.id).length;
+                return `<button class="card ch-card" data-go="#/chantier/${esc(ch.id)}?piece=${esc(p.id)}">
+                    <span class="av">🚪</span>
+                    <span class="tx"><b>${esc(nomPiece(p))}</b><small>${esc(resumePiece(p))}${nb ? ` · ${nb} calcul${nb > 1 ? 's' : ''}` : ''}</small></span>
+                    <span class="chev">${ICONES.chev}</span>
+                </button>`;
+            }).join('') : '<p class="hint" style="margin:0 4px 10px;color:var(--muted)">Rénovation : mesure chaque pièce une fois, puis calcule chape, carrelage, placo, peinture, électricité… sans retaper les mesures.</p>'}
+            <button class="btn btn-ghost btn-block" data-go="#/chantier/${esc(ch.id)}?piece=nouvelle">${ICONES.plus}<span>Ajouter une pièce</span></button>
+            ${pieces.length ? `<div class="row" style="margin-top:10px">
+                <button class="btn btn-light" data-go="#/calc/electricite?ch=${esc(ch.id)}&depuis=pieces">⚡ Électricité des pièces</button>
+                <button class="btn btn-light" data-go="#/calc/vmc?ch=${esc(ch.id)}&depuis=pieces">🌀 VMC</button>
+            </div>` : ''}
+            <p class="section-title">Ouvrages${ch.items.length ? ` (${ch.items.length})` : ''}</p>
             ${calc.length ? calc.map(c => `
                 <details class="card item" data-item="${esc(c.it.id)}">
-                    <summary><span class="ic">${c.ic}</span><span class="tx"><b>${esc(c.titre)}</b><small>${esc(c.resume.slice(0, 2).map(k => `${k.l} ${k.v}`).join(' · ') || dateCourte(c.it.date))}</small></span><span class="chev">${ICONES.down}</span></summary>
+                    <summary><span class="ic">${c.ic}</span><span class="tx"><b>${esc(c.titre)}</b><small>${c.it.piece && nomDe(c.it.piece) ? `📍 ${esc(nomDe(c.it.piece))} · ` : ''}${esc(c.resume.slice(0, 2).map(k => `${k.l} ${k.v}`).join(' · ') || dateCourte(c.it.date))}</small></span><span class="chev">${ICONES.down}</span></summary>
                     <div class="body">
                         ${htmlKpis(c.resume)}
                         ${htmlLignes(c.lignes, ctx)}
@@ -243,6 +265,85 @@ export function vueChantier(root, id, params) {
     bar.addEventListener('click', e => {
         if (!e.target.closest('[data-act]')) return;
         envoyerListe(ch.id);
+    });
+}
+
+// ─── Pièce d'un chantier : ses mesures, et tout ce qu'on calcule pour elle ─────
+
+function vuePiece(root, ch, pid) {
+    const nouvelle = pid === 'nouvelle';
+    const p0 = nouvelle ? null : (ch.pieces || []).find(x => x.id === pid);
+    if (!nouvelle && !p0) { aller(`#/chantier/${ch.id}`, { remplacer: true }); return; }
+    const versTxt = v => Object.fromEntries(Object.entries(v).map(([k, x]) => [k, typeof x === 'number' ? String(x).replace('.', ',') : x]));
+    const valeurs = versTxt({ ...valeursDefaut(DEF_PIECE), ...(p0 || {}) });
+    const depart = JSON.stringify(valeurs);
+    const items = ch.items.filter(it => it.piece === pid);
+    const ctx = ctxCalcul();
+    entete({ titre: nouvelle ? 'Nouvelle pièce' : nomPiece(p0), sous: ch.nom, parent: `#/chantier/${ch.id}` });
+
+    const groupes = [...new Set(POUR_PIECE.map(x => x.g))];
+    root.innerHTML = `
+        <div class="card"><div class="form" id="form"></div><p class="hint" id="metre" style="margin-top:12px;font-weight:700"></p></div>
+        ${nouvelle ? '<p class="hint" style="margin:12px 4px;color:var(--muted)">Enregistre la pièce, puis choisis ce que tu y fais : les mesures seront reprises partout.</p>' : `
+        ${items.length ? `<p class="section-title">Déjà calculé pour cette pièce</p>
+            ${items.map(it => { const c = calculerItem(it, ctx); return `<button class="card ch-card" data-go="#/calc/${esc(it.ouvrage)}?ch=${esc(ch.id)}&item=${esc(it.id)}">
+                <span class="av">${c.ic}</span><span class="tx"><b>${esc(c.titre)}</b><small>${esc(c.resume.slice(0, 2).map(k => `${k.l} ${k.v}`).join(' · '))}</small></span><span class="chev">${ICONES.chev}</span></button>`; }).join('')}` : ''}
+        <p class="section-title">Calculer pour cette pièce</p>
+        ${groupes.map(g => `<p class="cat-title" style="margin:10px 4px 6px">${esc(g)}</p><div class="pp-calc">${POUR_PIECE.filter(x => x.g === g).map(x => {
+            const deja = items.find(it => it.pre === x.pre);
+            return `<button class="pp-btn${deja ? ' fait' : ''}" data-go="${deja ? `#/calc/${x.ouv}?ch=${esc(ch.id)}&item=${esc(deja.id)}` : `#/calc/${x.ouv}?ch=${esc(ch.id)}&piece=${esc(pid)}&pre=${x.pre}`}">${deja ? '✔ ' : ''}${esc(x.l)}</button>`;
+        }).join('')}</div>`).join('')}
+        <button class="btn btn-danger btn-block" id="suppr-piece" style="margin-top:18px">Supprimer la pièce</button>`}`;
+
+    const form = root.querySelector('#form');
+    const metreEl = root.querySelector('#metre');
+    let dernier = null;
+    const dessiner = () => { form.innerHTML = htmlChamps(CHAMPS_PIECE, valeurs); };
+    const verifier = () => {
+        const r = valider(DEF_PIECE, valeurs);
+        if (!Object.keys(r.erreurs).length && r.v.portes * 1.7 + r.v.fen * r.v.fenT >= 2 * (r.v.L + r.v.l) * r.v.h * 0.8) r.erreurs.fen = 'Portes et fenêtres plus grandes que les murs : vérifie';
+        dernier = r;
+        afficherErreurs(form, r.erreurs, r.alertes);
+        metreEl.textContent = Object.keys(r.erreurs).length ? '' : resumePiece(r.v);
+    };
+    // Pièce existante : « Quitter sans enregistrer ? » si on a changé une mesure
+    const garder = () => { if (!nouvelle) armerGarde(); };
+    if (!nouvelle) garderSortie(() => JSON.stringify(valeurs) !== depart);
+    brancherForm(form, valeurs, {
+        champs: CHAMPS_PIECE,
+        onInput: () => { verifier(); garder(); },
+        onStruct: () => { dessiner(); verifier(); garder(); }
+    });
+    dessiner(); verifier();
+
+    root.addEventListener('click', async e => {
+        const b = e.target.closest('[data-go]');
+        if (b) { aller(b.dataset.go); return; }
+        if (e.target.closest('#suppr-piece')) {
+            if (!(await confirmer('Supprimer cette pièce ?', `Ses ${items.length} calcul(s) restent dans le chantier.`, 'Supprimer', true))) return;
+            supprimerPiece(ch.id, pid);
+            retourVers(`#/chantier/${ch.id}`, 1);
+            toast('Pièce supprimée');
+        }
+    });
+
+    const bar = barreActions(`<button class="btn btn-primary" data-act="enreg">${ICONES.check}<span>${nouvelle ? 'Enregistrer la pièce' : 'Enregistrer les mesures'}</span></button>`);
+    bar.addEventListener('click', e => {
+        if (!e.target.closest('[data-act]')) return;
+        verifier();
+        if (Object.keys(dernier.erreurs).length) { toast('Corrige les cases en rouge', true); return; }
+        const v = dernier.v;
+        const p = enregistrerPiece(ch.id, { ...(p0 ? { id: p0.id } : {}), type: v.type, nom: String(valeurs.nom || '').trim(), L: v.L, l: v.l, h: v.h, portes: v.portes, fen: v.fen, fenT: v.fenT });
+        // Les calculs de la pièce suivent ses nouvelles mesures
+        let maj = 0;
+        if (!nouvelle) majChantier(ch.id, c => c.items.forEach(it => {
+            if (it.piece !== p.id) return;
+            const val = valeursPiece(it.pre, p);
+            if (val) { it.valeurs = { ...it.valeurs, ...val }; maj++; }
+        }));
+        toast(nouvelle ? 'Pièce ajoutée : choisis ce que tu y fais' : maj ? `Mesures enregistrées, ${maj} calcul${maj > 1 ? 's' : ''} mis à jour` : 'Mesures enregistrées');
+        if (nouvelle) aller(`#/chantier/${ch.id}?piece=${p.id}`, { remplacer: true });
+        else retourVers(`#/chantier/${ch.id}`, 1);
     });
 }
 

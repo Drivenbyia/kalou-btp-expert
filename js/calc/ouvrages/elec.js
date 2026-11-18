@@ -63,6 +63,7 @@ function nommer(rows, types) {
     const vu = {};
     return rows.map(r => {
         vu[r.t] = (vu[r.t] || 0) + 1;
+        if (r.nom) return r.nom;
         return types[r.t].l + (rows.filter(x => x.t === r.t).length > 1 ? ` ${vu[r.t]}` : '');
     });
 }

@@ -542,3 +542,24 @@ test('laine en paquets quand la surface du paquet est connue', () => {
     const li = r.lignes.find(l => l.k === 'laine_mur');
     assert.equal(affichage(li.k, li.q, ctx, li.pk).v, String(Math.ceil(25 * 1.05 / 4.8)));
 });
+
+// ─── 5.3.0 : pièces d'un chantier réutilisées par les calculateurs ───
+import { POUR_PIECE, valeursPiece, metre, piecesVersElec, piecesVersVmc } from '../js/calc/pieces.js';
+import { OUVRAGES_PAR_ID } from '../js/calc/ouvrages.js';
+test('pièces du chantier : chaque calcul reprend les mesures et donne un résultat', () => {
+    const p = { type: 'chambre', nom: 'Chambre 1', L: 4, l: 3.5, h: 2.5, portes: 1, fen: 1, fenT: 1.5 };
+    const m = metre(p);
+    assert.ok(Math.abs(m.S - 14) < 1e-9 && Math.abs(m.P - 15) < 1e-9 && Math.abs(m.Sm - (15 * 2.5 - 3.2)) < 1e-9);
+    POUR_PIECE.forEach(x => {
+        const r = calculer(x.ouv, valeursPiece(x.pre, p), ctx);
+        assert.deepEqual(r.erreurs, {}, `${x.pre} sans erreur`);
+        assert.ok(r.lignes.length > 0, `${x.pre} donne des matériaux`);
+    });
+    assert.ok(Math.abs(q(calculer('chape', valeursPiece('chape', p), ctx).lignes, 'ciment') - q(calculer('chape', { L: 4, l: 3.5 }, ctx).lignes, 'ciment')) < 1e-9);
+    const pieces = [p, { ...p, type: 'cuisine', nom: '' }, { ...p, type: 'sdb', nom: 'SDB' }, { ...p, type: 'wc', nom: '' }];
+    const el = calculer('electricite', { pieces: piecesVersElec(pieces, OUVRAGES_PAR_ID.electricite.champs.find(c => c.id === 'pieces').types), appareils: [] }, ctx);
+    assert.deepEqual(el.erreurs, {});
+    assert.equal(el.v.pieces[0].nom, 'Chambre 1');
+    assert.match(el.infos.join(' '), /Chambre 1/);
+    assert.deepEqual(piecesVersVmc(pieces), { sdb: 1, wc: 1, cuisine: true, seches: 1 });
+});
