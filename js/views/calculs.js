@@ -4,6 +4,7 @@ import { esc, norm, motsRecherche, correspond } from '../core/format.js';
 import { OUVRAGES, OUV_CATS, OUVRAGES_PAR_ID, calculer, valeursDefaut } from '../calc/ouvrages.js';
 import { getSaisie, setSaisie, getChantier, ajouterItem, remplacerItem, ctxCalcul, getRecents, accueilVu, fermerAccueil, listeChantiers } from '../core/store.js';
 import { ICONES, toast, partager, confirmer } from '../ui/dom.js';
+import { picto } from '../ui/pictos.js';
 import { htmlChamps, brancherForm, afficherErreurs } from '../ui/form.js';
 import { htmlKpis, htmlLignes, htmlRecette, htmlInfos, htmlCout, texteListe, htmlComparatif } from '../ui/resultats.js';
 import { aller, entete, retourVers, garderSortie, armerGarde } from '../app.js';
@@ -12,7 +13,7 @@ import { choisirChantier, barreActions, BTN_PARTAGER } from './commun.js';
 
 const tuile = (o, suffixe, cat) => `
     <button class="tile" data-go="#/calc/${o.id}${suffixe}" data-txt="${esc(norm(o.nom + ' ' + o.desc + ' ' + (o.mots || '') + ' ' + (cat ? cat.l : '')))}">
-        <span class="ic">${o.ic}</span><b>${esc(o.nom)}</b><small>${esc(o.desc)}</small>
+        <span class="ic${picto(o.id) ? ' pic' : ''}">${picto(o.id) || o.ic}</span><b>${esc(o.nom)}</b><small>${esc(o.desc)}</small>
     </button>`;
 
 // ─── Liste des ouvrages ─────────────────────────────────────────────────────
@@ -35,12 +36,13 @@ export function vueListe(root, params) {
             <button class="btn btn-ghost" data-go="#/calc/dalle">Essayer : une dalle de 5 × 4 m</button>
         </div>` : ''}
         <div class="search">${ICONES.search}<input id="q" type="search" placeholder="Chercher : dalle, joint pierre, placo…" autocomplete="off" aria-label="Chercher un ouvrage"></div>
+        <nav class="puces" id="puces" aria-label="Familles d'ouvrages">${OUV_CATS.map(cat => `<button data-puce="${cat.id}">${esc(cat.l)}</button>`).join('')}</nav>
         <div id="liste">
             ${recents.length ? `<div id="recents"><p class="section-title">Utilisés récemment</p>
                 <div class="tiles">${recents.map(o => tuile(o, suffixe)).join('')}</div></div>` : ''}
             <p class="section-title">Projet complet</p>
             <button class="hero" data-go="#/maison${suffixe}${ch ? '&via=liste' : ''}">
-                <span class="ic">🏡</span>
+                <span class="ic pic">${picto('maison')}</span>
                 <span><b>Maison neuve</b><small>Fondations, murs, charpente, toiture, intérieur : tout d'un coup</small></span>
                 <span class="go">${ICONES.chev}</span>
             </button>
@@ -56,6 +58,8 @@ export function vueListe(root, params) {
 
     root.addEventListener('click', e => {
         if (e.target.closest('#accueil-x')) { fermerAccueil(); root.querySelector('#accueil').remove(); return; }
+        const puce = e.target.closest('[data-puce]');
+        if (puce) { root.querySelector(`section[data-cat="${puce.dataset.puce}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
         const b = e.target.closest('[data-go]');
         if (b) aller(b.dataset.go);
     });
@@ -65,6 +69,7 @@ export function vueListe(root, params) {
         const t = mots.join(' ');
         const rec = root.querySelector('#recents');
         if (rec) rec.classList.toggle('hidden', !!t);
+        root.querySelector('#puces').classList.toggle('hidden', !!t);
         let total = 0;
         root.querySelectorAll('section[data-cat]').forEach(sec => {
             let n = 0;
@@ -108,11 +113,17 @@ export function vueCalcul(root, id, params) {
         parent: ch ? (item ? `#/chantier/${ch.id}` : `#/?ch=${ch.id}`) : '#/'
     });
 
-    root.innerHTML = `
-        <div class="card"><div class="form" id="form"></div></div>
-        <p class="section-title">Résultat</p>
-        <div class="card" id="res" aria-live="polite"></div>
-        <button class="btn btn-light btn-block no-print" id="reset" style="margin-top:14px">Remettre les valeurs par défaut</button>`;
+    // Ordinateur (iMac) : saisie à gauche, résultat collé à droite (voir .calc-grid dans app.css)
+    root.innerHTML = `<div class="calc-grid">
+        <div class="col-saisie">
+            <div class="card"><div class="form" id="form"></div></div>
+            <button class="btn btn-light btn-block no-print" id="reset" style="margin-top:14px">Remettre les valeurs par défaut</button>
+        </div>
+        <div class="col-res">
+            <p class="section-title">Résultat</p>
+            <div class="card" id="res" aria-live="polite"></div>
+        </div>
+    </div>`;
 
     const form = root.querySelector('#form');
     const res = root.querySelector('#res');

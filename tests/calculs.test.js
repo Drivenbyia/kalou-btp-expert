@@ -426,3 +426,72 @@ test('pièce complète : une saisie, toutes les lignes', () => {
     assert.ok(Math.abs(q(r.lignes, 'peinture') - q(seule.lignes, 'peinture')) < 1e-9, 'mêmes formules que le calculateur Peinture');
     assert.ok(calculer('piece', { fen: 20, fenT: 5 }, ctx).erreurs.fen);
 });
+
+// ─── Lot 4 (5.1.0) : électricité et VMC (relecture électricien) ───
+test('électricité : circuits, différentiels, réserve du tableau, pose apparente', () => {
+    const r = calculer('electricite', { prises: 24, points: 9, inter: 10, spe: 4, plaque: true, cumulus: true, tableau: true, terre: true }, ctx);
+    assert.deepEqual(r.erreurs, {});
+    assert.equal(q(r.lignes, 'disj20'), 3 + 4 + 1);                     // 24 prises / 8 + 4 dédiés + chauffe-eau
+    assert.equal(q(r.lignes, 'disj32'), 1);
+    assert.equal(q(r.lignes, 'diff_a') + q(r.lignes, 'diff_ac'), 2);
+    assert.ok(q(r.lignes, 'contacteur') === 1 && q(r.lignes, 'piquet_terre') === 1 && q(r.lignes, 'fil15') > 0);
+    // petit tableau : 2 différentiels mini même avec peu de circuits
+    const p = calculer('electricite', { prises: 8, points: 4, tableau: true }, ctx);
+    assert.equal(q(p.lignes, 'diff_ac') + q(p.lignes, 'diff_a'), 2);
+    // pose apparente : câble R2V, pas de gaine ICTA, boîtiers en saillie
+    const a = calculer('electricite', { pose: 'apparent', plaque: true }, ctx);
+    assert.equal(q(a.lignes, 'icta_6') + q(a.lignes, 'icta_15') + q(a.lignes, 'icta_25'), 0);
+    assert.ok(q(a.lignes, 'cable_6') > 0 && q(a.lignes, 'boitier_saillie') > 0);
+    assert.ok(calculer('electricite', { radiateurs: 3, watts: 0 }, ctx).erreurs.watts);
+});
+
+test('VMC : bouches par pièce, circuit dédié 2 A', () => {
+    const r = calculer('vmc', { sdb: 1, wc: 1, cuisine: true, seches: 4 }, ctx);
+    assert.equal(q(r.lignes, 'vmc_bouche'), 3);
+    assert.equal(q(r.lignes, 'entree_air'), 4);
+    assert.equal(q(r.lignes, 'disj2'), 1);
+    assert.match(r.infos.join(' '), /hotte/);
+});
+
+// ─── Lot 6 (5.1.0) : bâti ancien, extérieur, menuiserie, carreaux exacts ───
+test('bâti ancien : sol et enduit chaux-chanvre, agrafage, injection', () => {
+    const s = calculer('solchaux', { L: 5, l: 4, ep: 10, epH: 15 }, ctx);
+    assert.ok(Math.abs(q(s.lignes, 'liant_chanvre') - 20 * 0.10 * 1.10 * 220) < 1e-6);
+    assert.equal(q(s.lignes, 'polyane'), 0, 'pas de film étanche sous un sol à la chaux');
+    const e = calculer('enduitchanvre', { saisie: 'surf', S: 10, ep: 5 }, ctx);
+    assert.ok(q(e.lignes, 'chenevotte') > 0);
+    const f = calculer('fissure', { ml: 2, ep: 40, pas: 35 }, ctx);
+    assert.equal(f.resume[0].v, String((Math.ceil(2 / 0.35) + 1) * 2));
+    assert.equal(q(f.lignes, 'fer10'), barresPour((Math.ceil(2 / 0.35) + 1) * 2, 0.6));
+    const i = calculer('injection', { ml: 10, ep: 40, mur: 'brique' }, ctx);
+    assert.ok(Math.abs(q(i.lignes, 'injection') - 2.8) < 1e-9);
+});
+
+test('extérieur et menuiserie : tranchée, pavage, portes, OSB, lambris', () => {
+    const t = calculer('tranchee', { L: 15, coudes: 2 }, ctx);
+    assert.equal(q(t.lignes, 'regard'), 4);
+    assert.ok(t.lignes.find(l => l.k === 'pvc_cr8').ref === 'Ø100');
+    const p = calculer('pavage', { L: 6, l: 4, usage: 'voiture', bord: 0 }, ctx);
+    assert.ok(Math.abs(q(p.lignes, 'grave') - 24 * 0.25 * 2.1) < 1e-9);
+    assert.equal(q(calculer('portes', { nb: 3 }, ctx).lignes, 'chambranle'), 6);
+    const o = calculer('osb', { L: 5, l: 4, entraxe: '60' }, ctx);
+    assert.equal(o.lignes[0].ref, '22 mm');
+    assert.equal(q(o.lignes, 'osb'), Math.ceil(20 * 1.08 / (2.05 * 0.675)));
+    assert.ok(q(calculer('lambris', { L: 4, l: 2.5 }, ctx).lignes, 'lambris') === 11);
+});
+
+test('carrelage en taille exacte = même résultat que la tranche équivalente', () => {
+    const g = k => r => r.lignes.filter(l => l.k === k).reduce((s, l) => s + l.q, 0);
+    const exact = calculer('carrelage', { L: 4, l: 5, format: 'exact', cL: 60, cl: 60 }, ctx);
+    const tranche = calculer('carrelage', { L: 4, l: 5, format: 'grand' }, ctx);
+    assert.equal(g('colle_carrelage')(exact), g('colle_carrelage')(tranche));
+    const long = calculer('carrelage', { L: 4, l: 5, format: 'exact', cL: 120, cl: 20 }, ctx);
+    assert.equal(g('colle_carrelage')(long), 140);                     // 2 400 cm² → double encollage
+    assert.equal(long.lignes.find(l => l.k === 'carrelage').ref, 'sol intérieur · 120 × 20 cm');
+});
+
+test('laine en paquets quand la surface du paquet est connue', () => {
+    const r = calculer('placo', { type: 'appuis', a: 10, b: 2.5, paquetLaine: 4.8 }, ctx);
+    const li = r.lignes.find(l => l.k === 'laine_mur');
+    assert.equal(affichage(li.k, li.q, ctx, li.pk).v, String(Math.ceil(25 * 1.05 / 4.8)));
+});

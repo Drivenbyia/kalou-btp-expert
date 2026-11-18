@@ -152,3 +152,22 @@ test('isoler un mur ancien : comparer puis choisir un autre isolant ; pièce com
     assert.deepEqual(p.erreurs, []);
     await p.context().close();
 });
+
+test('ordinateur (1440 px) : saisie et résultat côte à côte, pas de débordement', async () => {
+    const b = await chromium.launch();
+    const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
+    const p = await ctx.newPage();
+    const erreurs = [];
+    p.on('pageerror', e => erreurs.push(e.message));
+    for (const ecran of ['#/', '#/calc/dalle', '#/calc/electricite', '#/maison']) {
+        await p.goto(base + ecran);
+        await p.waitForSelector('main .tile, main .line, main .step, main .card', { timeout: 5000 });
+        assert.ok(await pasDeDebordement(p), `${ecran} : déborde`);
+    }
+    await p.goto(base + '#/calc/dalle');
+    await p.waitForSelector('#res .line');
+    const [f, r] = await p.evaluate(() => [document.querySelector('.col-saisie').getBoundingClientRect(), document.querySelector('.col-res').getBoundingClientRect()].map(x => ({ x: x.left, y: x.top })));
+    assert.ok(r.x > f.x + 300 && Math.abs(r.y - f.y) < 60, 'résultat à droite de la saisie');
+    assert.deepEqual(erreurs, []);
+    await b.close();
+});
