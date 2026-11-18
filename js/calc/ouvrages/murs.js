@@ -1,6 +1,6 @@
 // Calculateurs « Murs & ouvertures ».
 
-import { L, fusion, lignesBeton, lignesMortier, recetteMortier, lignesMurBlocs, lignesChainage, lignesChainageVertical, nbBarres6m, BLOCS, PERTE_BETON, PERTE_MORTIER } from '../base.js';
+import { L, fusion, lignesBeton, lignesMortier, recetteMortier, lignesMurBlocs, lignesChainage, lignesChainageVertical, nbBarres6m, BLOCS, PERTE_BETON, PERTE_MORTIER, RANG_CHAINAGE } from '../base.js';
 import { fmtSmart } from '../../core/format.js';
 import { n, c, oui, MODE, fm, CONSEILS, aideBeton, surfNette, verifOuv } from './commun.js';
 export const MURS = [
@@ -24,7 +24,9 @@ export const MURS = [
             const S = surfNette(v.L, v.h, v.ouv);
             const b = BLOCS[v.bloc] || BLOCS.p20;
             const angles = b.angle ? (v.angles || 0) : 0;
-            const lignes = [...lignesMurBlocs(S, v.bloc, angles, v.h, v.mode)];
+            // Le chaînage en blocs U remplace le dernier rang de blocs
+            const sCh = v.chainage ? Math.min(S, v.L * RANG_CHAINAGE) : 0;
+            const lignes = [...lignesMurBlocs(S - sCh, v.bloc, angles, v.chainage ? Math.max(0, v.h - RANG_CHAINAGE) : v.h, v.mode)];
             if (v.chainage) lignes.push(...lignesChainage(v.L, { mode: v.mode }));
             const infos = [];
             let recette = null;
@@ -34,7 +36,8 @@ export const MURS = [
             }
             if (b.colleKg) infos.push(`Joint mince : environ ${b.colleKg} kg de mortier-colle par m².`);
             if (b.remplissage) infos.push(`Remplissage : ≈ ${b.remplissage * 1000} L de béton fluide par m² (gravillon 4/10, pas de 4/20 : nids de cailloux). Premier rang posé au mortier. Fers verticaux selon plan.`);
-            if (S > 0 && v.ouv > 0) infos.push('Linteaux : longueur = ouverture + 20 cm d\'appui de chaque côté (voir « Création d\'ouverture » pour un mur existant).');
+            if (v.chainage) infos.push('Chaînage : le dernier rang est en blocs U (déjà déduit des blocs).');
+            if (S > 0 && v.ouv > 0) infos.push('Linteaux : longueur = ouverture + 20 cm d\'appui de chaque côté (voir « Ouverture dans mur porteur » pour un mur existant).');
             infos.push(`${fmtSmart(b.parM2, 1)} blocs au m² + 5 % de casse.`);
             return {
                 resume: [{ l: 'Surface nette', v: `${fm(S)} m²` }, { l: 'Rangs', v: `${Math.ceil(v.h / b.h - 1e-9)}` }],
@@ -51,7 +54,7 @@ export const MURS = [
             n('h', 'Hauteur', 'm', 1.5, { demi: true, max: 10 }),
             n('ep', 'Épaisseur du mur', 'cm', 40, { max: 120, bas: 15 }),
             n('ouv', 'Ouvertures à déduire', 'm²', 0, { zero: true }),
-            c('nhl', 'Chaux', [{ v: '2', l: 'NHL 2 (pierre tendre)' }, { v: '3.5', l: 'NHL 3,5' }], '3.5')
+            c('nhl', 'Chaux', [{ v: '2', l: 'NHL 2 (pierre tendre)' }, { v: '3.5', l: 'NHL 3,5' }, { v: '5', l: 'NHL 5 (soubassement)' }], '3.5')
         ],
         mots: 'moellon pierre calcaire chaux hourdage bâti ancien parement',
         verifier: verifOuv(),
@@ -60,13 +63,14 @@ export const MURS = [
             const S = surfNette(v.L, v.h, v.ouv);
             const vol = S * v.ep / 100;
             const volM = vol * 0.30;
+            const cleChaux = { '2': 'chaux_nhl2', '5': 'chaux_nhl5' }[v.nhl] || 'chaux';
             return {
                 resume: [{ l: 'Surface', v: `${fm(S)} m²` }, { l: 'Volume de mur', v: `${fm(vol)} m³` }],
-                lignes: fusion([L('moellon', vol * 1.9), ...lignesMortier(volM, { liant: 'chaux', dosage: 300 })]),
+                lignes: fusion([L('moellon', vol * 1.9), ...lignesMortier(volM, { liant: 'chaux', dosage: 300, chaux: cleChaux })]),
                 infos: [
                     'Environ 1,9 T de pierre par m³ de mur (chutes de taille comprises). Prévoir des boutisses (pierres traversantes) tous les mètres environ.',
-                    `Mortier de chaux dosé 300 kg/m³ (≈ 1 sac pour 2,5 à 3 volumes de sable) : ≈ 300 L par m³ de mur, soit ${fm(volM)} m³. Le mortier ne doit jamais être plus dur que la pierre.`,
-                    `Chaux conseillée : NHL ${v.nhl === '2' ? '2' : '3,5'}.`,
+                    `Mortier de chaux dosé 300 kg/m³ (≈ 1 volume de chaux pour 2 de sable) : ≈ 300 L par m³ de mur, soit ${fm(volM)} m³. Le mortier ne doit jamais être plus dur que la pierre.`,
+                    `Chaux : NHL ${{ '2': '2 (pierre tendre, calcaire du Périgord)', '5': '5 (soubassement, pierre dure)' }[v.nhl] || '3,5 (usage courant)'}.`,
                     CONSEILS.chaux
                 ],
                 recette: recetteMortier(300, 35, 'chaux'),
@@ -99,7 +103,7 @@ export const MURS = [
             const lignes = [
                 ...lignesBeton(volS, 300, v.mode),
                 L('arm_semelle', nbBarres6m(v.L)),
-                ...lignesMurBlocs(S, v.bloc, raid, hBlocs, v.mode),
+                ...lignesMurBlocs(S - v.L * RANG_CHAINAGE, v.bloc, raid, hBlocs - RANG_CHAINAGE, v.mode),
                 ...lignesChainageVertical(raid, hBlocs, { mode: v.mode }),
                 ...lignesChainage(v.L, { mode: v.mode })
             ];
@@ -108,9 +112,11 @@ export const MURS = [
             const infos = [
                 `Hauteur maçonnée : ${fm(hBlocs)} m (dont ${fm(hBlocs - v.h)} m enterrés), soit ${Math.ceil(hBlocs / 0.2 - 1e-9)} rangs.`,
                 `${raid} raidisseurs (chaînages verticaux) : tous les 4 m environ et aux extrémités.`,
-                'Chaînage horizontal en haut du mur sous les chaperons. Joint de dilatation tous les 10 à 15 m.',
+                'Chaînage horizontal en blocs U en haut du mur sous les chaperons (déjà déduit des agglos). Joint de dilatation tous les 10 à 15 m.',
+                v.prof < 50 ? 'Fouille de moins de 50 cm : fondation pas hors gel (50 cm mini, 80 cm en sol argileux).' : null,
+                faces ? 'Enduit compté sur la partie hors sol seulement.' : null,
                 'Un muret de clôture ne doit pas retenir de terre (au-delà de 50 cm de terre : mur de soutènement calculé, avec drain et barbacanes).'
-            ];
+            ].filter(Boolean);
             return {
                 resume: [{ l: 'Béton semelle', v: `${fm(volS)} m³` }, { l: 'Surface de mur', v: `${fm(S)} m²` }],
                 lignes: fusion(lignes), infos, recette: aideBeton(volS, 300, v.mode, ctx, infos),
@@ -132,11 +138,15 @@ export const MURS = [
         titre: v => `Ouverture ${fm(v.larg)}×${fm(v.haut)} m (mur ${v.mur === 'pierre' ? 'pierre ' : ''}${fm(v.ep)} cm)`,
         calcul(v, ctx) {
             const pierre = v.mur === 'pierre';
-            const nb = v.ep <= 25 ? 1 : v.ep <= 45 ? 2 : 3;
+            // IPN : aile de 5 à 9 cm → 1 profilé par tranche de ≈ 10-12 cm de mur. Linteau préfa : 1 par 20 cm.
+            const nb = v.linteau === 'ipn'
+                ? (v.ep <= 12 ? 1 : v.ep <= 25 ? 2 : v.ep <= 45 ? 3 : 4)
+                : Math.max(1, Math.ceil(v.ep / 20 - 1e-9));
             const appui = v.larg > 2 ? 0.3 : 0.2;
             const lg = Math.round((v.larg + 2 * appui) * 100) / 100;
             const demol = v.larg * v.haut * v.ep / 100;
             const gravats = demol * 1.5;
+            const densite = pierre ? 2.2 : 1.3;                         // agglo creux ≈ 1,3 T/m³ en place
             const volMort = (2 * v.haut + v.larg) * v.ep / 100 * 0.05 * PERTE_MORTIER;
             const volSommier = 2 * 0.3 * 0.2 * v.ep / 100 * PERTE_BETON;
             const lignes = [
@@ -146,15 +156,18 @@ export const MURS = [
                 ...lignesBeton(volSommier, 350),
                 L('mortier_sr', 25 * nb, { d: 'calage des profilés sur les sommiers' })
             ];
-            if (gravats > 0.8) lignes.push(L('benne6', Math.ceil(gravats / 6 - 1e-9)));
+            if (gravats > 1) lignes.push(L('benne6', Math.ceil(gravats / 6 - 1e-9)));
+            else lignes.push(L('bigbag_gravats', Math.max(1, Math.ceil(gravats / 0.8 - 1e-9)), { d: 'remplis aux 3/4 (poids)' }));
             return {
-                resume: [{ l: 'Maçonnerie à démolir', v: `${fm(demol)} m³` }, { l: 'Gravats (≈ ' + fmtSmart(gravats * 1.5, 1) + ' T)', v: `${fm(gravats)} m³` }],
+                resume: [{ l: 'Maçonnerie à démolir', v: `${fm(demol)} m³` }, { l: 'Gravats (≈ ' + fmtSmart(demol * densite, 1) + ' T)', v: `${fm(gravats)} m³` }],
                 lignes: fusion(lignes),
                 infos: [
-                    nb > 1 ? `Mur de ${fm(v.ep)} cm : ${nb} profilés côte à côte, solidarisés (plats + tiges filetées ou boulons).` : '1 profilé pour un mur de 20 cm.',
+                    nb > 1 ? `Mur de ${fm(v.ep)} cm : ${nb} ${v.linteau === 'ipn' ? 'profilés' : 'linteaux'} côte à côte${v.linteau === 'ipn' ? ', solidarisés (plats + tiges filetées ou boulons), ou 1 HEA aussi large que le mur' : ''}.` : `1 ${v.linteau === 'ipn' ? 'profilé' : 'linteau'} pour un mur de ${fm(v.ep)} cm.`,
+                    v.linteau === 'ipn' ? 'Profilés acier : peinture antirouille, enrobés ou protégés du feu en intérieur.' : null,
                     'Étaiement par aiguilles et chevalement (étais des deux côtés), pas seulement des étais contre le mur. Sommiers béton sous les appuis, calage au mortier sans retrait.',
                     pierre ? 'Mur en pierre : sonder le mur avant (fourrure, vides), ouvrir par saignées d\'un côté puis de l\'autre, reprises des tableaux à la chaux.' : null,
                     'Note de calcul d\'un bureau d\'études dès qu\'il y a un étage ou une charpente au-dessus. Mur mitoyen : accord du voisin. Façade : déclaration préalable en mairie.',
+                    'Retirer les étais seulement après la prise du calage (48 h minimum).',
                     'Gravats de maçonnerie : benne de 6 m³ maxi (trop lourd au-delà).'
                 ].filter(Boolean),
                 recette: null,

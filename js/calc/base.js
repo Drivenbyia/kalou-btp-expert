@@ -10,13 +10,20 @@
 
 import { fmtSmart, fmt } from '../core/format.js';
 
+/** Longueur d'achat écrite toujours pareil (« 2,50 m ») pour regrouper les lignes identiques. */
+const lg2 = x => `${fmt(x, 2)} m`;
+
 export const BETON = { sableT: 0.65, gravierT: 1.15, sableL: 400, gravierL: 800, eauL: 175 };
 export const MORTIER = { sableT: 1.5, sableL: 1000 };
 export const PERTE_BETON = 1.05;
 export const PERTE_MORTIER = 1.10;
 export const PERTE_BLOCS = 1.05;
 
-/** Ligne de matériau. */
+/**
+ * Ligne de matériau. extra.ref = la référence à acheter (épaisseur, longueur, format…) :
+ * deux lignes d'un même article avec des ref différentes restent séparées dans la liste de courses.
+ * extra.d = simple précision d'explication (fusionnée dans la liste).
+ */
 export const L = (k, q, extra = {}) => ({ k, q, ...extra });
 
 /** Additionne les lignes de même matériau (et même précision éventuelle). */
@@ -25,7 +32,7 @@ export function fusion(lignes) {
     const idx = new Map();
     lignes.forEach(li => {
         if (!li || !(li.q > 0)) return;
-        const cle = `${li.k}|${li.l || ''}|${li.d || ''}`;
+        const cle = `${li.k}|${li.l || ''}|${li.d || ''}|${li.ref || ''}`;
         if (idx.has(cle)) out[idx.get(cle)].q += li.q;
         else { idx.set(cle, out.length); out.push({ ...li }); }
     });
@@ -45,7 +52,7 @@ export function lignesBeton(vol, dosage = 350, mode = 'betonniere', { fin = fals
     if (!(vol > 0)) return [];
     if (mode === 'bpe') {
         const classe = CLASSE_BPE[dosage] || `≈ ${dosage} kg`;
-        return [L('bpe', vol, { d: `${classe}${fin ? ' S4, gravillon D10 (remplissage)' : ' S3'}` })];
+        return [L('bpe', vol, { ref: `${classe}${fin ? ' S4, gravillon D10 (remplissage)' : ' S3'}` })];
     }
     return [
         L('ciment', vol * dosage),
@@ -100,12 +107,13 @@ export function recetteMortier(dosage = 350, sac = 35, liant = 'ciment') {
 /**
  * Matériaux pour un volume de mortier (pertes déjà incluses).
  * liant : 'ciment' | 'chaux' | 'batard' (moitié ciment, moitié chaux).
+ * chaux : article de chaux ('chaux' = NHL 3,5, 'chaux_nhl2', 'chaux_nhl5', 'chaux_cl90').
  */
-export function lignesMortier(vol, { liant = 'ciment', dosage = 350, sable = 'sable04', sableM3 = 1 } = {}) {
+export function lignesMortier(vol, { liant = 'ciment', dosage = 350, sable = 'sable04', sableM3 = 1, chaux = 'chaux' } = {}) {
     if (!(vol > 0)) return [];
     const out = [];
-    if (liant === 'batard') out.push(L('ciment', vol * dosage / 2), L('chaux', vol * dosage / 2));
-    else out.push(L(liant === 'chaux' ? 'chaux' : 'ciment', vol * dosage));
+    if (liant === 'batard') out.push(L('ciment', vol * dosage / 2), L(chaux, vol * dosage / 2));
+    else out.push(L(liant === 'chaux' ? chaux : 'ciment', vol * dosage));
     out.push(L(sable, vol * MORTIER.sableT * sableM3));
     return out;
 }
@@ -134,12 +142,13 @@ export function lignesMurBlocs(surf, type = 'p20', angles = 0, haut = 0, mode = 
     const b = BLOCS[type] || BLOCS.p20;
     const out = [];
     if (!(surf > 0)) return out;
+    const total = Math.ceil(surf * b.parM2 * PERTE_BLOCS);
     let nbAngle = 0;
     if (b.angle && angles > 0 && haut > 0) {
-        nbAngle = Math.ceil(angles * Math.ceil(haut / b.h - 1e-9) * PERTE_BLOCS);
+        nbAngle = Math.min(total, Math.ceil(angles * Math.ceil(haut / b.h - 1e-9) * PERTE_BLOCS));
         out.push(L(b.angle, nbAngle));
     }
-    out.push(L(b.k, Math.max(0, Math.ceil(surf * b.parM2 * PERTE_BLOCS) - nbAngle)));
+    out.push(L(b.k, Math.max(0, total - nbAngle)));
     if (b.mortierL) out.push(...lignesMortier(surf * b.mortierL / 1000));
     if (b.colleKg)  out.push(L('colle_bloc', surf * b.colleKg * PERTE_BLOCS));
     if (b.remplissage) out.push(...lignesBeton(surf * b.remplissage * PERTE_BETON, 350, mode, { fin: true }));
@@ -147,6 +156,16 @@ export function lignesMurBlocs(surf, type = 'p20', angles = 0, haut = 0, mode = 
 }
 
 // ─── Chaînages ─────────────────────────────────────────────────────────────
+
+/** Hauteur d'un rang de blocs U : le chaînage horizontal remplace un rang du mur. */
+export const RANG_CHAINAGE = 0.20;
+
+/** Nombre de barres de 6 m pour couper `nb` morceaux de `lg` m (on ne raboute pas les chutes). */
+export function barresPour(nb, lg) {
+    if (!(nb > 0) || !(lg > 0)) return 0;
+    if (lg > 6) return Math.ceil(nb * Math.ceil(lg / 5.5 - 1e-9));       // morceaux plus longs qu'une barre : recouvrements
+    return Math.ceil(nb / Math.floor(6 / lg + 1e-9) - 1e-9);
+}
 
 /** Nombre d'armatures de 6 m (recouvrement 50 cm) pour une longueur donnée. */
 export const nbBarres6m = ml => (ml > 0 ? Math.ceil(ml / 5.5 - 1e-9) : 0);
@@ -199,7 +218,7 @@ export function calcPlancher(longueur, portee, { haut = 16, rives = true, mode =
     const etais = files * (Math.ceil(longueur / 1.0 - 1e-9) + 1);
     const perim = 2 * (longueur + portee);
     const lignes = [
-        L('poutrelle', nbP * lgP, { d: `${nbP} poutrelles de ${fmtSmart(lgP, 2)} m` }),
+        L('poutrelle', nbP * lgP, { ref: lg2(lgP), d: `${nbP} poutrelles de ${fmtSmart(lgP, 2)} m` }),
         L(pse ? 'entrevous_pse' : 'entrevous', Math.ceil(S / (0.6 * 0.2) * 1.03)),
         L('treillis36', Math.ceil(S / TREILLIS_UTILE['36'] - 1e-9)),
         ...lignesBeton(vol, 350, mode),
@@ -211,13 +230,14 @@ export function calcPlancher(longueur, portee, { haut = 16, rives = true, mode =
 
 // ─── Toiture : charpente + couverture ──────────────────────────────────────
 
-// parM2 : éléments au m² · liteaux : mètres de liteau par m² · penteMin : pente conseillée (%)
+// parM2 : éléments au m² · liteaux : mètres de liteau par m² · pente : pente conseillée (%)
+// rive : finition des rives de pignon — tuiles de rive à emboîtement (nb/m), ruellée au mortier, ou bande zinc
 export const COUVERTURES = {
-    meca:    { l: 'Tuile romane (emboîtement)',     k: 'tuile_meca',  parM2: 12, liteaux: 2.9, pente: 35 },
-    gm:      { l: 'Tuile mécanique grand moule',    k: 'tuile_gm',    parM2: 10, liteaux: 2.7, pente: 35 },
-    canal:   { l: 'Tuile canal',                    k: 'tuile_canal', parM2: 28, liteaux: 0,   pente: 30 },
-    plate:   { l: 'Tuile plate (du Périgord)',      k: 'tuile_plate', parM2: 65, liteaux: 10,  pente: 100 },
-    ardoise: { l: 'Ardoise',                        k: 'ardoise',     parM2: 38, liteaux: 8.7, pente: 80 }
+    meca:    { l: 'Tuile romane (emboîtement)',     k: 'tuile_meca',  parM2: 12, liteaux: 2.9, pente: 35,  rive: 3 },
+    gm:      { l: 'Tuile mécanique grand moule',    k: 'tuile_gm',    parM2: 10, liteaux: 2.7, pente: 35,  rive: 3 },
+    canal:   { l: 'Tuile canal',                    k: 'tuile_canal', parM2: 28, liteaux: 0,   pente: 30,  rive: 'mortier' },
+    plate:   { l: 'Tuile plate (du Périgord)',      k: 'tuile_plate', parM2: 65, liteaux: 10,  pente: 100, rive: 'mortier' },
+    ardoise: { l: 'Ardoise',                        k: 'ardoise',     parM2: 38, liteaux: 8.7, pente: 80,  rive: 'zinc' }
 };
 
 /**
@@ -266,9 +286,9 @@ export function calcToiture(p) {
     // Charpente
     if (charpente === 'fermettes') {
         const n = Math.ceil(Lm / 0.6 - 1e-9) + ailes;
-        lignes.push(L('fermette', n, { d: `portée ≈ ${fmtSmart(lm, 2)} m, entraxe 60 cm` }));
+        lignes.push(L('fermette', n, { ref: `portée ${fmtSmart(lm, 2)} m`, d: `entraxe 60 cm, pente ${pente} %` }));
         lignes.push(L('fixation_ch', n * 2));
-        lignes.push(L('contreliteau', surf / 0.6 * 1.05));
+        if (couverture !== 'canal') lignes.push(L('contreliteau', surf / 0.6 * 1.05));
         infos.push('Fermettes : le fabricant fournit le plan, le contreventement et les connecteurs. Les donner : portée, pente, débords, type de tuile.');
         if (pans === 4) infos.push('Toit 4 pans : prévoir le kit de croupe (demi-fermettes et arêtiers) avec le fabricant.');
         if (rentrants > 0) infos.push(`Maison en ${ailes} ailes : ${rentrants} noue(s), fermettes de noue et empannons à commander avec le plan du fabricant.`);
@@ -283,16 +303,17 @@ export function calcToiture(p) {
         lignes.push(L('chevron', chevronsML, { d: 'entraxe 50 cm' }));
         lignes.push(L('panne', nbPannes * longPanne, { d: `${nbPannes} pannes de ≈ ${fmtSmart(longPanne, 1)} m` }));
         if (fermes > 0) lignes.push(L('ferme', fermes, { d: 'si pas de mur de refend pour porter les pannes' }));
-        lignes.push(L('contreliteau', chevronsML));
+        if (couverture !== 'canal') lignes.push(L('contreliteau', chevronsML));
         const bois = chevronsML * 0.075 * 0.1 + nbPannes * longPanne * 0.1 * 0.22;
         infos.push(`Charpente traditionnelle : environ ${fmtSmart(bois, 1)} m³ de bois. Sections indicatives, à faire valider par un charpentier.`);
         heures += surf * 0.9;
     }
 
     // Couverture
-    lignes.push(L('ecran', surf * 1.10));
-    if (cv.liteaux) lignes.push(L('liteau', surf * cv.liteaux * 1.05));
+    // Tuile canal : plaques sous-tuiles posées directement sur la charpente (pas d'écran ni de contre-liteaux)
     if (couverture === 'canal') lignes.push(L('plaque_st', surf * 1.10));
+    else lignes.push(L('ecran', surf * 1.10));
+    if (cv.liteaux) lignes.push(L('liteau', surf * cv.liteaux * 1.05));
     lignes.push(L(cv.k, Math.ceil(surf * cv.parM2 * 1.05)));
     const lgFaitage = faitage + aretiers;
     if (lgFaitage > 0) {
@@ -300,13 +321,17 @@ export function calcToiture(p) {
         if (couverture !== 'canal') lignes.push(L('closoir', lgFaitage));       // canal : faîtage scellé au mortier
     }
     if (couverture === 'ardoise') lignes.push(L('crochet_ardoise', Math.ceil(surf * cv.parM2 * 1.05)));
-    if (rives > 0 && couverture !== 'canal') lignes.push(L('tuile_rive', Math.ceil(rives * 3)));
+    if (rives > 0 && typeof cv.rive === 'number') lignes.push(L('tuile_rive', Math.ceil(rives * cv.rive)));
+    if (rives > 0 && cv.rive === 'zinc') lignes.push(L('rive_zinc', rives * 1.05));
     if (noues > 0) lignes.push(L('noue', noues * 1.10, { d: `${rentrants} noue(s)` }));
-    if (couverture === 'canal' && lgFaitage > 0) {
-        lignes.push(...lignesMortier(lgFaitage * 0.010 * PERTE_MORTIER, { liant: 'batard' }));
-        infos.push('Tuile canal : faîtage et rives scellés au mortier bâtard. Tuiles de courant fixées (crochets ou mousse) selon la zone de vent.');
-    }
-    infos.push('Sécurité : échafaudage avec garde-corps ou harnais. Fermettes contreventées avant de monter les tuiles.');
+    // Faîtage scellé (canal) et rives ruellées (canal, tuile plate) : ≈ 10 L de mortier bâtard par mètre
+    const mlScelle = (couverture === 'canal' ? lgFaitage : 0) + (cv.rive === 'mortier' ? rives : 0);
+    if (mlScelle > 0) lignes.push(...lignesMortier(mlScelle * 0.010 * PERTE_MORTIER, { liant: 'batard' }));
+    if (couverture === 'canal') infos.push('Tuile canal : plaques sous-tuiles fixées sur la charpente, faîtage et rives scellés au mortier bâtard. Tuiles de courant fixées (crochets ou mousse) selon la zone de vent.');
+    if (couverture === 'plate' && rives > 0) infos.push('Tuile plate : rives ruellées au mortier bâtard (ou tuiles de rive à rabat, à demander au fabricant).');
+    if (couverture === 'ardoise' && rives > 0) infos.push('Ardoise : rives en bande de zinc pliée (ou rives en ardoise à recouvrement).');
+    infos.push('Sécurité : échafaudage avec garde-corps ou harnais. Fermettes contreventées avant de monter les tuiles.',
+        'Rénovation : une ancienne couverture ou sous-toiture en fibres-ciment (avant 1997) peut contenir de l\'amiante. Repérage avant dépose, entreprise certifiée si positif.');
     heures += surf * (couverture === 'plate' || couverture === 'ardoise' ? 1.1 : 0.7);
 
     if (gouttieres) {
@@ -398,37 +423,41 @@ export function calcPlaco(type, a, b, o = {}) {
     const Lp = type === 'plafond' || type === 'rampant' ? 2.5 : longueurPlaque(b);
     const kPl = clePlaque(plaque);
     const nbPlaques = (surf, perte) => Math.ceil(surf * perte / (1.2 * Lp) - 1e-9);
-    const dPl = { d: `1,20 × ${fmtSmart(Lp, 2)} m${b > 3 + 1e-9 && type !== 'plafond' && type !== 'rampant' ? ' (aboutées, joints décalés de 40 cm)' : ''}` };
+    const refPl = `1,20 × ${lg2(Lp)}`;
+    const dPl = { ref: refPl, d: b > 3 + 1e-9 && type !== 'plafond' && type !== 'rampant' ? 'aboutées, joints décalés de 40 cm' : undefined };
     let Svue = S;                    // faces visibles (bandes, enduit)
 
     if (type === 'colle') {
         const c = DOUBLAGE_COLLE[complexe] || DOUBLAGE_COLLE['120'];
-        lignes.push(L('doublage_colle', nbPlaques(S, 1.05), { d: `${c.l} (R ${fmtSmart(c.R, 2)}), 1,20 × ${fmtSmart(Lp, 2)} m` }));
+        lignes.push(L('doublage_colle', nbPlaques(S, 1.05), { ref: `${c.l} · ${refPl}`, d: `R ${fmtSmart(c.R, 2)}` }));
         lignes.push(L('map', S * 4), L('acrylique', Math.ceil(2 * a / 10 - 1e-9)));
         infos.push(`Doublage collé ${c.l} : R ${fmtSmart(c.R, 2)}. MAP ≈ 10 plots par m² (≈ 4 kg/m²). Plaque surélevée de 1 cm, joint acrylique en pied.`,
-            'Support plan à 15 mm près sous la règle de 2 m, sec et sans remontées d\'humidité. Interdit sur mur humide ou peinture qui farine.');
+            'Support plan à 15 mm près sous la règle de 2 m, sec et sans remontées d\'humidité. Interdit sur mur humide ou peinture qui farine.',
+            'Mur en pierre ou brique ancienne : PAS de doublage collé (le polystyrène et le plâtre bloquent l\'humidité, le mur pourrit). Préférer un doublage sur ossature avec laine ou fibre de bois et membrane hygrorégulante.');
     } else if (type === 'appuis') {
         const nbF = Math.ceil(a / 0.6 - 1e-9) + 1;
         const appuisParF = Math.max(1, Math.ceil(b / 1.35 - 1e-9) - 1);
         lignes.push(L(kPl, nbPlaques(S, 1.08), dPl));
-        lignes.push(L('fourrure', Math.ceil(nbF * b * 1.05 / 3 - 1e-9)));
+        lignes.push(L('fourrure', nbF * Math.ceil(b / 3 - 1e-9), b > 3 + 1e-9 ? { d: 'éclissées' } : {}));
+        if (b > 3 + 1e-9) lignes.push(L('eclisse', nbF * (Math.ceil(b / 3 - 1e-9) - 1)));
         lignes.push(L('appui_doublage', nbF * appuisParF));
         lignes.push(L('corniere', Math.ceil(2 * a * 1.05 / 3 - 1e-9), { d: 'lisses haute et basse' }));
         if (isolant) {
             const R = laine / 1000 / 0.032;
-            lignes.push(L('laine_mur', S * 1.05, { d: `${laine} mm λ 0,032 (R ${fmtSmart(R, 2)})` }));
+            lignes.push(L('laine_mur', S * 1.05, { ref: `${laine} mm`, d: `λ 0,032, R ${fmtSmart(R, 2)}` }));
             lignes.push(...lignesPareVapeur(S, 2 * (a + b)));
         }
         lignes.push(L('fixation', nbF * appuisParF * 2 + Math.ceil(2 * a / 0.6)));
         lignes.push(L('vis_placo', S * 15));
         infos.push(`Doublage sur appuis : fourrures F530 tous les 60 cm, 1 appui tous les 1,35 m de haut. Laine ${laine} mm λ 0,032 ≈ R ${fmtSmart(laine / 1000 / 0.032, 2)} (RE2020 : viser R ≥ 3,7).`);
+        if (isolant) infos.push('Mur en pierre ou brique ancienne : remplacer le pare-vapeur par une membrane hygrorégulante (frein-vapeur) et laisser une lame d\'air de 2 cm contre le mur, qui doit être sain et sec.');
     } else if (type === 'plafond' || type === 'rampant') {
         const entraxe = type === 'rampant' || isolant ? 0.5 : 0.6;
         const rangs = Math.ceil(b / entraxe - 1e-9) + 1;
         const eclisses = rangs * Math.max(0, Math.ceil(a / 3 - 1e-9) - 1);
         const pasSusp = chargeLourde ? 1.0 : 1.2;
         const nbSusp = type === 'rampant' ? Math.ceil(S * 1.8) : rangs * (Math.ceil(a / pasSusp - 1e-9) + 1);
-        lignes.push(L(kPl, Math.ceil(S * 1.10 / 3 - 1e-9), { d: '1,20 × 2,50 m' }));
+        lignes.push(L(kPl, Math.ceil(S * 1.10 / 3 - 1e-9), { ref: '1,20 × 2,50 m' }));
         lignes.push(L('fourrure', Math.ceil(rangs * a * 1.10 / 3 - 1e-9)));
         if (eclisses) lignes.push(L('eclisse', eclisses));
         lignes.push(L('suspente', nbSusp));
@@ -449,9 +478,9 @@ export function calcPlaco(type, a, b, o = {}) {
         const nbM = (Math.ceil(a / 0.6 - 1e-9) + 1) * (double ? 2 : 1) + 2 * portes;
         lignes.push(L(kPl, nbPlaques(Sp, b > 3 ? 1.10 : 1.08), dPl));
         lignes.push(L(m70 ? 'rail70' : 'rail', Math.ceil((2 * a + 0.9 * portes) * 1.05 / 3 - 1e-9)));
-        lignes.push(L(m70 ? 'montant70' : 'montant', nbM, { d: `longueur ${fmtSmart(lgM, 2)} m${double ? ', doublés dos à dos' : ''}` }));
+        lignes.push(L(m70 ? 'montant70' : 'montant', nbM, { ref: lg2(lgM), d: double ? 'doublés dos à dos' : undefined }));
         lignes.push(L('fixation', Math.ceil(2 * a / 0.6) + 4));
-        if (isolant) lignes.push(L('laine_cloison', S * 1.05, { d: m70 ? '70 mm' : '45 mm' }));
+        if (isolant) lignes.push(L('laine_cloison', S * 1.05, { ref: m70 ? '70 mm' : '45 mm' }));
         if (cloison === '98') {
             lignes.push(L('vis_placo', S * 2 * 7, { d: '1re plaque' }), L('vis_placo35', S * 2 * 15, { d: '2e plaque' }));
         } else lignes.push(L('vis_placo', Sp * 15));
@@ -463,7 +492,7 @@ export function calcPlaco(type, a, b, o = {}) {
     lignes.push(L('bande', Svue * 1.5));
     lignes.push(L('enduit_joint', Svue * 0.4));
     if (angles > 0) lignes.push(L('bande_armee', angles * 1.05));
-    if (plaque === 'h1') infos.push('Pièce humide : plaques H1, pied de cloison protégé (bande d\'étanchéité remontée 2 cm + mastic), SPEC sur les parois de douche.');
+    if (plaque === 'h1' && type !== 'colle') infos.push('Pièce humide : plaques H1, pied de cloison protégé (bande d\'étanchéité remontée 2 cm + mastic), SPEC sur les parois de douche.');
     return { S, Lp, lignes, infos, detail };
 }
 
@@ -471,9 +500,9 @@ export function calcPlaco(type, a, b, o = {}) {
 export function calcRampants(S, { couche1 = 100, couche2 = 140, plaque = 'std' } = {}) {
     const R = (couche1 + couche2) / 1000 / 0.032;
     const lignes = [
-        L('laine_mur', S * 1.05, { d: `1re couche ${couche1} mm entre chevrons` }),
-        L('laine_mur', S * 1.05, { d: `2e couche ${couche2} mm croisée` }),
-        L(clePlaque(plaque), Math.ceil(S * 1.10 / 3 - 1e-9), { d: '1,20 × 2,50 m' }),
+        L('laine_mur', S * 1.05, { ref: `${couche1} mm`, d: '1re couche, entre chevrons' }),
+        L('laine_mur', S * 1.05, { ref: `${couche2} mm`, d: '2e couche, croisée' }),
+        L(clePlaque(plaque), Math.ceil(S * 1.10 / 3 - 1e-9), { ref: '1,20 × 2,50 m' }),
         L('fourrure', Math.ceil(S / 0.5 * 1.10 / 3 - 1e-9), { d: 'entraxe 50 cm' }),
         L('suspente', Math.ceil(S * 1.8), { d: 'suspentes de rampant' }),
         L('fixation', Math.ceil(S * 1.8)),

@@ -49,10 +49,10 @@ export const RESEAUX = [
                 L('fosse', 1, { d: `${vol} m³ (${v.pieces} pièces principales)` }),
                 L('regard', 2 + (ep > 0 ? 2 : 0), { d: 'sortie maison, répartition, bouclage' }),
                 L('pvc100', (v.dist + 5) * 1.05, { d: 'collecte + ventilation' }),
-                L('sable04', vol * 0.3 * 1.5, { d: 'lit de pose et calage de la fosse' })
+                L('sable04', vol * 0.8 * 1.5, { d: 'lit de pose et remblai latéral de la fosse' })
             ];
             if (ep > 0) lignes.push(
-                L('drain', ep * 1.05, { d: 'tuyaux d\'épandage' }),
+                L('tuyau_epandage', ep * 1.05),
                 L('gravier_drain', ep * 0.5 * 0.4 * 1.6),
                 L('geotextile', ep * 0.7 * 1.1)
             );
@@ -64,7 +64,8 @@ export const RESEAUX = [
                 infos: [
                     'Fosse : 3 m³ jusqu\'à 5 pièces principales, +1 m³ par pièce en plus.',
                     'Étude de sol et accord du SPANC obligatoires avant travaux : ils fixent le type et la longueur du traitement.',
-                    'Ventilation haute de la fosse en Ø100 au-dessus du faîtage. Fosse à 35 m mini d\'un puits.',
+                    'Ventilation haute de la fosse en Ø100 jusqu\'à 40 cm au-dessus du faîtage, avec extracteur (statique ou éolien). Fosse à 35 m mini d\'un puits.',
+                    'Épandage : tuyaux rigides perforés, sans chaussette (elle colmate), trous vers le bas, sur gravier lavé (DTU 64.1).',
                     CONSEILS.dict
                 ],
                 mesure: { q: 1, u: 'forfait', h: 16 + ep * 0.4 }

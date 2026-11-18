@@ -194,6 +194,7 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px calc(var(--nav-h) + 
 .line { display: flex; align-items: center; gap: 12px; padding: 12px 2px; border-top: 1px solid var(--line); }
 .line:first-child { border-top: 0; }
 .line .nm { flex: 1; min-width: 0; font-weight: 650; font-size: 16px; line-height: 1.3; }
+.line .nm .ref { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 8px; background: var(--ink); color: #fff; font-size: 14px; font-weight: 800; vertical-align: 1px; max-width: 100%; overflow-wrap: anywhere; }
 .line .nm small { display: block; font-weight: 500; color: var(--muted); font-size: 14px; margin-top: 2px; }
 .line .qt { text-align: right; flex: none; }
 .line .qt b { font-size: 26px; font-weight: 900; white-space: nowrap; font-variant-numeric: tabular-nums; }

@@ -1,6 +1,6 @@
 // Calculateurs « Rénovation & démolition ».
 
-import { L, fusion, lignesBeton, lignesMurBlocs, PERTE_BETON, calcDrainage } from '../base.js';
+import { L, fusion, lignesBeton, lignesMurBlocs, PERTE_BETON, calcDrainage, barresPour } from '../base.js';
 import { fmtSmart } from '../../core/format.js';
 import { n, c, oui, MODE, fm, CONSEILS, aideBeton } from './commun.js';
 export const RENOVATION = [
@@ -68,16 +68,20 @@ export const RENOVATION = [
             const poids = volPlace * densite;
             const volF = volPlace * 1.5;
             const nbBennes = Math.max(Math.ceil(volF / 6 - 1e-9), Math.ceil(poids / 8 - 1e-9));
-            const lignes = volF > 1 ? [L('benne6', nbBennes)] : [L('bigbag_gravats', Math.max(1, Math.ceil(volF / 0.8 - 1e-9)), { d: 'remplis aux 3/4 (poids)' })];
+            // Jusqu'à 2 m³ foisonnés : big bags (3 à 4) plutôt qu'une benne
+            const lignes = volF > 2 ? [L('benne6', nbBennes)] : [L('bigbag_gravats', Math.max(1, Math.ceil(volF / 0.8 - 1e-9)), { d: 'remplis aux 3/4 (poids)' })];
             const heuresM2 = { piquage: 0.5 + v.ep * 0.1, joints: 0.8, cloison: 0.3, dalle: 0.8 + v.ep * 0.03, mur: 0.5 + v.ep * 0.03 }[v.type];
             return {
                 resume: [{ l: 'Surface', v: `${fm(S)} m²` }, { l: 'Gravats', v: `${fm(volF)} m³ ≈ ${fmtSmart(poids, 1)} T` }],
                 lignes, recette: null,
                 infos: [
                     `Gravats foisonnés ×1,5. Poids ≈ ${fmtSmart(densite, 1)} T par m³ en place.`,
-                    volF > 1 ? `Bennes de 6 m³ (8 T maxi environ) : ${nbBennes}.` : `Petit volume (${fm(volF)} m³) : big bags à gravats ou remorque.`,
+                    volF > 2 ? `Bennes de 6 m³ (8 T maxi environ) : ${nbBennes}.` : `Petit volume (${fm(volF)} m³) : big bags à gravats ou remorque.`,
                     v.type === 'mur' ? 'Mur porteur : voir « Ouverture dans mur porteur » (étaiement, bureau d\'études).' : null,
-                    'Poussière : masque FFP3, lunettes, arrosage. Vérifier l\'absence d\'amiante (diagnostic avant travaux pour les bâtiments d\'avant 1997).'
+                    v.type === 'cloison' ? 'Vieille cloison en brique ou carreaux de plâtre : vérifier qu\'elle ne porte pas un plancher (solives posées dessus) avant de la casser.' : null,
+                    'Couper l\'eau et l\'électricité : il y a souvent des gaines et des tuyaux encastrés.',
+                    'Amiante : diagnostic obligatoire avant travaux pour les bâtiments d\'avant 1997 (enduits, colles, dalles, conduits). Plomb : peintures d\'avant 1949, pas de ponçage ni de décapage à sec.',
+                    'Poussière (silice) : masque FFP3, lunettes, découpe à l\'eau, arrosage.'
                 ].filter(Boolean),
                 mesure: { q: S, u: 'm²', h: S * heuresM2 }
             };
@@ -102,8 +106,8 @@ export const RENOVATION = [
             const lgFer = lg + 0.4;                                          // ancrages
             const lignes = [
                 ...lignesBeton(vol, 350, v.mode, { fin: true }),
-                L('fer12', Math.ceil(2 * lgFer * v.nb / 6 - 1e-9), { d: '2 HA12 en bas' }),
-                L('fer10', Math.ceil(2 * lgFer * v.nb / 6 - 1e-9), { d: '2 HA10 en haut' }),
+                L('fer12', barresPour(2 * v.nb, lgFer), { d: `2 HA12 en bas, morceaux de ${fm(lgFer)} m` }),
+                L('fer10', barresPour(2 * v.nb, lgFer), { d: `2 HA10 en haut, morceaux de ${fm(lgFer)} m` }),
                 L('etrier', (Math.ceil(lg / 0.2 - 1e-9) + 1) * v.nb, { d: 'HA6 tous les 20 cm' }),
                 L('contreplaque', (2 * h + b) * lg * v.nb * 1.15),
                 L('etai', 2 * v.nb)
@@ -141,13 +145,15 @@ export const RENOVATION = [
             const lignes = [
                 ...lignesBeton(volSem, 350, v.mode),
                 ...lignesMurBlocs(v.L * hVoile, 'bancher', 0, 0, v.mode),
-                L('fer12', Math.ceil(nbV * (hVoile + 0.5 + B * 0.7) / 6), { d: 'verticaux en L tous les 20 cm, ancrés dans la semelle' }),
-                L('fer10', Math.ceil((Math.ceil(hVoile / 0.4) * v.L + nbV * B) * 1.1 / 6), { d: 'horizontaux + semelle' }),
+                L('fer12', barresPour(nbV, hVoile + 0.5 + B * 0.7), { d: `${nbV} verticaux en L de ${fm(hVoile + 0.5 + B * 0.7)} m, tous les 20 cm` }),
+                L('fer10', Math.ceil(hVoile / 0.4) * Math.ceil(v.L / 5.5 - 1e-9) + barresPour(nbV, B), { d: 'horizontaux (recouvrements 50 cm) + transversaux de semelle' }),
+                ...lignesBeton(v.L * B * 0.05 * PERTE_BETON, 150, v.mode),
                 L('barbacane', Math.ceil(v.L * v.H / 2)),
                 L('cales', Math.ceil(v.L * B * 4))
             ];
             const infos = [
                 `Semelle en L de ${fm(B)} m × ${fmtSmart(es * 100, 0)} cm (talon côté terre), voile en blocs à bancher armés sur ${fm(hVoile)} m.`,
+                `Béton de propreté de 5 cm sous la semelle. Fouille ≈ ${fm(v.L * (B + 0.6) * (es + 0.3))} m³, remblai drainant derrière le mur.`,
                 'Barbacanes : 1 tous les 2 m², en bas du mur. Joints de dilatation tous les 10 m environ.',
                 'Au-delà de 1 m de terre, ou avec une charge en haut (voiture, maison, talus) : note de calcul obligatoire. Ferraillage ici indicatif.',
                 CONSEILS.dict

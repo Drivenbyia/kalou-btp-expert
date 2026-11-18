@@ -14,6 +14,7 @@ export function htmlKpis(resume = []) {
 /** Une ligne matériau (clé catalogue) ou ancienne ligne libre { l, q, u }. */
 export function htmlLigne(li, ctx, opts = {}) {
     let nom, v, u, d;
+    const ref = li.ref ? `<span class="ref">${esc(li.ref)}</span>` : '';
     if (li.k && MATERIAUX[li.k]) {
         const a = affichage(li.k, li.q, ctx);
         nom = li.l || libelle(li.k, ctx); v = a.v; u = a.u; d = [li.d, a.d].filter(Boolean).join(' · ');
@@ -23,7 +24,7 @@ export function htmlLigne(li, ctx, opts = {}) {
     const check = opts.check;
     return `<li class="line${check ? ' check' : ''}${opts.done ? ' done' : ''}" ${check ? `data-check="${esc(opts.cle)}" role="checkbox" aria-checked="${!!opts.done}"` : ''}>
         ${check ? `<span class="box">${opts.done ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : ''}</span>` : ''}
-        <span class="nm">${esc(nom)}${d && !opts.sansDetail ? `<small>${esc(d)}</small>` : ''}${opts.reste ? `<span class="reste">${esc(opts.reste)}</span>` : ''}</span>
+        <span class="nm">${esc(nom)}${ref}${d && !opts.sansDetail ? `<small>${esc(d)}</small>` : ''}${opts.reste ? `<span class="reste">${esc(opts.reste)}</span>` : ''}</span>
         <span class="qt"><b>${esc(v)}<em>${esc(u)}</em></b></span>
     </li>`;
 }
@@ -60,15 +61,20 @@ export function htmlCout(lignes, heures, ctx, tva = null) {
 
 // ─── Consolidation (liste de courses d'un chantier) ─────────────────────────
 
-/** Additionne des lignes par matériau. Renvoie [{ cle, k?, l?, q, u?, d? }]. */
+/**
+ * Additionne des lignes par article ET par référence (épaisseur, longueur, format…) :
+ * laine 100 mm et laine 140 mm restent deux lignes. Renvoie [{ cle, k?, ref?, l?, q, u? }].
+ */
 export function consolider(lignes) {
     const map = new Map();
     lignes.forEach(li => {
         if (!li || !(li.q > 0)) return;
         let cle, base;
         if (li.k && MATERIAUX[li.k]) {
-            cle = li.k === 'bpe' ? `bpe|${li.d || ''}` : li.k;
-            base = { k: li.k, d: li.k === 'bpe' ? li.d : undefined };
+            // Anciennes lignes de toupie enregistrées avec la classe dans « d »
+            const ref = li.ref || (li.k === 'bpe' ? li.d : undefined);
+            cle = ref ? `${li.k}|${ref}` : li.k;
+            base = { k: li.k, ref };
         } else {
             cle = `libre|${li.l}|${li.u || ''}`;
             base = { l: li.l, u: li.u };
@@ -95,7 +101,7 @@ export function parCategorie(lignes) {
 /** Texte prêt à envoyer (SMS / WhatsApp / mail). */
 export function texteListe(titre, lignes, ctx, { cats = true, sousTitre = '' } = {}) {
     const ligne = li => li.k && MATERIAUX[li.k]
-        ? `• ${li.l || libelle(li.k, ctx)}${li.k === 'bpe' && li.d ? ` (${li.d})` : ''} : ${texteQuantite(li.k, li.q, ctx)}`
+        ? `• ${li.l || libelle(li.k, ctx)}${li.ref ? ` — ${li.ref}` : ''} : ${texteQuantite(li.k, li.q, ctx)}`
         : `• ${li.l} : ${fmt(li.q, Number.isInteger(li.q) ? 0 : 2)} ${li.u || ''}`.trim();
     let t = `${titre}\n`;
     if (sousTitre) t += `${sousTitre}\n`;

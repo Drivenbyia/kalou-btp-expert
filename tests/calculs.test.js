@@ -261,3 +261,91 @@ test('menuiseries : anciennes saisies converties, tailles libres', () => {
     assert.ok(Math.abs(q(deuxBaies.lignes, 'linteau') - (3.4 + 2.2)) < 1e-9);
     assert.ok(calculerMaison({ ...d, menuiseries: [{ t: 'fenetre', nb: 1, larg: '1,2', haut: '125' }] }, ctx).erreurs['men-0']);
 });
+
+// ─── Lot 1 (4.8.0) : corrections issues de la relecture maçon / plaquiste / rénovateur ───
+import { consolider } from '../js/ui/resultats.js';
+import { barresPour } from '../js/calc/base.js';
+
+test('liste de courses : une ligne par épaisseur / longueur / usage', () => {
+    const ramp = calculer('isolation', { type: 'rampants', L: 9, l: 9 }, ctx);
+    const c1 = calculer('placo', { type: 'cloison', a: 4, b: 2.5 }, ctx);
+    const c2 = calculer('placo', { type: 'cloison', a: 4, b: 2.8, cloison: '72' }, ctx);
+    const fai = calculer('carrelage', { support: 'mur', L: 8, l: 2 }, ctx);
+    const sol = calculer('carrelage', { support: 'sol', L: 2.2, l: 1.8 }, ctx);
+    const liste = consolider([...ramp.lignes, ...c1.lignes, ...c2.lignes, ...fai.lignes, ...sol.lignes]);
+    const refs = k => liste.filter(l => l.k === k).map(l => l.ref).sort();
+    assert.deepEqual(refs('laine_mur'), ['100 mm', '140 mm']);
+    assert.deepEqual(refs('montant'), ['2,50 m', '2,80 m']);
+    assert.ok(refs('ba13').length >= 2, 'plaques 2,50 et 2,80 séparées');
+    assert.equal(refs('carrelage').length, 2, 'faïence et sol séparés');
+    // Béton de propreté et béton de semelle : deux commandes de toupie distinctes
+    const f = calculer('fondation', { mode: 'bpe' }, ctx);
+    assert.equal(consolider(f.lignes).filter(l => l.k === 'bpe').length, 2);
+});
+
+test('chaux : la chaux choisie arrive dans la liste', () => {
+    const p2 = calculer('pierre', { nhl: '2' }, ctx);
+    assert.ok(q(p2.lignes, 'chaux_nhl2') > 0 && q(p2.lignes, 'chaux') === 0);
+    const e = calculer('chaux', {}, ctx);
+    assert.ok(q(e.lignes, 'chaux_nhl5') > 0 && q(e.lignes, 'chaux') > 0 && q(e.lignes, 'chaux_nhl2') > 0);
+});
+
+test('chaînage en blocs U : le rang du haut n\'est plus compté en agglos', () => {
+    const sans = calculer('mur', { L: 10, h: 2.5, bloc: 'p20', angles: 0, chainage: false }, ctx);
+    const avec = calculer('mur', { L: 10, h: 2.5, bloc: 'p20', angles: 0, chainage: true }, ctx);
+    const diff = q(sans.lignes, 'parpaing20') - q(avec.lignes, 'parpaing20');
+    assert.ok(diff >= 20 && diff <= 22, `diff ${diff}`);        // 10 m × 1 rang = 20 agglos (+5 %)
+    assert.equal(q(avec.lignes, 'bloc_u'), 21);
+});
+
+test('barres de 6 m : comptées en morceaux', () => {
+    assert.equal(barresPour(41, 2.46), 21);     // 2 morceaux par barre
+    assert.equal(barresPour(4, 3.8), 4);
+    assert.equal(barresPour(3, 2), 1);
+    const s = calculer('soutenement', { L: 8, H: 1.2 }, ctx);
+    assert.ok(q(s.lignes, 'fer12') >= 21);
+});
+
+test('carrelage extérieur : plus de colle en double encollage', () => {
+    const petit = calculer('carrelage', { support: 'ext', L: 5, l: 4, format: 'petit' }, ctx);
+    const moyen = calculer('carrelage', { support: 'ext', L: 5, l: 4, format: 'moyen' }, ctx);
+    assert.ok(q(moyen.lignes, 'colle_carrelage') > q(petit.lignes, 'colle_carrelage'));
+    assert.equal(q(moyen.lignes, 'colle_carrelage'), 140);   // 7 kg/m²
+});
+
+test('doublage sur appuis 10 × 2,5 m : 18 fourrures (une barre par fourrure)', () => {
+    const r = calculer('placo', { type: 'appuis', a: 10, b: 2.5 }, ctx);
+    assert.equal(q(r.lignes, 'fourrure'), 18);
+});
+
+test('garde-fous : ouvertures plus grandes que la surface', () => {
+    assert.ok(calculer('placo', { type: 'cloison', a: 1, b: 2.5, portes: 3 }, ctx).erreurs.portes);
+    assert.ok(calculer('placo', { type: 'cloison', a: 4, b: 2.5, portes: 2, ouv: 8 }, ctx).erreurs.ouv);
+    assert.ok(calculer('peinture', { L: 4, l: 3.5, h: 2.5, ouv: 60 }, ctx).erreurs.ouv);
+    const d = valeursDefaut(MAISON_DEF);
+    const m = calculerMaison({ ...d, L: 6, l: 4, menuiseries: [{ t: 'baie', nb: 10, larg: 300, haut: 215 }] }, ctx);
+    assert.ok(m.erreurs.menuiseries);
+    assert.ok(calculerMaison({ ...d, l: 0.5 }, ctx).erreurs.l);
+});
+
+test('carrelage : la surface de douche est remise à 0 quand on change de support', () => {
+    const def = OUVRAGES.find(o => o.id === 'carrelage');
+    const v = { support: 'sol', sDouche: '4,4' };
+    def.surChoix(v, { support: 'mur' });
+    assert.equal(v.sDouche, '0');
+});
+
+test('toiture : rives selon la couverture, tuile canal sans écran', () => {
+    const canal = calculer('toiture', { couverture: 'canal', pans: '2' }, ctx);
+    assert.equal(q(canal.lignes, 'ecran'), 0);
+    assert.ok(q(canal.lignes, 'plaque_st') > 0 && q(canal.lignes, 'tuile_rive') === 0);
+    const ard = calculer('toiture', { couverture: 'ardoise', pans: '2' }, ctx);
+    assert.ok(q(ard.lignes, 'rive_zinc') > 0 && q(ard.lignes, 'tuile_rive') === 0);
+});
+
+test('maison 10 × 8 : moins d\'agglos (rangs de chaînage déduits)', () => {
+    const d = valeursDefaut(MAISON_DEF);
+    const r = calculerMaison({ ...d, L: 10, l: 8, niveaux: '1' }, ctx);
+    const murs = r.lots.find(l => l.id === 'murs');
+    assert.ok(murs.infos.some(t => t.includes('rangs de chaînage')));
+});

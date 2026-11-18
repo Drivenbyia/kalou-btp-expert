@@ -26,8 +26,9 @@ export const INTERIEUR = [
             const vol = S * v.ep / 100 * PERTE_BETON;
             const lignes = [...lignesMortier(vol, { dosage: +v.dosage, sableM3: 1.15 })];
             if (v.bande) lignes.push(L('bande_peri', 2 * (v.L + v.l) * 1.05));
+            if (v.pose === 'adh') lignes.push(L('primaire', S * 0.15, { d: 'accrochage sur le support (ou barbotine ciment)' }));
             if (v.pose === 'flot') {
-                lignes.push(L('isolant_chape', S * 1.05, { d: `${fmtSmart(v.epIso, 0)} mm` }), L('polyane', S * 1.15));
+                lignes.push(L('isolant_chape', S * 1.05, { ref: `${fmtSmart(v.epIso, 0)} mm` }), L('polyane', S * 1.15));
                 if (v.arme === 'fibres') lignes.push(L('fibres_pp', vol * 0.6));
                 else lignes.push(L('treillis_chape', S * 1.10, { d: 'posé à mi-épaisseur' }));
             }
@@ -38,6 +39,8 @@ export const INTERIEUR = [
             ];
             if (v.pose === 'flot') infos.splice(1, 0, 'Chape flottante : armée (treillis de chape à mi-épaisseur, ou fibres 0,6 kg/m³), sur film, désolidarisée des murs.');
             if (v.ep < 3) infos.push('Moins de 3 cm : préférer un ragréage.');
+            if (v.pose === 'adh') infos.push('Chape adhérente : support propre, humidifié, primaire d\'accrochage ou barbotine de ciment juste avant de tirer la chape.');
+            infos.push('Rez-de-chaussée de maison ancienne sur terre-plein : une chape ciment étanche fait remonter l\'humidité dans les murs. Préférer une dalle ou chape à la chaux (perspirante).');
             return {
                 resume: [{ l: 'Surface', v: `${fm(S)} m²` }, { l: 'Volume', v: `${fm(vol)} m³` }],
                 lignes: fusion(lignes), infos, recette: recetteMortier(+v.dosage, ctx.sacCiment || 35),
@@ -63,7 +66,7 @@ export const INTERIEUR = [
             const infos = ['≈ 1,6 kg par m² et par mm d\'épaisseur. Primaire ≈ 0,15 kg/m², obligatoire selon la notice. 3 mm minimum.',
                 'Circulable après ≈ 3 h, carrelage après 24 h, parquet ou sol souple après 48 à 72 h.'];
             if (v.ep > 10) infos.unshift('Plus de 10 mm : ragréage épais ou fibré (voir la notice). Au-delà de 30 mm, faire une chape.');
-            infos.push('Sur plancher bois ou ancien carrelage : ragréage fibré, 5 mm minimum.');
+            infos.push('Sur plancher bois ou ancien carrelage : ragréage fibré, 5 mm minimum.', 'Rénovation : vieux carrelage, dalles vinyle et colles noires d\'avant 1997 peuvent contenir de l\'amiante. Ne pas poncer ni casser avant un repérage.');
             return {
                 resume: [{ l: 'Surface', v: `${fm(S)} m²` }],
                 lignes, infos, recette: null, mesure: { q: S, u: 'm²', h: S * 0.15 }
@@ -96,12 +99,16 @@ export const INTERIEUR = [
                 if (v.b > lim.double + 1e-9) return { b: v.cloison === '70' ? `Plus de ${fmtSmart(lim.double, 2)} m : voir le PV du fabricant` : `Trop haut en ${v.cloison}/48 (${fmtSmart(lim.double, 2)} m maxi) : passe en 98/48 ou M70` };
             }
             if (v.type === 'colle' && v.b > 3) return { b: 'Doublage collé : 3 m maxi d\'un seul tenant' };
+            if (v.type === 'cloison' && v.portes > 0) {
+                if (0.9 * v.portes > v.a) return { portes: `Trop de portes pour ${fm(v.a)} m de cloison` };
+                if ((v.ouv || 0) + 1.7 * v.portes >= v.a * v.b) return { ouv: `Portes + ouvertures plus grandes que la cloison (${fm(v.a * v.b)} m²)` };
+            }
             return v.type !== 'plafond' ? verifOuv('a', 'b')(v) : {};
         },
         titre: v => `${{ colle: 'Doublage collé', appuis: 'Doublage sur appuis', cloison: 'Cloison', plafond: 'Plafond' }[v.type] || 'Placo'} ${fm(v.a)}×${fm(v.b)} m`,
         calcul(v) {
             const r = calcPlaco(v.type, v.a, v.b, {
-                cloison: v.cloison, plaque: v.plaque, isolant: v.isolant, ouv: v.type === 'plafond' ? 0 : v.ouv,
+                cloison: v.cloison, plaque: v.type === 'colle' ? 'std' : v.plaque, isolant: v.isolant, ouv: v.type === 'plafond' ? 0 : v.ouv,
                 portes: v.portes, laine: +v.laine, complexe: v.complexe, angles: v.angles
             });
             const infos = [...r.infos,
@@ -138,11 +145,13 @@ export const INTERIEUR = [
                 const r = calcSoufflage(S, v.mat, +v.R, { pareVapeur: v.pv });
                 lignes = r.lignes; R = +v.R; h = S * 0.12;
                 infos = [`${SOUFFLAGE[v.mat].l} : ${fmtSmart(r.eSouffle * 1000, 0)} mm à souffler (tassement compris) pour R ${v.R}. Valeurs de la notice à vérifier sur le sac.`,
+                    r.kgM2 > 10 ? `Poids sur le plafond ≈ ${fmtSmart(r.kgM2, 1)} kg/m² : au-delà de 10 kg/m², resserrer les suspentes (1 m maxi) ou vérifier que le plafond existant le supporte.` : null,
+                    v.pv ? 'Combles déjà plafonnés (rénovation) : le pare-vapeur ne se pose pas par-dessus. Décocher « Pare-vapeur » et soigner l\'étanchéité du plafond (trappe, spots, gaines).' : null,
                     'Piges graduées (1 pour 50 m²), rehausse de trappe, fiche de soufflage affichée près de la trappe.',
-                    'Écart au feu du conduit de fumée, capots sur les spots, gaines de VMC posées sur l\'isolant.'];
+                    'Écart au feu du conduit de fumée, capots sur les spots, gaines de VMC posées sur l\'isolant (jamais enfouies).'].filter(Boolean);
             } else if (v.type === 'rouleau') {
                 R = (+v.ep) / 1000 / (+v.lambda);
-                lignes = [L('laine_combles', S * 1.05, { d: `${v.ep} mm, λ ${String(v.lambda).replace('.', ',')} → R ${fmtSmart(R, 1)}` })];
+                lignes = [L('laine_combles', S * 1.05, { ref: `${v.ep} mm λ ${String(v.lambda).replace('.', ',')}`, d: `R ${fmtSmart(R, 1)}` })];
                 if (v.pv) lignes.push(...lignesPareVapeur(S, 2 * (v.L + v.l)));
                 h = S * 0.15;
                 infos = [`R = épaisseur ÷ λ = ${fmtSmart(R, 1)}. En 2 couches croisées si possible. +5 % de coupes.`];
@@ -178,6 +187,10 @@ export const INTERIEUR = [
             oui('natte', 'Natte de désolidarisation (support fissuré, plancher bois)', false, { si: v => v.support === 'sol' })
         ],
         mots: 'carrelage faïence carreau colle joint plinthe double encollage croisillon spec douche',
+        surChoix(v, avant) {
+            // La surface de douche saisie pour la faïence ne doit pas passer en silence dans le sol (et inversement)
+            if (avant && v.support !== avant.support) v.sDouche = '0';
+        },
         titre: v => `${v.support === 'mur' ? 'Faïence' : 'Carrelage'} ${fm(v.L * v.l)} m²`,
         calcul(v) {
             const S = v.L * v.l;
@@ -186,29 +199,35 @@ export const INTERIEUR = [
             const dim = { petit: 0.2, moyen: 0.4, grand: 0.6, tgf: 0.9 }[v.format];          // côté représentatif (m)
             const epC = { petit: 8, moyen: 9, grand: 10, tgf: 10 }[v.format];                 // épaisseur du carreau (mm)
             const double = v.format === 'grand' || v.format === 'tgf' || (ext && v.format !== 'petit') || (mur && v.format !== 'petit' && v.format !== 'moyen');
-            const colle = mur ? (double ? 6 : 3.5) : ({ petit: 3.5, moyen: 5, grand: 7, tgf: 8 }[v.format]);
+            // Extérieur : double encollage dès 30 cm, donc plus de colle qu'en intérieur
+            const colle = mur ? (double ? 6 : 3.5) : ext ? ({ petit: 5, moyen: 7, grand: 8, tgf: 9 }[v.format]) : ({ petit: 3.5, moyen: 5, grand: 7, tgf: 8 }[v.format]);
+            const nomFormat = { petit: 'jusqu\'à 30 cm', moyen: '30 à 45 cm', grand: '45 à 60 cm', tgf: 'plus de 60 cm' }[v.format];
+            const refCarreau = `${mur ? 'faïence murale' : ext ? 'sol extérieur' : 'sol intérieur'} · ${nomFormat}`;
             const A = dim * 1000;
             const jointKg = (2 * A) / (A * A) * epC * (+v.joint) * 1.6 * 1.10;
             const lignes = [
-                L('carrelage', S * marge),
-                L('colle_carrelage', S * (ext && !double ? 6 : colle)),
+                L('carrelage', S * marge, { ref: refCarreau }),
+                L('colle_carrelage', S * colle),
                 L('joint_carrelage', S * jointKg),
                 L('croisillon', Math.ceil(S * 1.1 / (dim * dim)))
             ];
             if (dim >= 0.45) lignes.push(L('cale_nivel', Math.ceil(S * 4.4 / (dim * dim))));
-            if (v.sDouche > 0) lignes.push(L('spec', v.sDouche * 1.5), L('primaire', v.sDouche * 0.10), L('bande_spec', v.sDouche * 0.8), L('silicone', 2));
+            if (v.sDouche > 0) lignes.push(L('spec', v.sDouche * 1.5), L('primaire', v.sDouche * 0.10), L('bande_spec', v.sDouche * 1.1), L('silicone', 2));
             if (v.primaire) lignes.push(L('primaire', S * 0.15));
             if (v.natte && v.support === 'sol') lignes.push(L('natte_desol', S * 1.05));
-            if (!mur && v.plinthes) lignes.push(L('plinthe', Math.max(0, 2 * (v.L + v.l) - 0.9 * v.portes) * 1.10));
+            if (!mur && v.plinthes) lignes.push(L('plinthe', Math.max(0, 2 * (v.L + v.l) - 0.9 * v.portes) * 1.10, { ref: 'carrelage' }));
             if (!mur) lignes.push(L('acrylique', Math.ceil(2 * (v.L + v.l) / 10 - 1e-9), { d: 'joint périphérique' }));
             const infos = [
-                `Coupes : +${Math.round((marge - 1) * 100)} %. Colle C2 ≈ ${fmtSmart(ext && !double ? 6 : colle, 1)} kg/m²${double ? ' (double encollage)' : ''}, joint ≈ ${fmtSmart(jointKg, 2)} kg/m² (joint de ${v.joint} mm).`,
+                `Coupes : +${Math.round((marge - 1) * 100)} %. Colle C2 ≈ ${fmtSmart(colle, 1)} kg/m²${double ? ' (double encollage)' : ''}, joint ≈ ${fmtSmart(jointKg, 2)} kg/m² (joint de ${v.joint} mm).`,
                 'Dos du carreau couvert à 80 % mini (soulever un carreau pour vérifier). Jointoyer après 24 h. Joint périphérique de 5 mm au mastic.',
                 `Fractionnement : ${ext ? 'tous les 16-20 m² et 4-5 m en extérieur' : 'tous les 40 m² et 8 m'} (ou suivre ceux du support).`,
                 'Support : dalle d\'1 mois, chape de 15 jours mini. Plancher chauffant mis en chauffe puis arrêté 48 h avant.'
             ];
             if (v.format === 'tgf') infos.splice(1, 0, 'Plus de 60 × 60 : hors DTU courant, colle C2 S1 et notice du fabricant.');
-            if (v.sDouche > 0) infos.push(`SPEC sur ${fm(v.sDouche)} m² : 2 couches croisées (≈ 1,5 kg/m²) sur primaire, bandes dans les angles, manchettes aux tuyaux. Faïence de douche sur 2 m de haut mini.`);
+            if (v.sDouche > 0) infos.push(`SPEC sur ${fm(v.sDouche)} m² : 2 couches croisées (≈ 1,5 kg/m²) sur primaire, bandes dans les angles, manchettes aux tuyaux. Faïence de douche sur 2 m de haut mini.`,
+                'Douche à l\'italienne : le SPEC seul ne suffit pas au sol. Il faut un receveur à carreler ou une forme de pente (1 à 2 %) avec natte d\'étanchéité (SEL).');
+            if (mur) infos.push('Faïence sur plaque de plâtre : 30 kg/m² maxi (carreau + colle). Plaques H1 dans la salle de bain.');
+            if (!mur) infos.push('Rénovation : vieux carrelage, dalles vinyle et colles noires d\'avant 1997 peuvent contenir de l\'amiante. Ne pas poncer ni casser avant un repérage.');
             return {
                 resume: [{ l: 'Surface', v: `${fm(S)} m²` }, { l: 'À commander', v: `${fm(S * marge)} m²` }],
                 lignes: fusion(lignes), recette: null, infos,
@@ -237,7 +256,7 @@ export const INTERIEUR = [
                 lignes.push(L('sous_couche', S * 1.05));
                 if (v.mineral) lignes.push(L('polyane200', S * 1.15));
             } else lignes.push(L('colle_parquet', S * 1.1 * 1.05), L('primaire', S * 0.15, { d: 'selon le support' }));
-            if (v.plinthes) lignes.push(L('plinthe', Math.max(0, 2 * (v.L + v.l) - 0.9 * v.portes) * 1.10));
+            if (v.plinthes) lignes.push(L('plinthe', Math.max(0, 2 * (v.L + v.l) - 0.9 * v.portes) * 1.10, { ref: 'bois / MDF' }));
             if (v.portes > 0) lignes.push(L('barre_seuil', v.portes));
             return {
                 resume: [{ l: 'Surface', v: `${fm(S)} m²` }],
@@ -266,7 +285,11 @@ export const INTERIEUR = [
             c('lissage', 'Préparation', [{ v: '0', l: 'Aucune' }, { v: 'B', l: 'Rebouchage' }, { v: 'A', l: 'Lissage complet' }], '0')
         ],
         mots: 'peinture impression sous-couche mur plafond pot enduit lissage',
-        verifier: v => (!v.murs && !v.plafond ? { L: 'Choisis murs et/ou plafond' } : {}),
+        verifier: v => {
+            if (!v.murs && !v.plafond) return { L: 'Choisis murs et/ou plafond' };
+            if (v.murs && v.ouv >= 2 * (v.L + v.l) * v.h) return { ouv: `Plus grand que les murs (${fm(2 * (v.L + v.l) * v.h)} m²) : vérifie` };
+            return {};
+        },
         titre: v => `Peinture pièce ${fm(v.L)}×${fm(v.l)} m`,
         calcul(v) {
             const Sm = v.murs ? Math.max(0, 2 * (v.L + v.l) * v.h - (v.ouv || 0)) : 0;
@@ -284,7 +307,8 @@ export const INTERIEUR = [
                 lignes, recette: null,
                 infos: [
                     'Impression ≈ 8 m²/L, finition ≈ 10 m²/L par couche (voir le pot). Lissage complet : 2 passes de ≈ 0,5 kg/m².',
-                    'Pas sous 5 °C ni au-dessus de 80 % d\'humidité. Plâtre sec (moins de 5 %). Impression puis 12 à 24 h avant la finition, ≈ 6 h entre couches.'
+                    'Pas sous 5 °C ni au-dessus de 80 % d\'humidité. Plâtre sec (moins de 5 %). Impression puis 12 à 24 h avant la finition, ≈ 6 h entre couches.',
+                    'Peintures d\'avant 1949 : risque de plomb. Pas de ponçage ni de décapage thermique à sec (test plomb en magasin).'
                 ],
                 mesure: { q: S, u: 'm²', h: S * (0.12 * (k + (v.impression ? 1 : 0)) + (v.lissage === 'A' ? 0.4 : v.lissage === 'B' ? 0.1 : 0)) }
             };
