@@ -153,6 +153,36 @@ test('isoler un mur ancien : comparer puis choisir un autre isolant ; pièce com
     await p.context().close();
 });
 
+test('accueil par familles, recherche ; listes par pièce et par appareil', async () => {
+    const p = await page();
+    await p.goto(base + '#/');
+    await p.waitForSelector('.famille');
+    assert.equal(await p.locator('.famille').count(), 9);
+    assert.equal(await p.locator('.tile:visible').count(), 0, 'pas les 48 calculs d\'un coup');
+    await p.fill('#q', 'prise');
+    assert.ok(await p.locator('.tile:visible').count() >= 1);
+    await p.goto(base + '#/?f=eau');
+    await p.waitForSelector('.tile');
+    assert.equal(await p.locator('.tile:visible').count(), 2);
+    // Électricité : ajouter une pompe à chaleur loin du tableau
+    await p.goto(base + '#/calc/electricite');
+    await p.waitForSelector('[data-liste="appareils"]');
+    await p.click('[data-lajout="appareils"]');
+    const der = p.locator('[data-liste="appareils"]').last();
+    await der.locator('select[data-lt]').selectOption('pac');
+    await p.locator('[data-liste="appareils"]').last().locator('input[data-col="dist"]').fill('60');
+    await p.waitForFunction(() => /Pompe à chaleur : 32 A, 10 mm²/.test(document.querySelector('#res').textContent));
+    // Plomberie : retirer un appareil, une case vide bloque
+    await p.goto(base + '#/calc/plomberie');
+    await p.waitForSelector('[data-liste="app"]');
+    await p.locator('[data-liste="app"] [data-lsuppr]').first().click();
+    assert.equal(await p.locator('[data-liste="app"]').count(), 2);
+    await p.locator('[data-liste="app"] input[data-col="alim"]').first().fill('');
+    await p.waitForSelector('.liste-ligne.ko');
+    assert.ok(await pasDeDebordement(p));
+    assert.deepEqual(p.erreurs, []);
+});
+
 test('ordinateur (1440 px) : saisie et résultat côte à côte, pas de débordement', async () => {
     const b = await chromium.launch();
     const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });

@@ -96,7 +96,7 @@ export const OUVRAGES_PAR_ID = Object.fromEntries(OUVRAGES.map(o => [o.id, o]));
 /** Valeurs par défaut d'un ouvrage. */
 export function valeursDefaut(def) {
     const v = {};
-    def.champs.forEach(ch => { v[ch.id] = ch.def; });
+    def.champs.forEach(ch => { v[ch.id] = Array.isArray(ch.def) ? ch.def.map(r => ({ ...r })) : ch.def; });
     return v;
 }
 
@@ -115,8 +115,34 @@ export function lireNombre(val) {
     return Number(s);
 }
 
+/** Anciennes saisies (avant les listes) converties au nouveau format. */
+export const migrer = (def, brut) => (def.migrer && brut ? def.migrer({ ...brut }) : brut);
+
+/** Valide une liste : chaque ligne a un type connu et des nombres corrects. */
+function validerListe(ch, rows, erreurs) {
+    const types = Object.keys(ch.types);
+    return (Array.isArray(rows) ? rows : []).map((r, i) => {
+        const t = ch.types[r && r.t] ? r.t : types[0];
+        const o = { t };
+        ch.cols.forEach(col => {
+            const d = (ch.types[t].def && ch.types[t].def[col.id]) ?? col.def;
+            if (col.options) { o[col.id] = col.options.some(x => x.v === String(r[col.id])) ? String(r[col.id]) : String(d); return; }
+            const x = lireNombre(r[col.id]);
+            if (col.si && !col.si(t)) { o[col.id] = isNaN(x) ? d : x; return; }
+            const max = col.max ?? 1000;
+            let err = null;
+            if (isNaN(x)) err = String(r[col.id] ?? '').trim() === '' ? (col.zero ? 'mets 0 si aucun' : 'à remplir') : 'chiffres seulement';
+            else if (x < 0 || (!col.zero && x <= 0)) err = 'doit être plus grand que 0';
+            else if (x > max) err = `trop grand ? (max ${fmtSmart(max)} ${col.u || ''})`;
+            if (err && !erreurs[`${ch.id}-${i}`]) erreurs[`${ch.id}-${i}`] = `${col.l} : ${err}`;
+            o[col.id] = isNaN(x) ? d : x;
+        });
+        return o;
+    });
+}
+
 export function valider(def, brut) {
-    const v = { ...valeursDefaut(def), ...brut };
+    const v = { ...valeursDefaut(def), ...migrer(def, brut) };
     const erreurs = {};
     const alertes = {};
     def.champs.forEach(ch => {
@@ -132,6 +158,8 @@ export function valider(def, brut) {
             if (ch.u === 'cm' && x > 0 && x < 1) alertes[ch.id] = `Tu as mis des mètres ? Ici c'est en cm (${fmtSmart(x, 2)} m = ${fmtSmart(x * 100, 0)} cm).`;
             else if (ch.bas && x > 0 && x < ch.bas) alertes[ch.id] = `Valeur faible (souvent ${fmtSmart(ch.bas)} ${ch.u} ou plus) : vérifie.`;
             v[ch.id] = x;
+        } else if (ch.type === 'liste') {
+            v[ch.id] = validerListe(ch, v[ch.id], erreurs);
         } else if (ch.type === 'texte') {
             v[ch.id] = String(v[ch.id] ?? '').trim().slice(0, 40) || ch.def;
         } else if (ch.type === 'oui') {
