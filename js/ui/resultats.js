@@ -93,7 +93,8 @@ export function consolider(lignes) {
             base = { l: li.l, u: li.u };
         }
         const cur = map.get(cle) || { cle, ...base, q: 0 };
-        cur.q += li.q;
+        // Forfait (téflon, adhésif…) : un seul pour le chantier, pas un par ouvrage
+        cur.q = li.mx ? Math.max(cur.q, li.q) : cur.q + li.q;
         map.set(cle, cur);
     });
     return Array.from(map.values());

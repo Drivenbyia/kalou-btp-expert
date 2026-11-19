@@ -8,7 +8,7 @@ import {
     restaurerItem, restaurerChantier, ajouterItem, ajouterLibre, supprimerLibre, derniereSauvegarde, getReglages,
     enregistrerPiece, supprimerPiece
 } from '../core/store.js';
-import { CHAMPS_PIECE, DEF_PIECE, POUR_PIECE, valeursPiece, nomPiece, resumePiece } from '../calc/pieces.js';
+import { CHAMPS_PIECE, DEF_PIECE, POUR_PIECE, valeursPiece, nomPiece, resumePiece, normaliser, DEF_ELEC_PIECE, metre } from '../calc/pieces.js';
 import { valider, valeursDefaut } from '../calc/ouvrages.js';
 import { htmlChamps, brancherForm, afficherErreurs } from '../ui/form.js';
 import { nbAchat, affichage, MATERIAUX } from '../calc/materiaux.js';
@@ -56,7 +56,9 @@ export function vueChantiers(root) {
 // ─── Calcul d'un ouvrage enregistré ─────────────────────────────────────────
 
 /** Recalcule un ouvrage avec les formules actuelles (ou garde les anciennes lignes). */
-export function calculerItem(item, ctx) {
+export function calculerItem(item, ctx, ch = null) {
+    // « Toute la maison » : recalculée avec les pièces actuelles du chantier
+    if (ch && item.ouvrage && OUVRAGES_PAR_ID[item.ouvrage] && OUVRAGES_PAR_ID[item.ouvrage].chantierSeul) item = { ...item, valeurs: { ...item.valeurs, pieces: ch.pieces || [] } };
     try {
         if (item.ouvrage === 'maison') {
             const r = calculerMaison(item.valeurs, ctx);
@@ -79,7 +81,7 @@ export function calculerItem(item, ctx) {
  * augmente ensuite (nouvel ouvrage), la ligne se décoche et affiche le reste à prendre.
  */
 function donneesListe(ch, ctx) {
-    const calc = ch.items.map(it => ({ it, ...calculerItem(it, ctx) }));
+    const calc = ch.items.map(it => ({ it, ...calculerItem(it, ctx, ch) }));
     const toutes = consolider([...calc.flatMap(c => c.lignes), ...(ch.libres || []).map(a => ({ l: a.l, q: a.q, u: a.u }))]);
     const achete = ch.achete || {};
     const qAchat = li => (li.k && MATERIAUX[li.k]) ? nbAchat(li.k, li.q, ctx, li.pk) : Math.round(li.q * 100) / 100;
@@ -138,10 +140,14 @@ export function vueChantier(root, id, params) {
                 </button>`;
             }).join('') : '<p class="hint" style="margin:0 4px 10px;color:var(--muted)">Rénovation : mesure chaque pièce une fois, puis calcule chape, carrelage, placo, peinture, électricité… sans retaper les mesures.</p>'}
             <button class="btn btn-ghost btn-block" data-go="#/chantier/${esc(ch.id)}?piece=nouvelle">${ICONES.plus}<span>Ajouter une pièce</span></button>
-            ${pieces.length ? `<div class="row" style="margin-top:10px">
-                <button class="btn btn-light" data-go="#/calc/electricite?ch=${esc(ch.id)}&depuis=pieces">⚡ Électricité des pièces</button>
-                <button class="btn btn-light" data-go="#/calc/vmc?ch=${esc(ch.id)}&depuis=pieces">🌀 VMC</button>
-            </div>` : ''}
+            ${pieces.length ? (() => {
+                const tm = ch.items.find(it => it.ouvrage === 'renomaison');
+                return `<button class="hero" style="margin-top:10px" data-go="#/calc/renomaison?ch=${esc(ch.id)}${tm ? `&item=${esc(tm.id)}` : ''}">
+                    <span class="ic">🏠</span>
+                    <span><b>Toute la maison</b><small>${tm ? 'Déjà calculé : touche pour modifier les travaux' : 'Coche les travaux : doublage, cloisons, plafonds, sols, peinture, électricité, plomberie… une seule liste'}</small></span>
+                    <span class="go">${ICONES.chev}</span></button>`;
+            })() : ''}
+
             <p class="section-title">Ouvrages${ch.items.length ? ` (${ch.items.length})` : ''}</p>
             ${calc.length ? calc.map(c => `
                 <details class="card item" data-item="${esc(c.it.id)}">
@@ -275,7 +281,9 @@ function vuePiece(root, ch, pid) {
     const p0 = nouvelle ? null : (ch.pieces || []).find(x => x.id === pid);
     if (!nouvelle && !p0) { aller(`#/chantier/${ch.id}`, { remplacer: true }); return; }
     const versTxt = v => Object.fromEntries(Object.entries(v).map(([k, x]) => [k, typeof x === 'number' ? String(x).replace('.', ',') : x]));
-    const valeurs = versTxt({ ...valeursDefaut(DEF_PIECE), ...(p0 || {}) });
+    const valeurs = versTxt(normaliser(p0 || { type: 'chambre' }));
+    delete valeurs[''];
+    let typeAvant = valeurs.type;
     const depart = JSON.stringify(valeurs);
     const items = ch.items.filter(it => it.piece === pid);
     const ctx = ctxCalcul();
@@ -286,9 +294,10 @@ function vuePiece(root, ch, pid) {
         <div class="card"><div class="form" id="form"></div><p class="hint" id="metre" style="margin-top:12px;font-weight:700"></p></div>
         ${nouvelle ? '<p class="hint" style="margin:12px 4px;color:var(--muted)">Enregistre la pièce, puis choisis ce que tu y fais : les mesures seront reprises partout.</p>' : `
         ${items.length ? `<p class="section-title">Déjà calculé pour cette pièce</p>
-            ${items.map(it => { const c = calculerItem(it, ctx); return `<button class="card ch-card" data-go="#/calc/${esc(it.ouvrage)}?ch=${esc(ch.id)}&item=${esc(it.id)}">
+            ${items.map(it => { const c = calculerItem(it, ctx, ch); return `<button class="card ch-card" data-go="#/calc/${esc(it.ouvrage)}?ch=${esc(ch.id)}&item=${esc(it.id)}">
                 <span class="av">${c.ic}</span><span class="tx"><b>${esc(c.titre)}</b><small>${esc(c.resume.slice(0, 2).map(k => `${k.l} ${k.v}`).join(' · '))}</small></span><span class="chev">${ICONES.chev}</span></button>`; }).join('')}` : ''}
         <p class="section-title">Calculer pour cette pièce</p>
+        ${ch.items.some(it => it.ouvrage === 'renomaison') ? '<p class="banner">⚠️ <span><b>« Toute la maison » est déjà calculé</b>Ne recalcule pas ici les mêmes travaux (peinture, placo, sol…) : ils compteraient deux fois. Ici, seulement ce qui est propre à la pièce.</span></p>' : ''}
         ${groupes.map(g => `<p class="cat-title" style="margin:10px 4px 6px">${esc(g)}</p><div class="pp-calc">${POUR_PIECE.filter(x => x.g === g).map(x => {
             const deja = items.find(it => it.pre === x.pre);
             return `<button class="pp-btn${deja ? ' fait' : ''}" data-go="${deja ? `#/calc/${x.ouv}?ch=${esc(ch.id)}&item=${esc(deja.id)}` : `#/calc/${x.ouv}?ch=${esc(ch.id)}&piece=${esc(pid)}&pre=${x.pre}`}">${deja ? '✔ ' : ''}${esc(x.l)}</button>`;
@@ -301,8 +310,10 @@ function vuePiece(root, ch, pid) {
     const dessiner = () => { form.innerHTML = htmlChamps(CHAMPS_PIECE, valeurs); };
     const verifier = () => {
         const r = valider(DEF_PIECE, valeurs);
-        if (!Object.keys(r.erreurs).length && r.v.portes * 1.7 + r.v.fen * r.v.fenT >= 2 * (r.v.L + r.v.l) * r.v.h * 0.8) r.erreurs.fen = 'Portes et fenêtres plus grandes que les murs : vérifie';
+        if (!Object.keys(r.erreurs).length && metre(r.v).ouv >= metre(r.v).P * r.v.h * 0.8) r.erreurs.fen = 'Portes et fenêtres plus grandes que les murs : vérifie';
         dernier = r;
+        afficherErreurs(form, r.erreurs, r.alertes);
+        if (!Object.keys(r.erreurs).length && r.v.murExt > metre(r.v).P + 0.01) r.erreurs.murExt = `Plus long que le tour de la pièce (${String(Math.round(metre(r.v).P * 10) / 10).replace('.', ',')} m)`;
         afficherErreurs(form, r.erreurs, r.alertes);
         metreEl.textContent = Object.keys(r.erreurs).length ? '' : resumePiece(r.v);
     };
@@ -312,7 +323,15 @@ function vuePiece(root, ch, pid) {
     brancherForm(form, valeurs, {
         champs: CHAMPS_PIECE,
         onInput: () => { verifier(); garder(); },
-        onStruct: () => { dessiner(); verifier(); garder(); }
+        onStruct: () => {
+            // Nouveau type : prises, lampes, interrupteurs restés aux valeurs proposées prennent celles du nouveau type
+            if (valeurs.type !== typeAvant) {
+                const a = DEF_ELEC_PIECE[typeAvant] || {}, b = DEF_ELEC_PIECE[valeurs.type] || {};
+                ['prises', 'points', 'inter'].forEach(k => { if (String(valeurs[k]) === String(a[k])) valeurs[k] = String(b[k]); });
+                typeAvant = valeurs.type;
+            }
+            dessiner(); verifier(); garder();
+        }
     });
     dessiner(); verifier();
 
@@ -333,7 +352,8 @@ function vuePiece(root, ch, pid) {
         verifier();
         if (Object.keys(dernier.erreurs).length) { toast('Corrige les cases en rouge', true); return; }
         const v = dernier.v;
-        const p = enregistrerPiece(ch.id, { ...(p0 ? { id: p0.id } : {}), type: v.type, nom: String(valeurs.nom || '').trim(), L: v.L, l: v.l, h: v.h, portes: v.portes, fen: v.fen, fenT: v.fenT });
+        const champs = Object.fromEntries(CHAMPS_PIECE.filter(x => x.id).map(x => [x.id, v[x.id]]));
+        const p = enregistrerPiece(ch.id, { ...(p0 ? { id: p0.id } : {}), ...champs, nom: String(valeurs.nom || '').trim() });
         // Les calculs de la pièce suivent ses nouvelles mesures
         let maj = 0;
         if (!nouvelle) majChantier(ch.id, c => c.items.forEach(it => {

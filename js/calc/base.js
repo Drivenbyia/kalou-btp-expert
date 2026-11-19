@@ -24,6 +24,7 @@ export const PERTE_BLOCS = 1.05;
  * deux lignes d'un même article avec des ref différentes restent séparées dans la liste de courses.
  * extra.d = simple précision d'explication (fusionnée dans la liste).
  */
+// extra : { ref, d, pk, mx } — mx = forfait (rouleau de téflon, adhésif…) : une fois par chantier, pas additionné
 export const L = (k, q, extra = {}) => ({ k, q, ...extra });
 
 /** Additionne les lignes de même matériau (et même précision éventuelle). */
@@ -33,7 +34,7 @@ export function fusion(lignes) {
     lignes.forEach(li => {
         if (!li || !(li.q > 0)) return;
         const cle = `${li.k}|${li.l || ''}|${li.d || ''}|${li.ref || ''}`;
-        if (idx.has(cle)) out[idx.get(cle)].q += li.q;
+        if (idx.has(cle)) { const o = out[idx.get(cle)]; o.q = li.mx ? Math.max(o.q, li.q) : o.q + li.q; }
         else { idx.set(cle, out.length); out.push({ ...li }); }
     });
     return out;
@@ -430,7 +431,7 @@ export function calcPlaco(type, a, b, o = {}) {
     if (type === 'colle') {
         const c = DOUBLAGE_COLLE[complexe] || DOUBLAGE_COLLE['120'];
         lignes.push(L('doublage_colle', nbPlaques(S, 1.05), { ref: `${c.l} · ${refPl}`, d: `R ${fmtSmart(c.R, 2)}` }));
-        lignes.push(L('map', S * 4), L('acrylique', Math.ceil(2 * a / 10 - 1e-9)));
+        lignes.push(L('map', S * 4), L('acrylique', 2 * a / 10));
         infos.push(`Doublage collé ${c.l} : R ${fmtSmart(c.R, 2)}. MAP ≈ 10 plots par m² (≈ 4 kg/m²). Plaque surélevée de 1 cm, joint acrylique en pied.`,
             'Support plan à 15 mm près sous la règle de 2 m, sec et sans remontées d\'humidité. Interdit sur mur humide ou peinture qui farine.',
             'Mur en pierre ou brique ancienne : PAS de doublage collé (le polystyrène et le plâtre bloquent l\'humidité, le mur pourrit). Préférer un doublage sur ossature avec laine ou fibre de bois et membrane hygrorégulante.');

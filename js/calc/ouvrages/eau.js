@@ -26,6 +26,7 @@ const nomsLignes = (rows, types) => {
     return rows.map(r => {
         vu[r.t] = (vu[r.t] || 0) + 1;
         const nb = rows.filter(x => x.t === r.t).length;
+        if (r.nom) return `${types[r.t].l} (${r.nom})`;
         return types[r.t].l + (nb > 1 ? ` ${vu[r.t]}` : '');
     });
 };
@@ -158,7 +159,7 @@ export const EAU = [
                 L('raccord_per', circuits * 2, { d: 'départ de nourrice + sortie' }),
                 L('applique', circuits, { d: 'sorties de cloison' }),
                 L('robinet_arret', froid.length + 2, { d: 'un par appareil + 2 en tête de nourrice' }),
-                L('teflon', 1)
+                L('teflon', 1, { mx: true })
             );
             if (flex) lignes.push(L('flexible', flex));
             const nWc = nbType('wc');
@@ -176,7 +177,7 @@ export const EAU = [
             if (nWc && v.wcType === 'suspendu') lignes.push(L('bati_wc', nWc));
             if (siphons) lignes.push(L('siphon', siphons));
             if (nbType('bain')) lignes.push(L('vidage_bain', nbType('bain')));
-            if (nb40 + nb100) lignes.push(L('colle_pvc', Math.max(1, Math.ceil((nb40 * 6 + nb100 * 4) / 40))));
+            if (nb40 + nb100) lignes.push(L('colle_pvc', (nb40 * 6 + nb100 * 4) / 40));
             const longs = [...froid, ...chaud].filter(x => x > COURONNE);
             const mlPer = somme(froid) + somme(chaud);
             return {

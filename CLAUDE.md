@@ -51,6 +51,7 @@
 | `js/calc/base.js` | **dosages de référence** et briques de calcul : béton, mortier (ciment/chaux/bâtard), blocs, chaînages, plancher, toiture (rectangle **et forme libre**), placo (DTU 25.41/25.42), soufflage, drainage, échafaudage |
 | `js/calc/ouvrages.js` | assemble les **48 calculateurs**, catégories `OUV_CATS`, table `AIDES`, validation (erreurs bloquantes + alertes douces), `calculer()` |
 | `js/calc/ouvrages/*.js` | les calculateurs **par famille** (`beton`, `murs`, `enduits`, `toiture`, `interieur`, `isoler`, `piece`, `eau`, `elec`, `exterieur`, `renovation`, `reseaux`, `complements` = bâti ancien, tranchée, pavage, portes, OSB, lambris) ; `commun.js` = constructeurs de champs (dont `texte`), choix béton, `CONSEILS`, saisie « je connais la surface » (`SAISIE`, `champSurface`, `dim`, `surfaceDe`) |
+| `js/calc/pieces.js` | pièces d'un chantier (champs, métré, ce qu'on calcule pour une pièce, vers électricité / plomberie / VMC) |
 | `js/calc/maison.js` | assistant **Maison neuve** lot par lot ; rectangle ou **forme libre** (périmètre, surface, angles, blocs de toit, largeur) |
 | `js/calc/cout.js` | estimation façon entreprise (option) |
 | `js/core/store.js` | localStorage : réglages, prix, chantiers, saisies, migration v3→v4, sauvegarde JSON |
@@ -111,6 +112,16 @@
   L, l, h, portes, fen, fenT }]`. `POUR_PIECE` = ce qu'on calcule pour une pièce (variante `pre` → calculateur + valeurs
   reprises). Un ouvrage lancé depuis une pièce garde `piece` + `pre` ; quand on change les mesures de la pièce, ses
   ouvrages sont mis à jour. Électricité / VMC : `?depuis=pieces` construit la saisie à partir de toutes les pièces.
+  Depuis 5.4 une pièce a aussi : niveau, saisie en surface (+ tour, sinon estimé), **murs donnant dehors** (doublage),
+  sol propre ou « comme le niveau », électricité (prises, lampes, inter., distance du tableau, radiateur W),
+  plomberie selon le type (lavabos, douche/baignoire, WC, évier, LV, LL, distances nourrice et chute). `normaliser()`
+  complète les pièces d'avant.
+- **« Toute la maison »** (`ouvrages/renomaison.js`, `chantierSeul` : hors accueil, ouvert depuis le chantier) : on coche
+  les travaux, il appelle Placo, Isolation, Carrelage, Parquet, Ragréage, Peinture, Électricité, Plomberie, VMC avec
+  les pièces **actuelles** du chantier (injectées au calcul). **Cloisons saisies une fois pour toute la maison**
+  (pas de doublon entre deux pièces). Plaques H1 en salle de bain / WC.
+- Pas de doublon de consommables : petits articles en quantité continue (acrylique, colle PVC) arrondis une fois
+  sur le total ; forfaits `mx: true` (téflon, adhésif alu) = un par chantier (max, pas somme) dans `fusion` et `consolider`.
 - Ordinateur ≥ 1100 px : `.calc-grid` = saisie à gauche, résultat collé à droite (calculateurs et Maison).
 
 ### Données (localStorage)
@@ -152,6 +163,7 @@
 | 5.1.0 | #21 | **Électricité** (prises, lumières, tableau, terre ; relu par un électricien) et **VMC** ; version **iMac** en 2 colonnes, puces de familles, tuiles compactes, **pictos SVG** ; bâti ancien (sol et enduit chaux-chanvre, agrafage, injection), tranchée EU/EP, pavage, portes, OSB, lambris ; carreaux en taille exacte ; laine en paquets |
 | 5.2.0 | #23 | **Plomberie appareil par appareil** et **électricité pièce par pièce** (chacun sa distance, détail des longueurs affiché), clim, pompe à chaleur, prise voiture, chauffe-eau ; anciennes saisies converties ; **accueil par familles** (9 lignes au lieu de 48 tuiles, la recherche cherche partout) |
 | 5.3.0 | #24 | **Pièces dans le chantier** (rénovation) : on mesure chaque pièce une fois, puis sol, murs, plafond, portes calculés avec ses mesures ; les calculs suivent si on change les mesures ; électricité et VMC à partir des pièces |
+| 5.4.0 | #25 | Questions posées avant de coder. **Toute la maison** (rénovation) à partir des pièces : doublage des murs donnant dehors, cloisons (total maison), plafonds, sols par niveau, peinture, électricité, plomberie, ballon, clim, VMC ; pièces enrichies (niveau, surface seule, murs extérieurs, électricité et plomberie de la pièce) ; consommables sans doublon |
 | 5.0.0 | #20 | Lot 3 : **Isoler un mur ou des rampants** (R visé, 6 isolants comparés, bâti ancien), **Douche à l'italienne**, **Plomberie** par appareil, **Pièce complète** (une saisie → murs, plafond, sol, plinthes) |
 
 Projet en cours chez l'utilisateur : maison en Z (plan ≈ 58 m de tour, 134 m² au sol, 8 angles,

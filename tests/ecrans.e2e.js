@@ -203,11 +203,13 @@ test('rénovation : pièces du chantier, calcul repris, mesures qui suivent, él
     await p.waitForSelector('.pp-btn.fait');
     await p.fill('#in-L', '5');
     await p.click('[data-act="enreg"]');
-    await p.waitForSelector('text=Électricité des pièces');
+    await p.waitForSelector('text=Toute la maison');
     assert.match(await p.locator('.item summary').first().innerText(), /15 m²/);
-    await p.click('text=Électricité des pièces');
-    await p.waitForSelector('.ll-nom');
-    assert.equal(await p.locator('.ll-nom').first().innerText(), 'Chambre 1');
+    await p.click('text=Toute la maison');
+    await p.waitForSelector('#res .res-head');
+    assert.match(await p.locator('#res').innerText(), /Toute la maison : 1 pièce/);
+    await p.click('[data-act="ajouter"]');
+    await p.waitForSelector('text=Déjà calculé : touche pour modifier');
     assert.ok(await pasDeDebordement(p));
     assert.deepEqual(p.erreurs, []);
 });

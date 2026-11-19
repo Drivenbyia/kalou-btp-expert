@@ -563,3 +563,33 @@ test('pièces du chantier : chaque calcul reprend les mesures et donne un résul
     assert.match(el.infos.join(' '), /Chambre 1/);
     assert.deepEqual(piecesVersVmc(pieces), { sdb: 1, wc: 1, cuisine: true, seches: 1 });
 });
+
+// ─── 5.4.0 : « Toute la maison » à partir des pièces (exemple réel de l'utilisateur) ───
+import { appareilsEau, normaliser } from '../js/calc/pieces.js';
+test('toute la maison : salon, cuisine, 2 chambres, salle de bain + WC, palier', () => {
+    const P = [
+        { type: 'sejour', nom: 'Salon', niveau: 'rdc', saisie: 'surf', S: 35, P: 0, h: 2.5, portes: 2, fen: 2, fenT: 1.5, murExt: 13, dist: 6 },
+        { type: 'cuisine', niveau: 'rdc', saisie: 'surf', S: 15, P: 0, h: 2.5, portes: 1, fen: 1, fenT: 1.2, murExt: 7, dist: 4, distEau: 4, distEvac: 2 },
+        { type: 'chambre', nom: 'Chambre 1', niveau: 'etage', saisie: 'surf', S: 15, P: 0, h: 2.4, portes: 1, fen: 1, fenT: 1.2, murExt: 8, dist: 12, chauffage: 1500 },
+        { type: 'chambre', nom: 'Chambre 2', niveau: 'etage', saisie: 'surf', S: 10, P: 0, h: 2.4, portes: 1, fen: 1, fenT: 1.2, murExt: 6, dist: 14, chauffage: 1000 },
+        { type: 'sdb', niveau: 'etage', saisie: 'surf', S: 15, P: 0, h: 2.4, portes: 1, fen: 1, fenT: 0.8, murExt: 4, sol: 'carrelage', dist: 12, chauffage: 1500, wcIn: true, distEau: 3, distEvac: 2 },
+        { type: 'entree', nom: 'Palier', niveau: 'etage', saisie: 'surf', S: 5, P: 0, h: 2.4, portes: 0, fen: 0, murExt: 0, dist: 10 }
+    ];
+    const r = calculer('renomaison', { pieces: P, mlCloison: 14, portesCloison: 4, ballon: true, dBallonEau: 6, dBallonTab: 12,
+        appareils: [{ t: 'clim', dist: 8, cal: '16', lien: 4 }] }, ctx);
+    assert.deepEqual(r.erreurs, {});
+    assert.equal(r.titre, 'Toute la maison : 6 pièces, 95 m²');
+    // Doublage 100 mm sur les seuls murs donnant dehors, cloisons en laine 45 une seule fois
+    assert.ok(r.lignes.some(l => l.k === 'laine_mur' && l.ref === '100 mm'));
+    assert.ok(Math.abs(r.lignes.filter(l => l.k === 'laine_cloison').reduce((t, l) => t + l.q, 0) - (14 * 2.5 - 4 * 1.7) * 1.05) < 1e-9);
+    // Carrelage : RDC (50 m²) + salle de bain (15 m²) ; l'étage garde son parquet
+    assert.match(r.infos.join(' '), /Sol en carrelage : 65 m²/);
+    assert.equal(q(r.lignes, 'parquet'), 0);
+    // Électricité : clim, ballon, 3 radiateurs de l'étage ; plomberie : évier, LV, lavabo, douche, WC + ballon
+    assert.ok(q(r.lignes, 'sectionneur') === 1 && q(r.lignes, 'contacteur') === 1 && q(r.lignes, 'sortie_cable') >= 4);
+    assert.ok(q(r.lignes, 'groupe_secu') === 1 && q(r.lignes, 'pipe_wc') === 1 && q(r.lignes, 'pvc100b') > 0);
+    assert.equal(appareilsEau(normaliser(P[4])).map(a => a.t).join(','), 'lavabo,douche,wc');
+    // Un seul rouleau de téflon pour toute la maison
+    assert.equal(q(r.lignes, 'teflon'), 1);
+    assert.ok(calculer('renomaison', { pieces: [] }, ctx).erreurs.doublage);
+});

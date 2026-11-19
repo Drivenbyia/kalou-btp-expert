@@ -167,7 +167,7 @@ export const COMPLEMENTS = [
                 L('regard', v.coudes + 2, { d: 'départ, arrivée et chaque changement de direction' }),
                 L('sable04', sable, { d: 'lit de pose 10 cm + enrobage' }),
                 L('grillage_avert', v.L * 1.05, { ref: v.reseau === 'eu' ? 'marron (assainissement)' : 'marron' }),
-                L('colle_pvc', Math.max(1, Math.ceil(v.L / 30)))
+                L('colle_pvc', v.L / 30)
             ];
             if (terre > 3) lignes.push(L('mini_pelle', Math.max(1, Math.ceil(terre / 30 - 1e-9))));
             return {
