@@ -19,7 +19,7 @@ const ENTRE_PIECES = 3;               // m mini pour passer d'une pièce à la s
 const MARGE = 1.15;
 
 // Pièces : ce qu'on y met d'habitude (proposé à l'ajout, à corriger)
-const PIECES = {
+export const PIECES = {
     sejour:  { l: 'Séjour / salon',        def: { prises: 5, points: 2, inter: 2, dist: 8 } },
     cuisine: { l: 'Cuisine',               def: { prises: 6, points: 2, inter: 1, dist: 6 } },
     chambre: { l: 'Chambre',               def: { prises: 3, points: 1, inter: 1, dist: 10 } },
@@ -322,7 +322,7 @@ export const ELEC = [
             lignes.push(L('vmc_manchon', bouches));
             if (petites) lignes.push(L('vmc_gaine80', petites * v.dist * 1.10));
             lignes.push(L('vmc_gaine125', ((v.cuisine ? v.dist : 0) + (v.sortie ? 2 : 0)) * 1.10, { d: v.sortie ? 'cuisine + rejet vers la sortie de toit' : 'cuisine' }));
-            lignes.push(L('collier_vmc', 2 * bouches + 2), L('adhesif_alu', 1));
+            lignes.push(L('collier_vmc', 2 * bouches + 2), L('adhesif_alu', 1, { mx: true }));
             if (v.sortie) lignes.push(L('vmc_sortie', 1));
             if (v.seches > 0) lignes.push(L('entree_air', v.seches, { ref: hygro ? 'hygroréglables' : 'autoréglables' }));
             lignes.push(L('cable_15', v.distTab + 3, { d: 'alimentation du caisson' }), L('disj2', 1, { d: 'circuit dédié de la VMC' }));

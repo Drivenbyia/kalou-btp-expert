@@ -49,6 +49,7 @@ export function htmlChamp(ch, valeurs, vues, demiForce) {
             </div>${aide}
         </div>`;
     }
+    if (ch.type === 'titre') return `<p class="f form-titre">${esc(label)}</p>`;
     if (ch.type === 'liste') return htmlListe(ch, Array.isArray(val) ? val : []);
     if (ch.type === 'oui') {
         const on = val === true || val === 'true';

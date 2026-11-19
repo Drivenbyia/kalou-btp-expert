@@ -147,12 +147,15 @@ export function vueCalcul(root, id, params) {
     const depuisPieces = !item && ch && params.depuis === 'pieces' && (ch.pieces || []).length;
     if (depuisPieces && id === 'electricite') depart0 = { ...depart0, pieces: piecesVersElec(ch.pieces, def.champs.find(x => x.id === 'pieces').types) };
     if (depuisPieces && id === 'vmc') depart0 = { ...depart0, ...piecesVersVmc(ch.pieces) };
+    // « Toute la maison » : toujours les pièces actuelles du chantier
+    if (def.chantierSeul) depart0 = { ...depart0, pieces: ch ? (ch.pieces || []) : [] };
+    const direct = depuisPieces || def.chantierSeul;            // ouvert depuis l'écran du chantier
     const valeurs = versSaisie(def, { ...valeursDefaut(def), ...depart0 });
 
     entete({
         titre: def.nom,
         sous: ch ? `Chantier : ${ch.nom}` : def.desc,
-        parent: ch ? (item ? `#/chantier/${ch.id}` : variante ? `#/chantier/${ch.id}?piece=${piece.id}` : depuisPieces ? `#/chantier/${ch.id}` : `#/?ch=${ch.id}`) : '#/'
+        parent: ch ? (item ? `#/chantier/${ch.id}` : variante ? `#/chantier/${ch.id}?piece=${piece.id}` : direct ? `#/chantier/${ch.id}` : `#/?ch=${ch.id}`) : '#/'
     });
 
     // Ordinateur (iMac) : saisie à gauche, résultat collé à droite (voir .calc-grid dans app.css)
@@ -197,7 +200,7 @@ export function vueCalcul(root, id, params) {
             ${htmlInfos(r.infos)}
             <button class="btn btn-light btn-block no-print" data-act="partager" style="margin-top:12px">${ICONES.share}<span>Envoyer ce calcul (SMS, mail…)</span></button>`;
         majBarre(true);
-        if (!item) { clearTimeout(tSave); tSave = setTimeout(() => setSaisie(id, r.v), 400); }
+        if (!item && !def.chantierSeul) { clearTimeout(tSave); tSave = setTimeout(() => setSaisie(id, r.v), 400); }
     };
 
     const libBouton = item ? 'Enregistrer' : ch ? 'Ajouter' : 'Ajouter';
@@ -239,7 +242,7 @@ export function vueCalcul(root, id, params) {
         } else if (ch) {
             ajouterItem(cible.id, donnees);
             toast(`Ajouté à « ${cible.nom} »`);
-            retourVers(`#/chantier/${cible.id}`, depuisPieces ? 1 : 2);
+            retourVers(`#/chantier/${cible.id}`, direct ? 1 : 2);
         } else {
             ajouterItem(cible.id, donnees);
             toast(`Ajouté à « ${cible.nom} »`);

@@ -21,6 +21,7 @@ import { PIECE } from './ouvrages/piece.js';
 import { EAU } from './ouvrages/eau.js';
 import { ELEC } from './ouvrages/elec.js';
 import { COMPLEMENTS } from './ouvrages/complements.js';
+import { RENOMAISON } from './ouvrages/renomaison.js';
 import { fmtSmart } from '../core/format.js';
 export { CONSEILS } from './ouvrages/commun.js';
 
@@ -89,7 +90,8 @@ OUVRAGES.forEach(o => o.champs.forEach(ch => {
     if (a) ch.aide = a;
 }));
 
-export const OUVRAGES_PAR_ID = Object.fromEntries(OUVRAGES.map(o => [o.id, o]));
+// « Toute la maison » : seulement depuis un chantier avec des pièces (pas dans l'accueil)
+export const OUVRAGES_PAR_ID = Object.fromEntries([...OUVRAGES, RENOMAISON].map(o => [o.id, o]));
 
 // ─── Valeurs, validation, calcul ─────────────────────────────────────────────
 

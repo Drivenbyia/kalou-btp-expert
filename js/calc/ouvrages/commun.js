@@ -8,6 +8,8 @@ export const c = (id, l, options, def, o = {}) => ({ id, type: 'choix', l, optio
 export const oui = (id, l, def = true, o = {}) => ({ id, type: 'oui', l, def, ...o });
 /** Liste de lignes : { types: { clé: { l, def } }, cols: [{ id, l, u, def, si(t), options, max, zero }], def: [lignes], ajout } */
 export const liste = (id, l, o) => ({ id, type: 'liste', l, ...o });
+/** Intertitre dans un formulaire (pas une saisie). */
+export const titre = (l, o = {}) => ({ id: '', type: 'titre', l, ...o });
 export const texte = (id, l, def = '', o = {}) => ({ id, type: 'texte', l, def, ...o });
 
 export const MODE = c('mode', 'Le béton', [

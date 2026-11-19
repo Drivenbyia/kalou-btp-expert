@@ -236,7 +236,7 @@ export const INTERIEUR = [
             if (v.primaire) lignes.push(L('primaire', S * 0.15));
             if (v.natte && v.support === 'sol') lignes.push(L('natte_desol', S * 1.05));
             if (!mur && v.plinthes) lignes.push(L('plinthe', Math.max(0, P - 0.9 * v.portes) * 1.10));
-            if (!mur) lignes.push(L('acrylique', Math.ceil(P / 10 - 1e-9), { d: 'joint périphérique' }));
+            if (!mur) lignes.push(L('acrylique', P / 10, { d: 'joint périphérique' }));
             const infos = [
                 `Coupes : +${Math.round((marge - 1) * 100)} %. Colle C2 ≈ ${fmtSmart(colle, 1)} kg/m²${double ? ' (double encollage)' : ''}, joint ≈ ${fmtSmart(jointKg, 2)} kg/m² (joint de ${v.joint} mm).`,
                 'Dos du carreau couvert à 80 % mini (soulever un carreau pour vérifier). Jointoyer après 24 h. Joint périphérique de 5 mm au mastic.',

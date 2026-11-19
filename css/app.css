@@ -430,6 +430,7 @@ body:has(#actionbar:not(.hidden)) .toast { bottom: calc(var(--nav-h) + var(--saf
 .men .inp input { height: 54px; font-size: 19px; padding: 0 34px 0 10px; }
 /* Listes (une ligne par pièce, par appareil…) */
 .f.liste-titre .aide { margin-top: 0; }
+.f.form-titre { font-size: 14px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; color: var(--brand-dark); margin: 10px 2px -4px; border-top: 2px solid var(--line); padding-top: 14px; }
 .f.liste-ligne { border: 2px solid var(--edge); border-radius: 14px; padding: 10px; }
 .f.liste-ligne.ko { border-color: var(--danger); }
 .ll-nom { display: block; font-size: 15px; font-weight: 900; margin: 0 2px 6px; }
