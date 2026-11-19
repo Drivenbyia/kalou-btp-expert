@@ -98,7 +98,7 @@ export const OUVRAGES_PAR_ID = Object.fromEntries([...OUVRAGES, RENOMAISON].map(
 /** Valeurs par défaut d'un ouvrage. */
 export function valeursDefaut(def) {
     const v = {};
-    def.champs.forEach(ch => { v[ch.id] = Array.isArray(ch.def) ? ch.def.map(r => ({ ...r })) : ch.def; });
+    def.champs.forEach(ch => { v[ch.id] = Array.isArray(ch.def) ? ch.def.map(r => (typeof r === 'object' ? { ...r } : r)) : ch.def; });
     return v;
 }
 
@@ -161,6 +161,8 @@ export function valider(def, brut) {
             if (ch.u === 'cm' && x > 0 && x < 1) alertes[ch.id] = `Tu as mis des mètres ? Ici c'est en cm (${fmtSmart(x, 2)} m = ${fmtSmart(x * 100, 0)} cm).`;
             else if (ch.bas && x > 0 && x < ch.bas) alertes[ch.id] = `Valeur faible (souvent ${fmtSmart(ch.bas)} ${ch.u} ou plus) : vérifie.`;
             v[ch.id] = x;
+        } else if (ch.type === 'pieces') {
+            v[ch.id] = Array.isArray(v[ch.id]) ? v[ch.id].filter(x => typeof x === 'string') : [];
         } else if (ch.type === 'liste') {
             v[ch.id] = validerListe(ch, v[ch.id], erreurs);
         } else if (ch.type === 'texte') {

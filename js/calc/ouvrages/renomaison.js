@@ -8,13 +8,15 @@ import { fusion } from '../base.js';
 import { calculer } from '../ouvrages.js';
 import { normaliser, metre, nomPiece, piecesVersElec, piecesVersVmc, appareilsEau } from '../pieces.js';
 import { ELEC } from './elec.js';
-import { n, c, oui, titre, fm } from './commun.js';
+import { n, c, oui, titre, fm, choixPieces } from './commun.js';
 
 const HUMIDES = ['sdb', 'wc'];
 const SOLS = [{ v: 'rien', l: 'On garde' }, { v: 'carrelage', l: 'Carrelage' }, { v: 'parquet', l: 'Parquet' }, { v: 'ragreage', l: 'Ragréage' }];
 const pieces = v => (Array.isArray(v.pieces) ? v.pieces : []).map(normaliser);
 const aEtage = v => pieces(v).some(p => p.niveau === 'etage');
 const sur = k => v => v[k] === true || v[k] === 'true';
+const np = p => nomPiece(normaliser(p));
+const ex = (id, si, o = {}) => choixPieces(id, { si, nomPiece: np, aide: 'Touche une pièce pour l\'enlever de ce travail.', ...o });
 const champApp = ELEC[0].champs.find(ch => ch.id === 'appareils');
 
 export const RENOMAISON = {
@@ -23,6 +25,7 @@ export const RENOMAISON = {
     champs: [
         titre('Murs et cloisons'),
         oui('doublage', 'Doublage isolé des murs donnant dehors', true, { aide: 'Murs donnant dehors : saisis dans chaque pièce. Plaques H1 en salle de bain et WC.' }),
+        ex('exDoub', sur('doublage'), { detail: p => `${fm(Number(p.murExt) || 0)} m dehors` }),
         c('laineDoub', 'Épaisseur de laine', [{ v: '100', l: '100 mm' }, { v: '120', l: '120 mm' }, { v: '140', l: '140 mm' }, { v: '160', l: '160 mm' }], '100', { si: sur('doublage') }),
         oui('cloisons', 'Cloisons neuves (72/48, laine 45 mm)', true),
         n('mlCloison', 'Longueur totale de cloisons', 'm', 10, { demi: true, si: sur('cloisons'), aide: 'Toute la maison, chaque cloison une seule fois.' }),
@@ -30,14 +33,18 @@ export const RENOMAISON = {
         titre('Plafonds'),
         c('plafond', 'Plafonds', [{ v: 'rien', l: 'On garde' }, { v: 'placo', l: 'Placo sur fourrures' }], 'placo'),
         oui('combles', 'Isoler les combles (laine soufflée)', false, { aide: 'Au-dessus des pièces du dernier niveau.' }),
+        ex('exPlaf', v => v.plafond === 'placo' || sur('combles')(v)),
         titre('Sols'),
         c('solRdc', 'Sol du rez-de-chaussée', SOLS, 'carrelage'),
         c('solEtage', 'Sol de l\'étage', SOLS, 'rien', { si: aEtage }),
+        ex('exSol', v => v.solRdc !== 'rien' || (aEtage(v) && v.solEtage !== 'rien') || pieces(v).some(p => p.sol !== 'niveau' && p.sol !== 'rien')),
         titre('Finitions'),
         oui('peinture', 'Peinture murs et plafonds', true),
+        ex('exPein', sur('peinture')),
         c('lissage', 'Préparation', [{ v: '0', l: 'Aucune' }, { v: 'B', l: 'Rebouchage' }, { v: 'A', l: 'Lissage complet' }], 'B', { si: sur('peinture') }),
         titre('Électricité'),
         oui('elec', 'Électricité (prises, lampes, radiateurs des pièces)', true),
+        ex('exElec', sur('elec')),
         { ...champApp, l: 'Gros appareils (clim, plaque, four…)', def: [], si: sur('elec'), aide: 'Les radiateurs et le ballon viennent des pièces et de la case « Ballon » : pas besoin de les ajouter ici.' },
         c('pose', 'Pose', [{ v: 'placo', l: 'Encastré placo' }, { v: 'maconnerie', l: 'Encastré maçonnerie' }, { v: 'apparent', l: 'Apparent' }], 'placo', { si: sur('elec') }),
         oui('tableau', 'Tableau neuf', true, { si: sur('elec') }),
@@ -71,11 +78,14 @@ export const RENOMAISON = {
             return null;
         };
         const Stot = P.reduce((t, p) => t + metre(p).S, 0);
+        // Pièces cochées pour chaque travail (les pièces décochées sont gardées dans v.exXxx)
+        const dans = k => P.filter(p => !(v[k] || []).includes(p.id));
+        const sans = k => { const s = P.filter(p => (v[k] || []).includes(p.id)).map(nomPiece); return s.length ? ` (sans : ${s.join(', ')})` : ''; };
         const hMax = Math.max(...P.map(p => p.h));
         // Doublage : murs donnant dehors, regroupés par hauteur et par pièces sèches / humides (plaques H1)
         if (v.doublage) {
             const groupes = new Map();
-            P.filter(p => p.murExt > 0).forEach(p => {
+            dans('exDoub').filter(p => p.murExt > 0).forEach(p => {
                 const hum = HUMIDES.includes(p.type);
                 const cle = `${p.h}|${hum}`;
                 const g = groupes.get(cle) || { h: p.h, hum, a: 0, ouv: 0 };
@@ -88,7 +98,7 @@ export const RENOMAISON = {
                 const r = sous('placo', { type: 'appuis', a: g.a, b: g.h, ouv: g.ouv, laine: v.laineDoub, plaque: g.hum ? 'h1' : 'std', isolant: true });
                 if (r) { ml += g.a; S += g.a * g.h - g.ouv; }
             });
-            if (ml) lots.push(`Doublage isolé ${v.laineDoub} mm : ${fm(ml)} m de murs donnant dehors, ${fm(S)} m² (fenêtres déduites).`);
+            if (ml) lots.push(`Doublage isolé ${v.laineDoub} mm : ${fm(ml)} m de murs donnant dehors, ${fm(S)} m² (fenêtres déduites)${sans('exDoub')}.`);
             else plus.push('⚠️ Doublage : aucun mur donnant dehors renseigné dans les pièces (case « Murs donnant dehors »).');
         }
         if (v.cloisons && v.mlCloison > 0) {
@@ -99,16 +109,16 @@ export const RENOMAISON = {
         const dernier = aEtage(v) ? 'etage' : 'rdc';
         const sousCombles = p => p.niveau === dernier || (dernier === 'rdc' && p.niveau === 'autre');
         if (v.plafond === 'placo') {
-            P.forEach(p => { const m = metre(p); sous('placo', { type: 'plafond', a: m.L, b: m.l, plaque: HUMIDES.includes(p.type) ? 'h1' : 'std', isolant: v.combles && sousCombles(p) }); });
-            lots.push(`Plafonds en placo : ${fm(Stot)} m² (plaques H1 en salle de bain et WC).`);
+            dans('exPlaf').forEach(p => { const m = metre(p); sous('placo', { type: 'plafond', a: m.L, b: m.l, plaque: HUMIDES.includes(p.type) ? 'h1' : 'std', isolant: v.combles && sousCombles(p) }); });
+            lots.push(`Plafonds en placo : ${fm(dans('exPlaf').reduce((t, p) => t + metre(p).S, 0))} m²${sans('exPlaf')} (plaques H1 en salle de bain et WC).`);
         }
         if (v.combles) {
-            const Sc = P.filter(sousCombles).reduce((t, p) => t + metre(p).S, 0);
+            const Sc = dans('exPlaf').filter(sousCombles).reduce((t, p) => t + metre(p).S, 0);
             if (Sc > 0 && sous('isolation', { type: 'souffle', L: Math.round(Sc * 100) / 100, l: 1 })) lots.push(`Combles : ${fm(Sc)} m² de laine soufflée au-dessus du ${dernier === 'etage' ? 'l\'étage' : 'rez-de-chaussée'}.`);
         }
         // Sols : choix du niveau, ou choix propre à la pièce
         const solsFaits = {};
-        P.forEach(p => {
+        dans('exSol').forEach(p => {
             const s = p.sol !== 'niveau' ? p.sol : (p.niveau === 'etage' ? v.solEtage : v.solRdc);
             const m = metre(p);
             if (s === 'carrelage') sous('carrelage', { support: 'sol', saisie: 'dim', L: m.L, l: m.l, portes: p.portes });
@@ -117,22 +127,22 @@ export const RENOMAISON = {
             else return;
             solsFaits[s] = (solsFaits[s] || 0) + m.S;
         });
-        Object.entries(solsFaits).forEach(([s, S]) => lots.push(`Sol en ${s === 'ragreage' ? 'ragréage' : s} : ${fm(S)} m².`));
+        Object.entries(solsFaits).forEach(([s, S]) => lots.push(`Sol en ${s === 'ragreage' ? 'ragréage' : s} : ${fm(S)} m²${sans('exSol')}.`));
         if (v.peinture) {
-            let Sm = 0;
-            P.forEach(p => {
+            let Sm = 0, Sp = 0;
+            dans('exPein').forEach(p => {
                 const m = metre(p);
                 sous('peinture', { L: m.L, l: m.l, h: p.h, ouv: m.ouv, murs: true, plafond: true, impression: v.plafond === 'placo' || v.doublage || v.cloisons, lissage: v.lissage, couches: '2' });
-                Sm += m.Sm;
+                Sm += m.Sm; Sp += m.S;
             });
-            lots.push(`Peinture : ${fm(Sm)} m² de murs et ${fm(Stot)} m² de plafonds, 2 couches.`);
+            lots.push(`Peinture : ${fm(Sm)} m² de murs et ${fm(Sp)} m² de plafonds, 2 couches${sans('exPein')}.`);
         }
         if (v.elec) {
             const types = ELEC[0].champs.find(ch => ch.id === 'pieces').types;
             const appareils = [...(v.appareils || [])];
-            P.filter(p => p.chauffage > 0).forEach(p => appareils.push({ t: 'radiateur', dist: p.dist, w: Math.min(p.chauffage, 5000), nom: `Radiateur ${nomPiece(p)}` }));
+            dans('exElec').filter(p => p.chauffage > 0).forEach(p => appareils.push({ t: 'radiateur', dist: p.dist, w: Math.min(p.chauffage, 5000), nom: `Radiateur ${nomPiece(p)}` }));
             if (v.ballon) appareils.push({ t: 'cumulus', dist: v.dBallonTab, nom: 'Ballon d\'eau chaude' });
-            const r = sous('electricite', { pieces: piecesVersElec(P, types), appareils, pose: v.pose, tableau: v.tableau });
+            const r = sous('electricite', { pieces: piecesVersElec(dans('exElec'), types), appareils, pose: v.pose, tableau: v.tableau });
             if (r) { lots.push(`Électricité : ${r.resume.map(k => k.v).join(', ')} de gaines et câbles.`); plus.push(...r.infos.slice(0, 2)); }
         }
         if (v.plomb) {

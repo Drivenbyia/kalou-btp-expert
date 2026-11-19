@@ -49,6 +49,18 @@ export function htmlChamp(ch, valeurs, vues, demiForce) {
             </div>${aide}
         </div>`;
     }
+    if (ch.type === 'pieces') {
+        const pieces = Array.isArray(valeurs.pieces) ? valeurs.pieces : [];
+        const exclues = Array.isArray(val) ? val : [];
+        const nb = pieces.filter(p => !exclues.includes(p.id)).length;
+        return `<div class="${cls}" data-f="${ch.id}"><span class="lab">${esc(label)} (${nb} / ${pieces.length})</span>
+            <div class="chips">${pieces.map(p => {
+                const on = !exclues.includes(p.id);
+                const nom = (p.nom && String(p.nom).trim()) || p.type;
+                return `<button type="button" role="checkbox" aria-checked="${on}" class="${on ? 'on' : ''}" data-exclu="${ch.id}" data-pid="${esc(p.id)}">${on ? '✓ ' : ''}${esc(ch.nomPiece ? ch.nomPiece(p) : nom)}${ch.detail ? `<small>${esc(ch.detail(p))}</small>` : ''}</button>`;
+            }).join('')}</div>${aide}
+        </div>`;
+    }
     if (ch.type === 'titre') return `<p class="f form-titre">${esc(label)}</p>`;
     if (ch.type === 'liste') return htmlListe(ch, Array.isArray(val) ? val : []);
     if (ch.type === 'oui') {
@@ -193,6 +205,14 @@ export function brancherForm(root, valeurs, { onInput, onStruct, champs }) {
             onStruct && onStruct();
             const der = root.querySelector(`[data-liste="${id}"][data-li="${rows.length - 1}"]`);
             if (der) { der.scrollIntoView({ block: 'center' }); der.querySelector('select')?.focus(); }
+            return;
+        }
+        const ex = e.target.closest('[data-exclu]');
+        if (ex) {
+            const k = ex.dataset.exclu, pid = ex.dataset.pid;
+            const l = Array.isArray(valeurs[k]) ? valeurs[k] : [];
+            valeurs[k] = l.includes(pid) ? l.filter(x => x !== pid) : [...l, pid];
+            onStruct && onStruct();
             return;
         }
         const b = e.target.closest('[data-choix],[data-oui]');

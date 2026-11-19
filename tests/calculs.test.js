@@ -593,3 +593,23 @@ test('toute la maison : salon, cuisine, 2 chambres, salle de bain + WC, palier',
     assert.equal(q(r.lignes, 'teflon'), 1);
     assert.ok(calculer('renomaison', { pieces: [] }, ctx).erreurs.doublage);
 });
+
+// ─── 5.4.1 : pas de double comptage dans une pièce, pièces décochées par travail ───
+import { dejaCompte } from '../js/calc/pieces.js';
+test('pièce : isoler et doubler grisés l\'un par l\'autre ; toute la maison : pièces décochées', () => {
+    assert.equal(dejaCompte('doublage', ['isoler']).pre, 'isoler');
+    assert.equal(dejaCompte('isoler', ['doublage']).pre, 'doublage');
+    assert.equal(dejaCompte('peinture', ['piece']).pre, 'piece');
+    assert.equal(dejaCompte('chape', ['isoler', 'piece']), null);
+    const P = [
+        { id: 'a', type: 'sejour', saisie: 'surf', S: 30, h: 2.5, murExt: 10, fen: 0, portes: 1 },
+        { id: 'b', type: 'garage', saisie: 'surf', S: 20, h: 2.5, murExt: 8, fen: 0, portes: 1 }
+    ];
+    const base = { pieces: P, cloisons: false, plafond: 'rien', solRdc: 'rien', peinture: false, elec: false, plomb: false };
+    const tout = calculer('renomaison', base, ctx);
+    const sansGarage = calculer('renomaison', { ...base, exDoub: ['b'] }, ctx);
+    const laine = r => r.lignes.filter(l => l.k === 'laine_mur').reduce((t, l) => t + l.q, 0);
+    assert.ok(Math.abs(laine(tout) - 18 * 2.5 * 1.05) < 1e-9);
+    assert.ok(Math.abs(laine(sansGarage) - 10 * 2.5 * 1.05) < 1e-9);
+    assert.match(sansGarage.infos.join(' '), /sans : Garage/);
+});

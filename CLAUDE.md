@@ -119,7 +119,10 @@
 - **« Toute la maison »** (`ouvrages/renomaison.js`, `chantierSeul` : hors accueil, ouvert depuis le chantier) : on coche
   les travaux, il appelle Placo, Isolation, Carrelage, Parquet, Ragréage, Peinture, Électricité, Plomberie, VMC avec
   les pièces **actuelles** du chantier (injectées au calcul). **Cloisons saisies une fois pour toute la maison**
-  (pas de doublon entre deux pièces). Plaques H1 en salle de bain / WC.
+  (pas de doublon entre deux pièces). Plaques H1 en salle de bain / WC. Par travail, **pièces à cocher** (champ `pieces` /
+  `choixPieces` : la valeur = pièces décochées, une pièce ajoutée ensuite est cochée d'office).
+- Dans une pièce, les travaux qui comptent les mêmes matériaux (`DOUBLONS` de `pieces.js` : Isoler ↔ Doublage, Pièce
+  complète ↔ peinture / sol / placo) : quand l'un est calculé, l'autre est grisé « déjà compté » (`dejaCompte`).
 - Pas de doublon de consommables : petits articles en quantité continue (acrylique, colle PVC) arrondis une fois
   sur le total ; forfaits `mx: true` (téflon, adhésif alu) = un par chantier (max, pas somme) dans `fusion` et `consolider`.
 - Ordinateur ≥ 1100 px : `.calc-grid` = saisie à gauche, résultat collé à droite (calculateurs et Maison).
@@ -164,6 +167,7 @@
 | 5.2.0 | #23 | **Plomberie appareil par appareil** et **électricité pièce par pièce** (chacun sa distance, détail des longueurs affiché), clim, pompe à chaleur, prise voiture, chauffe-eau ; anciennes saisies converties ; **accueil par familles** (9 lignes au lieu de 48 tuiles, la recherche cherche partout) |
 | 5.3.0 | #24 | **Pièces dans le chantier** (rénovation) : on mesure chaque pièce une fois, puis sol, murs, plafond, portes calculés avec ses mesures ; les calculs suivent si on change les mesures ; électricité et VMC à partir des pièces |
 | 5.4.0 | #25 | Questions posées avant de coder. **Toute la maison** (rénovation) à partir des pièces : doublage des murs donnant dehors, cloisons (total maison), plafonds, sols par niveau, peinture, électricité, plomberie, ballon, clim, VMC ; pièces enrichies (niveau, surface seule, murs extérieurs, électricité et plomberie de la pièce) ; consommables sans doublon |
+| 5.4.1 | #26 | Pièce : « Isoler les murs » et « Doublage placo » grisés l'un par l'autre (laine et placo pas comptés deux fois) ; Toute la maison : pièces à cocher par travail |
 | 5.0.0 | #20 | Lot 3 : **Isoler un mur ou des rampants** (R visé, 6 isolants comparés, bâti ancien), **Douche à l'italienne**, **Plomberie** par appareil, **Pièce complète** (une saisie → murs, plafond, sol, plinthes) |
 
 Projet en cours chez l'utilisateur : maison en Z (plan ≈ 58 m de tour, 134 m² au sol, 8 angles,

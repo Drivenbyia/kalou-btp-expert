@@ -205,8 +205,17 @@ test('rénovation : pièces du chantier, calcul repris, mesures qui suivent, él
     await p.click('[data-act="enreg"]');
     await p.waitForSelector('text=Toute la maison');
     assert.match(await p.locator('.item summary').first().innerText(), /15 m²/);
+    await p.click('.ch-card:has-text("Chambre 1")');
+    await p.click('.pp-btn:has-text("Isoler les murs")');
+    await p.waitForSelector('#res .res-head');
+    await p.click('[data-act="ajouter"]');
+    await p.waitForSelector('.pp-btn.grise:has-text("Doublage placo")');
+    await p.goBack();
+    await p.waitForSelector('text=Toute la maison');
     await p.click('text=Toute la maison');
     await p.waitForSelector('#res .res-head');
+    await p.click('[data-exclu="exPein"]');
+    await p.waitForSelector('[data-exclu="exPein"][aria-checked="false"]');
     assert.match(await p.locator('#res').innerText(), /Toute la maison : 1 pièce/);
     await p.click('[data-act="ajouter"]');
     await p.waitForSelector('text=Déjà calculé : touche pour modifier');
