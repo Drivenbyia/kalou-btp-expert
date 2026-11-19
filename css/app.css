@@ -301,6 +301,12 @@ details.more[open] summary::before { transform: rotate(90deg); }
 .pp-calc { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .pp-btn { min-height: 56px; padding: 8px 12px; border-radius: 14px; background: var(--card); box-shadow: var(--shadow); border: 2px solid var(--line); font-weight: 800; font-size: 15px; text-align: left; line-height: 1.25; color: var(--ink); }
 .pp-btn:active { border-color: var(--brand); background: var(--brand-soft); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips button { min-height: 48px; padding: 6px 12px; border-radius: 12px; border: 2px solid var(--edge); background: var(--field); color: var(--muted); font-weight: 800; font-size: 15px; text-align: left; text-decoration: line-through; }
+.chips button.on { background: var(--brand-soft); border-color: var(--brand); color: var(--ink); text-decoration: none; }
+.chips button small { display: block; font-size: 13px; font-weight: 700; color: var(--muted); text-decoration: none; }
+.pp-btn.grise { background: var(--bg); color: var(--muted); border-style: dashed; box-shadow: none; }
+.pp-btn small { display: block; font-size: 13px; font-weight: 700; margin-top: 2px; }
 .pp-btn.fait { background: #DCFCE7; border-color: #86EFAC; color: #14532D; }
 @media (min-width: 760px) { .pp-calc { grid-template-columns: repeat(3, 1fr); } }
 

@@ -8,7 +8,7 @@ import {
     restaurerItem, restaurerChantier, ajouterItem, ajouterLibre, supprimerLibre, derniereSauvegarde, getReglages,
     enregistrerPiece, supprimerPiece
 } from '../core/store.js';
-import { CHAMPS_PIECE, DEF_PIECE, POUR_PIECE, valeursPiece, nomPiece, resumePiece, normaliser, DEF_ELEC_PIECE, metre } from '../calc/pieces.js';
+import { CHAMPS_PIECE, DEF_PIECE, POUR_PIECE, dejaCompte, valeursPiece, nomPiece, resumePiece, normaliser, DEF_ELEC_PIECE, metre } from '../calc/pieces.js';
 import { valider, valeursDefaut } from '../calc/ouvrages.js';
 import { htmlChamps, brancherForm, afficherErreurs } from '../ui/form.js';
 import { nbAchat, affichage, MATERIAUX } from '../calc/materiaux.js';
@@ -300,6 +300,8 @@ function vuePiece(root, ch, pid) {
         ${ch.items.some(it => it.ouvrage === 'renomaison') ? '<p class="banner">⚠️ <span><b>« Toute la maison » est déjà calculé</b>Ne recalcule pas ici les mêmes travaux (peinture, placo, sol…) : ils compteraient deux fois. Ici, seulement ce qui est propre à la pièce.</span></p>' : ''}
         ${groupes.map(g => `<p class="cat-title" style="margin:10px 4px 6px">${esc(g)}</p><div class="pp-calc">${POUR_PIECE.filter(x => x.g === g).map(x => {
             const deja = items.find(it => it.pre === x.pre);
+            const autre = !deja && dejaCompte(x.pre, items.map(it => it.pre));
+            if (autre) return `<button class="pp-btn grise" data-doublon="${esc(autre.l)}" aria-disabled="true">${esc(x.l)}<small>déjà compté dans « ${esc(autre.l)} »</small></button>`;
             return `<button class="pp-btn${deja ? ' fait' : ''}" data-go="${deja ? `#/calc/${x.ouv}?ch=${esc(ch.id)}&item=${esc(deja.id)}` : `#/calc/${x.ouv}?ch=${esc(ch.id)}&piece=${esc(pid)}&pre=${x.pre}`}">${deja ? '✔ ' : ''}${esc(x.l)}</button>`;
         }).join('')}</div>`).join('')}
         <button class="btn btn-danger btn-block" id="suppr-piece" style="margin-top:18px">Supprimer la pièce</button>`}`;
@@ -336,6 +338,8 @@ function vuePiece(root, ch, pid) {
     dessiner(); verifier();
 
     root.addEventListener('click', async e => {
+        const dbl = e.target.closest('[data-doublon]');
+        if (dbl) { toast(`Déjà compté dans « ${dbl.dataset.doublon} » : laine et placo seraient comptés deux fois. Modifie plutôt ce calcul.`, true); return; }
         const b = e.target.closest('[data-go]');
         if (b) { aller(b.dataset.go); return; }
         if (e.target.closest('#suppr-piece')) {

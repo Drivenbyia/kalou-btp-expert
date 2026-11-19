@@ -136,6 +136,17 @@ export const POUR_PIECE = [
     { pre: 'combles',   ouv: 'isolation',  g: 'Plafond', l: 'Isoler les combles au-dessus', val: p => ({ type: 'souffle', ...dimsR(p) }) },
     { pre: 'portes',    ouv: 'portes',     g: 'Autre', l: 'Portes intérieures', val: p => ({ nb: Math.max(1, p.portes) }) }
 ];
+// Travaux qui comptent les mêmes matériaux : quand l'un est calculé dans la pièce, l'autre est grisé
+const DOUBLONS = [
+    ['isoler', 'doublage'],                                                           // les deux comptent laine + placo
+    ['piece', 'peinture'], ['piece', 'parquet'], ['piece', 'carrelage'], ['piece', 'ragreage'],
+    ['piece', 'doublage'], ['piece', 'isoler'], ['piece', 'plafond']                  // « Pièce complète » les compte déjà
+];
+/** Variante déjà calculée dans la pièce qui compte les mêmes matériaux que `pre` (ou null). */
+export function dejaCompte(pre, faits) {
+    const autre = DOUBLONS.flatMap(([a, b]) => (a === pre ? [b] : b === pre ? [a] : [])).find(x => faits.includes(x));
+    return autre ? POUR_PIECE_PAR_PRE[autre] : null;
+}
 export const POUR_PIECE_PAR_PRE = Object.fromEntries(POUR_PIECE.map(x => [x.pre, x]));
 
 /** Valeurs du calculateur reprises de la pièce (null si la variante est inconnue). */
